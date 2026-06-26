@@ -1,6 +1,211 @@
 # watchtower
 URL을 등록하면 와치타워에서 대신 지켜보다가, 변화가 생기면 바로 알려드립니다!
 
+# ERD
+```mermaid
+erDiagram
+		User ||--|| UserSubscription : ""
+		SubscriptionPlan ||--o{ SubscriptionPlanBenefit : ""
+		SubscriptionPlan ||--o{ UserSubscription : ""
+		SubscriptionBenefit ||--o{ SubscriptionPlanBenefit : ""
+		UserSubscription ||--o{ PaymentHistory : ""
+    User ||--o{ Watch : ""
+    User ||--|{ UserOAuth : ""
+		UserOAuth ||--o| NaverOAuth : ""
+    Watch ||--|{ WatchCondition : ""
+    Watch ||--o{ WatchSnapshot : ""
+    PaymentHistory ||--|| PlanPaymentHistory : ""
+    PaymentHistory ||--|| TossPaymentHistory : ""
+    TossPaymentHistory ||--o{ TossPaymentCancelHistory : ""
+    
+    Base {
+        Long id PK
+        %% 엔티티가 생성된 날짜와 시간. 모든 날짜는 DB에 UTC를 기준으로 저장
+        LocalDateTime createdAt
+        %% 엔티티의 필드중 하나 이상이 업데이트된 날짜와 시각
+        LocalDateTime updatedAt 
+        %% 엔티티가 논리삭제된 날짜와 시간
+        LocalDateTime deletedAt
+    }
+    LogBase {
+        Long id PK
+        %% 엔티티가 생성된 날짜와 시간. 모든 날짜는 DB에 UTC를 기준으로 저장
+        LocalDateTime createdAt 
+    }
+    SubscriptionPlan {
+		    %% 플랜 이름
+		    String name
+		    %% 플랜 가격
+		    BigDecimal price
+		    %% 플랜 제공 일수
+		    Int durationDays
+		    %% 플랜 이용중이면서 상위 플랜을 추가결제 하는경우 업그레이드가 됨
+		    %% 플랜 다운그레이드는 불가능하지만 환불은 남은 일수만큼 가능
+		    Int priority
+		    %% 이벤트성 플랜이라면 기록
+		    LocalDateTime availableUntil
+		}
+		SubscriptionPlanBenefit {
+				SubscriptionPlan subscriptionPlan FK
+				SubscriptionBenefit subscriptionBenefit FK
+				%% 20개
+		    Int value
+		}
+    SubscriptionBenefit {
+		    %% WATCH_AMOUNT
+		    Enum benefitType
+    }
+    %% 유저가 현재 이용중인 플랜. 현재 기본은 free 플랜
+    UserSubscription{
+		    User user FK
+		    SubscriptionPlan plan FK
+		    %% PaymentHistory 따라 결정됨
+		    %% 만약 동일 플랜으로 재결제한 경우 -> 날짜만 늘리면 됨
+		    %% 업그레이드인 경우 -> 기존 플랜 남은일수 계산해서 차액은 할인. 
+		    LocalDateTime expiredAt
+		    %% 새 플랜 결제일로 startedAt 갱신
+		    LocalDateTime startedAt
+    }
+    PaymentHistory {
+        User user FK
+		    %% 할인받은 금액
+		    BigDecimal discountPrice
+        %% 결제 API 제공 PG사
+		    Enum pgProvider
+		    %% 결제 승인 날짜 시간
+				LocalDateTime approvedAt
+				%% 환불시 기록
+				LocalDateTime refundedAt
+    }
+    PlanPaymentHistory{
+        PaymentHistory paymentHistory FK
+    		%% 플랜 이름
+		    String name
+		    %% 플랜 가격
+		    BigDecimal price
+		    %% 플랜 개월
+		    Int month
+		    %% 플랜 우선순위
+		    Enum tier
+    }
+    TossPaymentHistory {
+	      PaymentHistory paymentHistory FK
+        %% 여기에 api 문서에 있는 필드 더들어가야함
+		    %% 결제취소에 필요
+        String paymentKey
+        String orderId
+        %% 결제 금액
+        Int balanceAmount
+        %% DONE, CANCELED 등
+        Enum status
+        String rawResponse   
+    }
+    %% 취소는 여러번 발생 가능(부분취소)
+    TossPaymentCancelHistory {
+	      TossPaymentHistory tossPaymentHistory FK
+		    %% 결제를 취소한 금액입니다.
+		    Int cancelAmount
+		    %% 결제를 취소한 이유입니다. 최대 길이는 200자입니다.
+		    String cancelReason
+		    %% 결제 취소가 일어난 날짜와 시간 정보입니다. 
+		    LocalDateTime canceledAt
+		    %% 취소 건의 키값입니다. 여러 건의 취소 거래를 구분하는 데 사용됩니다. 최대 길이는 64자입니다.
+		    String transactionKey
+		}
+    User {
+		    %% USER, ADMIN
+		    Enum role
+        %% accessToken 만료시 리프레시 토큰으로 재발급 가능
+        String refreshToken
+        LocalDateTime lastLoginAt
+        %% 아래는 로그인 API 에서 넘어온 요소들
+        String nickname
+        String email
+        String profileImageUrl
+    }
+    UserOAuth {
+		    User user FK
+		    %% NAVER, GOOGLE
+		    Enum provider
+		    String providerId
+		    LocalDateTime connectedAt
+		}
+		%% 네이버 로그인에서 발급되는 네이버 서비스 전용 토큰
+		NaverOAuth {
+		    UserOAuth userOAuth FK
+		    String accessToken
+		    String refreshToken
+		    LocalDateTime expiredAt
+		}
+    Watch {
+		    User user FK
+		    %% 유저가 등록한 이름
+        String name
+        %% 유저가 등록한 url
+        String url
+        %% 첫 요청후 가져온 파비콘. 일정 시간마다 갱신 필요함
+        String faviconUrl
+        %% RUNNING, PAUSED(사용자가 일시정지), PAYMENT_REQUIRED(결제 필요), ILLEGAL_SUSPENDED(불법적인 내용)
+        Enum status
+        %% 크롤링 주기
+        Int intervalSecond
+        Boolean isIncludedInStat
+        %% 마지막 크롤링 수행 시간
+        LocalDateTime lastFetchedAt
+        %% 마지막 알림 수행 시간
+        LocalDateTime lastNotifiedAt
+    }
+    %% 타입 늘어나서 nullable 필드가 생긴다면 슈퍼/서브타입 고려
+    WatchCondition {
+		    Watch watch FK
+		    %% HTML_FULL, KEYWORD
+		    Enum type
+		    String keyword
+    }
+    %% fetch fail 시 생성되지 않음
+    WatchSnapshot {
+		    Watch watch FK
+		    %% 현재 크롤링해서 가져온 html 원본
+		    String htmlContentUrl
+		    %% 이전 html 하고 현재 html 하고 diff 결과
+		    String htmlContentDiffUrl
+		    %% 현재 크롤링한 사이트 캡쳐본
+		    String screenshotUrl
+		    %% 이전 사이트 캡쳐본과 비교해 결과적으로 다른 부분이 강조된 캡쳐본
+		    String screenshotDiffUrl
+		    %% htmlContentDiff 기반으로 생성된 AI 요약
+		    String aiSummary
+		    %% 알림 전송 시간
+		    LocalDateTime notifiedAt
+    }
+    HotUrlStat {
+        %% 조회된 횟수
+		    Int hit
+		    %% 메인 사이트 통계쪽에 보일 url(a.com)
+		    String url
+		    %% 일 단위 통계
+		    LocalDate statDate
+    }
+    Crawlinglog {
+        %% 워치리스트에 사용자가 등록한 이름
+		    String name
+		    %% 요청이 수행된 url
+		    String requestedUrl
+		    %% 크롤링 주기
+        Int intervalSecond
+        %% 크롤링 작업 시작 시간
+        LocalDateTime startedAt
+        %% 크롤링 작업이 성공한 시간. 실패시 null
+        LocalDateTime succeededAt
+        %% 크롤링 작업이 끝난 시간
+        LocalDateTime endedAt
+        %% http 응답 코드
+        Int httpResponseCode
+        %% 실패시 채워지는 압축된 html 원본 컨텐츠
+        String compressedHtml
+    }   
+```
+
 # 기능적 요구사항
 
 1. **회원**
