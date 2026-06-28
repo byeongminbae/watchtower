@@ -206,6 +206,109 @@ erDiagram
     }   
 ```
 
+# REST API 명세
+## Auth
+
+| Method | URL | 설명 |
+| --- | --- | --- |
+| GET | `/auth/naver/url` | 네이버 로그인 URL 생성 및 반환 |
+| GET | `/auth/naver/callback` | 네이버 OAuth 콜백 처리 및 JWT 발급 |
+| POST | `/auth/refresh` | 액세스 토큰 재발급 |
+| DELETE | `/auth/logout` | 로그아웃 (refreshToken 만료 처리) |
+| DELETE | `/auth/naver/revoke` | 네이버 Token Revocation (연동 해제) |
+
+## Users
+
+| Method | URL | 설명 |
+| --- | --- | --- |
+| GET | `/users/me` | 내 프로필 조회 |
+| PATCH | `/users/me` | 내 프로필 수정 |
+| DELETE | `/users/me` | 회원 탈퇴 (논리삭제 + 네이버 revoke) |
+
+## Subscriptions
+
+| Method | URL | 설명 |
+| --- | --- | --- |
+| GET | `/subscriptions/plans` | 구독 플랜 목록 조회 |
+| GET | `/subscriptions/me` | 내 현재 구독 조회 |
+| DELETE | `/subscriptions/me` | 구독 해지 및 환불 |
+
+## Payments
+
+| Method | URL | 설명 |
+| --- | --- | --- |
+| GET | `/payments` | 내 결제 이력 목록 조회 |
+| GET | `/payments/{paymentId}` | 결제 단건 상세 조회 |
+| POST | `/payments/toss/confirm` | 토스 결제 승인 |
+| POST | `/payments/{paymentId}/cancel` | 결제 취소 및 환불 |
+
+## Watches
+
+| Method | URL | 설명 |
+| --- | --- | --- |
+| GET | `/watches` | 내 와치 목록 조회 (무한스크롤) |
+| POST | `/watches` | 와치 등록 |
+| GET | `/watches/{watchId}` | 와치 단건 상세 조회 |
+| PATCH | `/watches/{watchId}` | 와치 수정 |
+| DELETE | `/watches/{watchId}` | 와치 삭제 (논리삭제) |
+| PATCH | `/watches/{watchId}/pause` | 와치 일시정지 |
+| PATCH | `/watches/{watchId}/resume` | 와치 재개 (URL 접근 가능 여부 확인 후) |
+| POST | `/watches/{watchId}/notify/test` | 테스트 알림 발송 |
+
+## Watch Conditions
+
+| Method | URL | 설명 |
+| --- | --- | --- |
+| GET | `/watches/{watchId}/conditions` | 와치 조건 목록 조회 |
+| POST | `/watches/{watchId}/conditions` | 와치 조건 추가 (최대 3개) |
+| DELETE | `/watches/{watchId}/conditions/{conditionId}` | 와치 조건 삭제 |
+
+## Watch Snapshots
+
+| Method | URL | 설명 |
+| --- | --- | --- |
+| GET | `/watches/{watchId}/snapshots` | 스냅샷 타임라인 조회 (최근 7일, 커서 페이징) |
+| GET | `/watches/{watchId}/snapshots/{snapshotId}` | 스냅샷 단건 상세 조회 |
+
+## Hot URLs
+
+| Method | URL | 설명 |
+| --- | --- | --- |
+| GET | `/stats/trending` | 오늘 핫 URL 상위 조회(조건 파라미터) |
+
+## Admin - Users
+
+| Method | URL | 설명 |
+| --- | --- | --- |
+| GET | `/admin/users` | 전체 유저 목록 조회 |
+| GET | `/admin/users/{userId}` | 유저 단건 조회 |
+| PATCH | `/admin/users/{userId}/role` | 유저 권한 변경 |
+| DELETE | `/admin/users/{userId}` | 유저 강제 탈퇴 |
+
+## Admin - Watches
+
+| Method | URL | 설명 |
+| --- | --- | --- |
+| GET | `/admin/watches` | 전체 와치 목록 조회 |
+| PATCH | `/admin/watches/{watchId}/suspend` | 와치 강제 정지 (불법 콘텐츠 등) |
+
+## Admin - Payments
+
+| Method | URL | 설명 |
+| --- | --- | --- |
+| GET | `/admin/payments` | 대시보드용 결제 이력 |
+| POST | `/admin/payments/{paymentId}/refund` | 관리자 환불 |
+| GET | `/admin/users/{userId}/payments` | 유저 결제 내역 조회 |
+
+## Admin - Stats
+
+| Method | URL | 설명 |
+| --- | --- | --- |
+| GET | `/admin/stats/users` | 유저 통계 조회 |
+| GET | `/admin/stats/watches` | 와치 통계 조회 |
+| GET | `/admin/stats/payments` | 결제 및 매출 통계 조회 |
+| GET | `/admin/stats/trending` | 핫 URL 통계 조회 (기간별) |
+
 # 기능적 요구사항
 
 1. **회원**
