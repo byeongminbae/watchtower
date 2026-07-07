@@ -241,6 +241,7 @@ erDiagram
 | Method | URL | 설명 |
 | --- | --- | --- |
 | POST | `/watches` | 와치 등록 |
+| GET | `/watches/trending` | 실시간 인기 URL 조회 |
 | GET | `/watches/{watchId}` | 와치 단건 상세 조회 |
 | PATCH | `/watches/{watchId}` | 와치 수정(일시정지/재개 포함) |
 | DELETE | `/watches/{watchId}` | 와치 삭제 |
