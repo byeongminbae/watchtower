@@ -257,10 +257,10 @@ erDiagram
 
 | Method | URL | 설명 |
 | --- | --- | --- |
-| GET | `/admin/watches/stats` | 대시보드 와치 통계 조회 |
-| GET | `/admin/payments/stats` | 대시보드 결제 통계 조회 |
-| GET | `/admin/users/stats` | 대시보드 유저수/회원탈퇴수 등 통계 조회 |
-| GET | `/admin/auth/stats` | 대시보드 로그인/회원가입 통계 조회 |
+| GET | `/admin/stats/watches` | 대시보드 와치 통계 조회 |
+| GET | `/admin/stats/payments` | 대시보드 결제 통계 조회 |
+| GET | `/admin/stats/users` | 대시보드 유저수/회원탈퇴수 등 통계 조회 |
+| GET | `/admin/stats/auth` | 대시보드 로그인/회원가입 통계 조회 |
 | PATCH | `/admin/watches/{watchId}` | 와치 상태 변경(정책 위반 정지 포함) |
 | POST | `/admin/payments/{paymentId}/cancel` | 결제 직권 취소 |
 | GET | `/admin/payments` | 결제 내역 조회/검색 |
