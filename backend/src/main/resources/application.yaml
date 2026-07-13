@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: watchtower
+  jpa:
+    database: POSTGRESQL
+  datasource:
+    platform: postgres
+    driverClassName: org.postgresql.Driver
