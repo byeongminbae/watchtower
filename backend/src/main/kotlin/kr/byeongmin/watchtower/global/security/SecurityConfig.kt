@@ -16,7 +16,8 @@ class SecurityConfig {
             .formLogin { it.disable() }
             .httpBasic { it.disable() }
             .logout { it.disable() }
-
+            .authorizeHttpRequests { it.anyRequest().permitAll() }
+        
         return http.build()
     }
 }
