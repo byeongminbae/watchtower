@@ -1,4 +1,4 @@
-<img width="1659" height="948" alt="watchtower" src="https://github.com/user-attachments/assets/d8875933-308d-49a2-9dd5-f1d484fcc6a0" />
+<img width="1659" height="948" alt="watchtower" src="https://github.com/user-attachments/assets/a4ec5a62-4680-4004-aecc-9527fd0cd2a7" />
 
 # ERD
 ```mermaid
