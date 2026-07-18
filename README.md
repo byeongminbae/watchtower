@@ -1,5 +1,4 @@
-# watchtower
-URL을 등록하면 와치타워에서 대신 지켜보다가, 변화가 생기면 바로 알려드립니다!
+<img width="1659" height="948" alt="watchtower" src="https://github.com/user-attachments/assets/d8875933-308d-49a2-9dd5-f1d484fcc6a0" />
 
 # ERD
 ```mermaid
