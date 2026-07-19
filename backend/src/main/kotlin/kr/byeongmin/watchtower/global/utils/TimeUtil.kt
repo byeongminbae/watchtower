@@ -4,6 +4,6 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 
 object TimeUtil {
-    fun currentUTCTime(): LocalDateTime = LocalDateTime.now(ZoneId.of("UTC"))
-    fun currentKSTTime(): LocalDateTime = LocalDateTime.now(ZoneId.of("Asia/Seoul"))
+    fun entityTime(): LocalDateTime = LocalDateTime.now(ZoneId.of("UTC"))
+    fun debuggingTime(): LocalDateTime = LocalDateTime.now(ZoneId.of("Asia/Seoul"))
 }
