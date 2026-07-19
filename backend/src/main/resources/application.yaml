@@ -3,6 +3,8 @@ spring:
     name: watchtower
   jpa:
     database: POSTGRESQL
+    hibernate:
+      ddl-auto: validate
   datasource:
     platform: postgres
     driverClassName: org.postgresql.Driver
