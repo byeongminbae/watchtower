@@ -1,0 +1,89 @@
+name: watchtower-deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "배포 대상 서비스"
+        required: true
+        type: choice
+        options:
+          - backend
+          - frontend
+        default: backend
+      environment:
+        description: "배포 환경"
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+        default: dev
+
+env:
+  SERVICE: ${{ inputs.service }}
+  DEPLOY_ENV: ${{ inputs.environment }}
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/watchtower-${{ inputs.service }}-${{ inputs.environment }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # 이미지 빌드 + GHCR 푸시
+      # (백/프론트 각각의 Dockerfile 사용, 실제 애플리케이션 빌드는 Dockerfile 내부 멀티스테이지에서 처리)
+      - name: Build and push image to GHCR
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/${{ env.SERVICE }}/Dockerfile
+          build-args: |
+            SPRING_PROFILE=${{ env.DEPLOY_ENV }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # EC2에 배포 스크립트 전송 (스크립트만 전송, 이미지는 EC2가 직접 pull)
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Copy deploy script to EC2
+        run: |
+          scp -i ~/.ssh/deploy_key \
+            scripts/deploy.sh \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/${{ secrets.EC2_USER }}/deploy/deploy.sh
+
+      # EC2에서 docker 이미지 pull + 무중단 배포 스크립트 실행
+      - name: Run zero-downtime deploy on EC2
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+            "echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u ${{ github.actor }} --password-stdin && \
+             chmod +x /home/${{ secrets.EC2_USER }}/deploy/deploy.sh && \
+             /home/${{ secrets.EC2_USER }}/deploy/deploy.sh \
+               ${{ env.SERVICE }} \
+               ${{ env.DEPLOY_ENV }} \
+               ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
