@@ -52,7 +52,7 @@ jobs:
       - name: Build and push image to GHCR
         uses: docker/build-push-action@v7
         with:
-          context: .
+          context: ./${{ env.SERVICE }}
           file: docker/${{ env.SERVICE }}/Dockerfile
           build-args: |
             SPRING_PROFILE=${{ env.DEPLOY_ENV }}
