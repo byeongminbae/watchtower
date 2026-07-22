@@ -83,7 +83,7 @@ jobs:
           IMAGE_TAG: ${{ env.SERVICE }}-${{ env.DEPLOY_ENV }}-${{ github.sha }}
         run: |
           docker build \
-            -f docker/${{ env.SERVICE }}/Dockerfile \
+            -f ${{ env.SERVICE }}/Dockerfile \
             --build-arg SPRING_PROFILE=${{ env.DEPLOY_ENV }} \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
             ./${{ env.SERVICE }}
