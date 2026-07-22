@@ -1,0 +1,21 @@
+version: 0.0
+os: linux
+
+files:
+  - source: /scripts
+    destination: /home/ubuntu/deploy
+  - source: /deploy.env
+    destination: /home/ubuntu/deploy
+
+permissions:
+  - object: /home/ubuntu/deploy
+    pattern: "**"
+    owner: ubuntu
+    group: ubuntu
+    mode: "755"
+
+hooks:
+  ApplicationStart:
+    - location: scripts/run_deploy.sh
+      timeout: 180
+      runas: ubuntu
