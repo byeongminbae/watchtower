@@ -23,89 +23,87 @@ on:
 env:
   SERVICE: ${{ inputs.service }}
   DEPLOY_ENV: ${{ inputs.environment }}
-  DOCKER_REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/watchtower-${{ inputs.service }}-${{ inputs.environment }}
-  S3_BUCKET: ${{ secrets.S3_BUCKET }}
-  CODEDEPLOY_APPLICATION: watchtower-${{ inputs.service }}-${{ inputs.environment }}
-  CODEDEPLOY_DEPLOYMENT_GROUP: watchtower-${{ inputs.service }}-${{ inputs.environment }}
+  ECR_REPOSITORY: watchtower-${{ inputs.service }}-ecr
+  ECS_CLUSTER: watchtower-cluster
+  ECS_SERVICE: watchtower-${{ inputs.service }}-${{ inputs.environment }}-task-service
+  # TODO: 리소스 이름 추후에 바꿔야 할것 같음
+  TASK_CONTAINER_NAME: watchtower-${{ inputs.service }}-ecr
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v4
+      - name: Set up JDK 25
+        if: env.SERVICE == 'backend'
+        uses: actions/setup-java@v4
         with:
-          registry: ${{ env.DOCKER_REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          distribution: temurin
+          java-version: "25"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      # 이미지 빌드 및 GHCR 푸시
-      # 백/프론트 각각의 Dockerfile 사용, 실제 애플리케이션 빌드는 Dockerfile 내부에서 처리
-      - name: Build and push image to GHCR
-        uses: docker/build-push-action@v7
-        with:
-          context: ./${{ env.SERVICE }}
-          file: docker/${{ env.SERVICE }}/Dockerfile
-          build-args: |
-            SPRING_PROFILE=${{ env.DEPLOY_ENV }}
-          push: true
-          tags: |
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      # S3에는 appspec.yml + scripts/ 디렉터리만 전송됨 (이미지는 GHCR에 있음)
-      # 레포 전체를 압축할 필요가 없으므로 필요한 파일만 모아서 zip
-      # appspec.yml은 동적 인자를 못받으므로, 사용자가 선택한 service 랑 env 이미지 태그를 run_deploy.sh 안에 직접 박아넣음
-      - name: Create deployment bundle (appspec + scripts only)
+      - name: Build backend jar
+        if: env.SERVICE == 'backend'
         run: |
-          mkdir -p deploy-bundle/scripts
-          cp appspec.yml deploy-bundle/
-          cp scripts/deploy.sh deploy-bundle/scripts/
-          cp scripts/run_deploy.sh deploy-bundle/scripts/
+          cd backend
+          chmod +x ./gradlew
+          ./gradlew clean bootJar -x test
 
-          cat > deploy-bundle/deploy.env <<EOF
-          SERVICE=${{ env.SERVICE }}
-          DEPLOY_ENV=${{ env.DEPLOY_ENV }}
-          IMAGE_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          EOF
+      - name: Set up Node
+        if: env.SERVICE == 'frontend'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
 
-          cd deploy-bundle && zip -r ../deploy-bundle.zip . && cd ..
+      - name: Build frontend
+        if: env.SERVICE == 'frontend'
+        run: |
+          cd frontend
+          npm ci
+          npm run build
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6.1.0
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-region: ${{ secrets.AWS_REGION }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Upload bundle to S3
-        run: |
-          aws s3 cp deploy-bundle.zip \
-            s3://${{ env.S3_BUCKET }}/watchtower-${{ env.SERVICE }}-${{ env.DEPLOY_ENV }}/${{ github.sha }}.zip
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Trigger CodeDeploy deployment
+      - name: Build and push image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ env.SERVICE }}-${{ env.DEPLOY_ENV }}-${{ github.sha }}
         run: |
-          DEPLOYMENT_ID=$(aws deploy create-deployment \
-            --application-name ${{ env.CODEDEPLOY_APPLICATION }} \
-            --deployment-group-name ${{ env.CODEDEPLOY_DEPLOYMENT_GROUP }} \
-            --s3-location bucket=${{ env.S3_BUCKET }},key=watchtower-${{ env.SERVICE }}-${{ env.DEPLOY_ENV }}/${{ github.sha }}.zip,bundleType=zip \
-            --query 'deploymentId' --output text)
-          echo "Deployment ID: ${DEPLOYMENT_ID}"
-          echo "DEPLOYMENT_ID=${DEPLOYMENT_ID}" >> "$GITHUB_ENV"
+          docker build \
+            -f docker/${{ env.SERVICE }}/Dockerfile \
+            --build-arg SPRING_PROFILE=${{ env.DEPLOY_ENV }} \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            ./${{ env.SERVICE }}
 
-      - name: Wait for deployment to finish
-        run: |
-          aws deploy wait deployment-successful --deployment-id "${DEPLOYMENT_ID}"
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_ENV"
+
+      # ecs/task-definition.{service}.{env}.json 을 템플릿으로 사용
+      - name: Render task definition
+        id: render-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ecs/task-definition.${{ env.SERVICE }}.${{ env.DEPLOY_ENV }}.json
+          container-name: ${{ env.TASK_CONTAINER_NAME }}
+          image: ${{ env.IMAGE_URI }}
+
+      - name: Deploy to ECS service
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
