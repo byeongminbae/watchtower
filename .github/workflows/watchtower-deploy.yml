@@ -25,7 +25,7 @@ env:
   DEPLOY_ENV: ${{ inputs.environment }}
   DOCKER_REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/watchtower-${{ inputs.service }}-${{ inputs.environment }}
-  S3_BUCKET: watchtower-deploy-s3
+  S3_BUCKET: ${{ secrets.S3_BUCKET }}
   CODEDEPLOY_APPLICATION: watchtower-${{ inputs.service }}-${{ inputs.environment }}
   CODEDEPLOY_DEPLOYMENT_GROUP: watchtower-${{ inputs.service }}-${{ inputs.environment }}
 
