@@ -90,12 +90,11 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_ENV"
 
-      # ecs/task-definition.{service}.{env}.json 을 템플릿으로 사용
       - name: Render task definition
         id: render-task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: ecs/task-definition.${{ env.SERVICE }}.${{ env.DEPLOY_ENV }}.json
+          task-definition: ecs/task-definition.${{ env.SERVICE }}.json
           container-name: ${{ env.TASK_CONTAINER_NAME }}
           image: ${{ env.IMAGE_URI }}
 
