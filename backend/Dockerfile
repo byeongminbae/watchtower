@@ -16,8 +16,12 @@ RUN ./gradlew dependencies --no-daemon
 COPY src ./src
 RUN ./gradlew clean bootJar -x test --no-daemon
 
-# 기본적으로 curl 포함됨
 FROM eclipse-temurin:25-jre AS runtime
+
+# 없으면 헬스체크 안됨
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
 
 # 기본 프로필은 dev
 ARG SPRING_PROFILE=dev
