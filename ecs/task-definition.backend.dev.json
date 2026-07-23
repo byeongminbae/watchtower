@@ -1,25 +1,23 @@
 {
-    "taskDefinitionArn": "arn:aws:ecs:ap-northeast-2:150103290480:task-definition/watchtower-backend-dev-task:1",
+    "taskDefinitionArn": "arn:aws:ecs:ap-northeast-2:150103290480:task-definition/watchtower-backend-dev-task:12",
     "containerDefinitions": [
         {
-            "name": "watchtower-backend-ecr",
-            "image": "150103290480.dkr.ecr.ap-northeast-2.amazonaws.com/watchtower-backend-ecr:dev-latest",
+            "name": "watchtower-backend-container",
+            "image": "150103290480.dkr.ecr.ap-northeast-2.amazonaws.com/watchtower-backend-ecr:backend-dev-56631353f3e31cc62cdf6aaf6d66a5f7e37b531e",
             "cpu": 0,
             "portMappings": [
                 {
                     "containerPort": 8080,
                     "hostPort": 8080,
                     "protocol": "tcp",
-                    "name": "80",
+                    "name": "default",
                     "appProtocol": "http2"
                 }
             ],
             "essential": true,
             "environment": [],
-            "environmentFiles": [],
             "mountPoints": [],
             "volumesFrom": [],
-            "ulimits": [],
             "logConfiguration": {
                 "logDriver": "awslogs",
                 "options": {
@@ -27,17 +25,16 @@
                     "awslogs-create-group": "true",
                     "awslogs-region": "ap-northeast-2",
                     "awslogs-stream-prefix": "ecs"
-                },
-                "secretOptions": []
+                }
             },
             "systemControls": []
         }
     ],
     "family": "watchtower-backend-dev-task",
     "taskRoleArn": "arn:aws:iam::150103290480:role/watchtower-ecs-role",
-    "executionRoleArn": "arn:aws:iam::150103290480:role/ecsTaskExecutionRole",
-    "networkMode": "awsvpc",
-    "revision": 1,
+    "executionRoleArn": "arn:aws:iam::150103290480:role/watchtower-ecs-role",
+    "networkMode": "bridge",
+    "revision": 12,
     "volumes": [],
     "status": "ACTIVE",
     "requiresAttributes": [
@@ -60,29 +57,23 @@
             "name": "ecs.capability.execution-role-ecr-pull"
         },
         {
-            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
-        },
-        {
-            "name": "ecs.capability.task-eni"
-        },
-        {
             "name": "com.amazonaws.ecs.capability.docker-remote-api.1.29"
         }
     ],
     "placementConstraints": [],
     "compatibilities": [
-        "EC2",
-        "MANAGED_INSTANCES"
+        "EC2"
     ],
     "runtimePlatform": {
         "cpuArchitecture": "X86_64",
         "operatingSystemFamily": "LINUX"
     },
-    "requiresCompatibilities": [],
+    "requiresCompatibilities": [
+        "EC2"
+    ],
     "cpu": "256",
-    "memory": "256",
-    "registeredAt": "2026-07-22T16:51:42.323Z",
+    "memory": "512",
+    "registeredAt": "2026-07-23T10:43:47.255000+00:00",
     "registeredBy": "arn:aws:iam::150103290480:root",
-    "enableFaultInjection": false,
-    "tags": []
+    "enableFaultInjection": false
 }
