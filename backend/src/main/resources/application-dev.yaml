@@ -1,0 +1,11 @@
+logging:
+  level:
+    kr.byeongmin: DEBUG
+
+spring:
+  config:
+    import: aws-parameterstore:/watchtower/local/
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: create
