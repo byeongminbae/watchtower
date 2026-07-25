@@ -76,6 +76,10 @@ installed. Reference counts below come from CodeGraph/source relationships.
 - Do not assume CI covers tests. Backend deployment explicitly uses `-x test`;
   frontend has no test framework or test script.
 
+## USER-GOVERNED POLICY
+
+- `README.md` (and other documentation Markdown files) must **not** be edited
+  unless the user explicitly approves it in the current request.
 ## UNIQUE STYLES
 
 - Authenticated client areas are guarded at route-layout level:
