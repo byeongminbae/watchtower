@@ -7,5 +7,3 @@ spring:
     import: aws-parameterstore:/watchtower/dev/
   jpa:
     show-sql: true
-    hibernate:
-      ddl-auto: create

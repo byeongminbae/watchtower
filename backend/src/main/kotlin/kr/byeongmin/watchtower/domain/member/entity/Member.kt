@@ -1,6 +1,8 @@
 package kr.byeongmin.watchtower.domain.member.entity
 
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
@@ -11,6 +13,7 @@ import java.time.LocalDateTime
 
 @Entity
 class Member(
+    @Enumerated(EnumType.STRING)
     private val role: MemberRole = MemberRole.USER,
     private val lastLoginAt: LocalDateTime,
     private val nickname: String,
