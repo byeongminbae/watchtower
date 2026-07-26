@@ -1,4 +1,5 @@
 name: watchtower-deploy
+run-name: Deploy ${{ inputs.service }} to ${{ inputs.environment }}
 
 on:
   workflow_dispatch:
