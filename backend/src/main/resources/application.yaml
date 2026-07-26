@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: watchtower
+  config:
+    import: aws-parameterstore:/watchtower/backend/
   lifecycle:
     timeout-per-shutdown-phase: 60s
 
