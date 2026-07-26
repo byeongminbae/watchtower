@@ -125,13 +125,17 @@ jobs:
               postgres:17-alpine >/dev/null
 
             for _ in $(seq 1 30); do
-              if docker exec "$db_container" pg_isready --username watchtower --dbname watchtower >/dev/null 2>&1; then
+              if docker exec "$db_container" sh -c \
+                '[ "$(cat /proc/1/comm)" = "postgres" ] && pg_isready --username watchtower --dbname watchtower' \
+                >/dev/null 2>&1; then
                 break
               fi
               sleep 1
             done
 
-            if ! docker exec "$db_container" pg_isready --username watchtower --dbname watchtower >/dev/null 2>&1; then
+            if ! docker exec "$db_container" sh -c \
+              '[ "$(cat /proc/1/comm)" = "postgres" ] && pg_isready --username watchtower --dbname watchtower' \
+              >/dev/null 2>&1; then
               show_logs
               exit 1
             fi
