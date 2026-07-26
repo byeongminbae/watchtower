@@ -29,7 +29,7 @@ export default function HotUrlSection() {
 
         {!loading && error && (
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", py: 4 }}>
-            지금은 인기 URL 정보를 불러올 수 없어요.
+            현재는 데이터를 불러올 수 없습니다
           </Typography>
         )}
 

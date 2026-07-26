@@ -1,6 +1,7 @@
 import { apiClient } from "./client";
-import { ApiEnvelope } from "./types";
-import { Member, MemberRole, PaymentHistory, Watch, WatchStatus } from "@/types/domain";
+import { requireArrayData, requireObjectData } from "./types";
+import type { ApiEnvelope } from "./types";
+import type { Member, MemberRole, PaymentHistory, Watch, WatchStatus } from "@/types/domain";
 
 // 통계 응답도 스텁 상태라, 대시보드에서 실제로 필요한 형태로 추론한다.
 export interface WatchStatsResult {
@@ -31,11 +32,13 @@ export const adminApi = {
   getWatches: (query?: string) =>
     apiClient.get<ApiEnvelope<Watch[]>>(
       `/api/v1/admin/watches${query ? `?query=${encodeURIComponent(query)}` : ""}`,
-    ),
+    ).then(requireArrayData),
 
   // PATCH /api/v1/admin/watches/{watchId}
   updateWatchStatus: (watchId: number, status: WatchStatus) =>
-    apiClient.patch<ApiEnvelope<Watch>>(`/api/v1/admin/watches/${watchId}`, { status }),
+    apiClient
+      .patch<ApiEnvelope<Watch>>(`/api/v1/admin/watches/${watchId}`, { status })
+      .then(requireObjectData),
 
   // POST /api/v1/admin/payments/{paymentId}/cancel
   cancelPayment: (paymentId: number) =>
@@ -45,31 +48,47 @@ export const adminApi = {
   getPayments: (query?: string) =>
     apiClient.get<ApiEnvelope<PaymentHistory[]>>(
       `/api/v1/admin/payments${query ? `?query=${encodeURIComponent(query)}` : ""}`,
-    ),
+    ).then(requireArrayData),
 
   // GET /api/v1/admin/users?query=
   getUsers: (query?: string) =>
     apiClient.get<ApiEnvelope<Member[]>>(
       `/api/v1/admin/users${query ? `?query=${encodeURIComponent(query)}` : ""}`,
-    ),
+    ).then(requireArrayData),
 
   // PATCH /api/v1/admin/users/{userId}/roles
   updateUserRole: (userId: number, role: MemberRole) =>
-    apiClient.patch<ApiEnvelope<Member>>(`/api/v1/admin/users/${userId}/roles`, { role }),
+    apiClient
+      .patch<ApiEnvelope<Member>>(`/api/v1/admin/users/${userId}/roles`, { role })
+      .then(requireObjectData),
 
   // PATCH /api/v1/admin/users/{userId}/status (ban/unban)
   updateUserStatus: (userId: number, banned: boolean) =>
-    apiClient.patch<ApiEnvelope<Member>>(`/api/v1/admin/users/${userId}/status`, { banned }),
+    apiClient
+      .patch<ApiEnvelope<Member>>(`/api/v1/admin/users/${userId}/status`, { banned })
+      .then(requireObjectData),
 
   // GET /api/v1/admin/stats/watches
-  getWatchStats: () => apiClient.get<ApiEnvelope<WatchStatsResult>>("/api/v1/admin/stats/watches"),
+  getWatchStats: () =>
+    apiClient
+      .get<ApiEnvelope<WatchStatsResult>>("/api/v1/admin/stats/watches")
+      .then(requireObjectData),
 
   // GET /api/v1/admin/stats/users
-  getUserStats: () => apiClient.get<ApiEnvelope<UserStatsResult>>("/api/v1/admin/stats/users"),
+  getUserStats: () =>
+    apiClient
+      .get<ApiEnvelope<UserStatsResult>>("/api/v1/admin/stats/users")
+      .then(requireObjectData),
 
   // GET /api/v1/admin/stats/payments
-  getPaymentStats: () => apiClient.get<ApiEnvelope<PaymentStatsResult>>("/api/v1/admin/stats/payments"),
+  getPaymentStats: () =>
+    apiClient
+      .get<ApiEnvelope<PaymentStatsResult>>("/api/v1/admin/stats/payments")
+      .then(requireObjectData),
 
   // GET /api/v1/admin/stats/auth
-  getAuthStats: () => apiClient.get<ApiEnvelope<AuthStatsResult>>("/api/v1/admin/stats/auth"),
+  getAuthStats: () =>
+    apiClient
+      .get<ApiEnvelope<AuthStatsResult>>("/api/v1/admin/stats/auth")
+      .then(requireObjectData),
 };

@@ -1,6 +1,7 @@
 import { apiClient } from "./client";
-import { ApiEnvelope } from "./types";
-import { HotUrl, Watch, WatchCondition, WatchSnapshot } from "@/types/domain";
+import { requireArrayData, requireObjectData } from "./types";
+import type { ApiEnvelope } from "./types";
+import type { HotUrl, Watch, WatchCondition, WatchSnapshot } from "@/types/domain";
 
 // 스웨거에 요청 body 스펙이 비어있어(스텁 상태), README 기능 요구사항 기준으로 필드를 추론한다.
 export interface CreateWatchRequest {
@@ -25,17 +26,20 @@ export type UpdateWatchConditionRequest = Partial<CreateWatchConditionRequest>;
 
 export const watchApi = {
   // POST /api/v1/watches
-  createWatch: (body: CreateWatchRequest) => apiClient.post<ApiEnvelope<Watch>>("/api/v1/watches", body),
+  createWatch: (body: CreateWatchRequest) =>
+    apiClient.post<ApiEnvelope<Watch>>("/api/v1/watches", body).then(requireObjectData),
 
   // GET /api/v1/watches/trending
-  getTrendingWatches: () => apiClient.get<ApiEnvelope<HotUrl[]>>("/api/v1/watches/trending"),
+  getTrendingWatches: () =>
+    apiClient.get<ApiEnvelope<HotUrl[]>>("/api/v1/watches/trending").then(requireArrayData),
 
   // GET /api/v1/watches/{watchId}
-  getWatch: (watchId: number) => apiClient.get<ApiEnvelope<Watch>>(`/api/v1/watches/${watchId}`),
+  getWatch: (watchId: number) =>
+    apiClient.get<ApiEnvelope<Watch>>(`/api/v1/watches/${watchId}`).then(requireObjectData),
 
   // PATCH /api/v1/watches/{watchId}
   updateWatch: (watchId: number, body: UpdateWatchRequest) =>
-    apiClient.patch<ApiEnvelope<Watch>>(`/api/v1/watches/${watchId}`, body),
+    apiClient.patch<ApiEnvelope<Watch>>(`/api/v1/watches/${watchId}`, body).then(requireObjectData),
 
   // DELETE /api/v1/watches/{watchId}
   deleteWatch: (watchId: number) => apiClient.delete<ApiEnvelope<string>>(`/api/v1/watches/${watchId}`),
@@ -46,18 +50,22 @@ export const watchApi = {
 
   // GET /api/v1/watches/{watchId}/conditions
   getWatchConditions: (watchId: number) =>
-    apiClient.get<ApiEnvelope<WatchCondition[]>>(`/api/v1/watches/${watchId}/conditions`),
+    apiClient
+      .get<ApiEnvelope<WatchCondition[]>>(`/api/v1/watches/${watchId}/conditions`)
+      .then(requireArrayData),
 
   // POST /api/v1/watches/{watchId}/conditions
   createWatchCondition: (watchId: number, body: CreateWatchConditionRequest) =>
-    apiClient.post<ApiEnvelope<WatchCondition>>(`/api/v1/watches/${watchId}/conditions`, body),
+    apiClient
+      .post<ApiEnvelope<WatchCondition>>(`/api/v1/watches/${watchId}/conditions`, body)
+      .then(requireObjectData),
 
   // PATCH /api/v1/watches/{watchId}/conditions/{conditionId}
   updateWatchCondition: (watchId: number, conditionId: number, body: UpdateWatchConditionRequest) =>
     apiClient.patch<ApiEnvelope<WatchCondition>>(
       `/api/v1/watches/${watchId}/conditions/${conditionId}`,
       body,
-    ),
+    ).then(requireObjectData),
 
   // DELETE /api/v1/watches/{watchId}/conditions/{conditionId}
   deleteWatchCondition: (watchId: number, conditionId: number) =>
@@ -65,9 +73,13 @@ export const watchApi = {
 
   // GET /api/v1/watches/{watchId}/snapshots
   listWatchSnapshots: (watchId: number) =>
-    apiClient.get<ApiEnvelope<WatchSnapshot[]>>(`/api/v1/watches/${watchId}/snapshots`),
+    apiClient
+      .get<ApiEnvelope<WatchSnapshot[]>>(`/api/v1/watches/${watchId}/snapshots`)
+      .then(requireArrayData),
 
   // GET /api/v1/watches/{watchId}/snapshots/{snapshotId}
   getWatchSnapshot: (watchId: number, snapshotId: number) =>
-    apiClient.get<ApiEnvelope<WatchSnapshot>>(`/api/v1/watches/${watchId}/snapshots/${snapshotId}`),
+    apiClient
+      .get<ApiEnvelope<WatchSnapshot>>(`/api/v1/watches/${watchId}/snapshots/${snapshotId}`)
+      .then(requireObjectData),
 };

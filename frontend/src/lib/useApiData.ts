@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { ApiError } from "@/lib/api/errors";
 
 interface UseApiDataResult<T> {
   data: T | null;
@@ -40,9 +39,9 @@ export function useApiData<T>(fetcher: () => Promise<T>, deps: React.DependencyL
         setError(null);
         setResolvedGeneration(currentGeneration);
       })
-      .catch((err) => {
+      .catch(() => {
         if (generationRef.current !== currentGeneration) return;
-        setError(err instanceof ApiError ? err.message : "데이터를 불러오지 못했습니다.");
+        setError("현재는 데이터를 불러올 수 없습니다");
         setResolvedGeneration(currentGeneration);
       });
   }, []);

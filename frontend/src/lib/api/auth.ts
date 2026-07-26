@@ -1,5 +1,6 @@
 import { apiClient } from "./client";
-import { ApiEnvelope } from "./types";
+import { requireObjectData } from "./types";
+import type { ApiEnvelope } from "./types";
 
 // 스웨거 응답이 SuccessResponse<String> 스텁이라, 실제 페이로드는 아래처럼 추론한다.
 interface NaverLoginUrlResult {
@@ -13,7 +14,7 @@ export const authApi = {
   getNaverLoginUrl: (redirectUrl: string) =>
     apiClient.get<ApiEnvelope<NaverLoginUrlResult>>(
       `/api/v1/auth/naver/url?redirectUrl=${encodeURIComponent(redirectUrl)}`,
-    ),
+    ).then(requireObjectData),
 
   // DELETE /api/v1/auth/naver/revoke
   revokeNaverToken: () => apiClient.delete<ApiEnvelope<string>>("/api/v1/auth/naver/revoke"),
