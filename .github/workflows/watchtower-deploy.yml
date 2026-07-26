@@ -68,17 +68,21 @@ jobs:
       - name: Load frontend build environment
         if: env.SERVICE == 'frontend'
         run: |
-          if ! NEXT_PUBLIC_API_BASE_URL="$(aws ssm get-parameter --name "/watchtower/${{ env.DEPLOY_ENV }}/frontend/NEXT_PUBLIC_API_BASE_URL" --with-decryption --query 'Parameter.Value' --output text)"; then
-            echo "Failed to retrieve NEXT_PUBLIC_API_BASE_URL from AWS SSM Parameter Store." >&2
-            exit 1
-          fi
+          parameter_path="/watchtower/${{ env.DEPLOY_ENV }}/frontend/"
 
-          if [ -z "$NEXT_PUBLIC_API_BASE_URL" ] || [ "$NEXT_PUBLIC_API_BASE_URL" = "None" ]; then
-            echo "AWS SSM Parameter Store returned an empty NEXT_PUBLIC_API_BASE_URL." >&2
-            exit 1
-          fi
-
-          echo "NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL" >> "$GITHUB_ENV"
+          aws ssm get-parameters-by-path \
+            --path "$parameter_path" \
+            --recursive \
+            --with-decryption \
+            --output json |
+            jq -er '
+              if (.Parameters | length) == 0 then error("No frontend build parameters found")
+              else .Parameters[] |
+                if (.Value | test("[\r\n]")) then error("Frontend build parameters must be single-line values")
+                else "\(.Name | split("/")[-1])=\(.Value)"
+                end
+              end
+            ' >> "$GITHUB_ENV"
 
       - name: Build frontend
         if: env.SERVICE == 'frontend'
