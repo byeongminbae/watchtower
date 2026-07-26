@@ -9,7 +9,7 @@
                     "hostPort": 0,
                     "protocol": "tcp",
                     "name": "default",
-                    "appProtocol": "http2"
+                    "appProtocol": "http"
                 }
             ],
             "essential": true,

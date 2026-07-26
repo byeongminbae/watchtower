@@ -1,3 +1,4 @@
+[![watchtower-deploy](https://github.com/byeongminbae/watchtower/actions/workflows/watchtower-deploy.yml/badge.svg)](https://github.com/byeongminbae/watchtower/actions/workflows/watchtower-deploy.yml)
 <img width="1659" height="948" alt="watchtower" src="https://github.com/user-attachments/assets/a4ec5a62-4680-4004-aecc-9527fd0cd2a7" />
 
 ## 🚀 진행 상황

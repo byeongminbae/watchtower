@@ -4,6 +4,6 @@ logging:
 
 spring:
   config:
-    import: aws-parameterstore:/watchtower/dev/
+    import: aws-parameterstore:/watchtower/backend/dev/
   jpa:
     show-sql: true
