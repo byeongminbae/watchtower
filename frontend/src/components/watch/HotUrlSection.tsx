@@ -1,75 +1,119 @@
 "use client";
 
-import { Box, Card, CardContent, Chip, CircularProgress, Container, Stack, Typography } from "@mui/material";
-import LocalFireDepartmentIcon from "@mui/icons-material/LocalFireDepartment";
+import * as React from "react";
+import { Box, Chip, Fade, Skeleton, Stack, Typography } from "@mui/material";
+import LocalFireDepartmentOutlinedIcon from "@mui/icons-material/LocalFireDepartmentOutlined";
 import { watchApi } from "@/lib/api";
 import { useApiData } from "@/lib/useApiData";
 
+const ROTATION_INTERVAL_MS = 1_000;
+const MAX_HOT_URLS = 10;
+
 export default function HotUrlSection() {
   const { data: hotUrls, loading, error } = useApiData(() => watchApi.getTrendingWatches().then((r) => r.data), []);
+  const rankedUrls = hotUrls?.slice(0, MAX_HOT_URLS) ?? [];
+  const [activeIndex, setActiveIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    if (rankedUrls.length < 2) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setActiveIndex((currentIndex) => (currentIndex + 1) % rankedUrls.length);
+    }, ROTATION_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [rankedUrls.length]);
+
+  const displayIndex = rankedUrls.length > 0 ? activeIndex % rankedUrls.length : 0;
+  const activeItem = rankedUrls[displayIndex];
 
   return (
-    <Box sx={{ bgcolor: "background.paper", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-      <Container maxWidth="sm" sx={{ py: { xs: 6, md: 10 } }}>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-          <LocalFireDepartmentIcon color="secondary" />
-          <Typography variant="h5" sx={{ fontWeight: 800 }}>
-            지금 가장 핫한 URL
+    <Box
+      aria-label="지금 가장 많이 감시하는 URL"
+      sx={{
+        width: "100%",
+        maxWidth: 680,
+        mx: "auto",
+        mt: 5,
+        px: { xs: 2, sm: 2.5 },
+        py: 1.5,
+        border: "1px solid",
+        borderColor: "rgba(255,201,74,0.22)",
+        borderRadius: 2,
+        bgcolor: "rgba(7,17,27,0.64)",
+        backdropFilter: "blur(12px)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
+      }}
+    >
+      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ minWidth: 0, minHeight: 32 }}>
+        <Stack direction="row" alignItems="center" spacing={0.75} sx={{ flexShrink: 0 }}>
+          <LocalFireDepartmentOutlinedIcon sx={{ color: "secondary.main", fontSize: 19 }} />
+          <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary" }}>
+            지금 HOT
           </Typography>
         </Stack>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-          오늘 하루 동안 가장 활발하게 변화가 감지된 URL이에요.
-        </Typography>
 
-        {loading && (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <CircularProgress color="secondary" size={24} />
-          </Box>
-        )}
+        {loading && <Skeleton variant="text" width="100%" sx={{ bgcolor: "rgba(255,255,255,0.08)" }} />}
 
-        {!loading && error && (
-          <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", py: 4 }}>
-            현재는 데이터를 불러올 수 없습니다
+        {!loading && (error || !activeItem) && (
+          <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1, textAlign: "left" }}>
+            인기 감시 URL을 집계하고 있어요
           </Typography>
         )}
 
-        {!loading && !error && hotUrls?.length === 0 && (
-          <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", py: 4 }}>
-            아직 집계된 데이터가 없어요.
-          </Typography>
-        )}
-
-        <Stack spacing={1.5}>
-          {hotUrls?.map((item, idx) => (
-            <Card key={item.url} variant="outlined">
-              <CardContent
-                sx={{ display: "flex", alignItems: "center", gap: 2, "&:last-child": { pb: 2 } }}
+        {!loading && activeItem && (
+          <Fade in key={`${activeItem.url}-${displayIndex}`} timeout={240}>
+            <Stack direction="row" alignItems="center" spacing={1.25} sx={{ minWidth: 0, flexGrow: 1 }}>
+              <Typography
+                aria-hidden="true"
+                sx={{
+                  color: "secondary.main",
+                  fontWeight: 900,
+                  fontVariantNumeric: "tabular-nums",
+                  flexShrink: 0,
+                }}
               >
-                <Typography
-                  variant="h6"
-                  sx={{
-                    width: 32,
-                    fontWeight: 800,
-                    color: idx < 3 ? "secondary.main" : "text.secondary",
-                  }}
-                >
-                  {idx + 1}
-                </Typography>
-                <Box sx={{ flexGrow: 1 }}>
-                  <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                    {item.url}
-                  </Typography>
-                </Box>
-                <Chip
-                  size="small"
-                  label={`변화 ${item.hit}회`}
-                  sx={{ bgcolor: "rgba(255,201,74,0.12)", color: "secondary.main" }}
-                />
-              </CardContent>
-            </Card>
-          ))}
-        </Stack>
-      </Container>
+                {displayIndex + 1}위
+              </Typography>
+              <Typography
+                variant="body2"
+                title={activeItem.url}
+                sx={{
+                  minWidth: 0,
+                  flexGrow: 1,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  textAlign: "left",
+                  fontWeight: 600,
+                }}
+              >
+                {activeItem.url}
+              </Typography>
+              <Chip
+                size="small"
+                label={`변화 ${activeItem.hit}회`}
+                sx={{
+                  display: { xs: "none", sm: "inline-flex" },
+                  flexShrink: 0,
+                  height: 24,
+                  bgcolor: "rgba(255,201,74,0.1)",
+                  color: "secondary.main",
+                }}
+              />
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ flexShrink: 0, fontVariantNumeric: "tabular-nums" }}
+              >
+                {displayIndex + 1}/{rankedUrls.length}
+              </Typography>
+            </Stack>
+          </Fade>
+        )}
+      </Stack>
     </Box>
   );
 }

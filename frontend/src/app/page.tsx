@@ -1,124 +1,139 @@
 "use client";
 
 import Link from "next/link";
-import { Box, Button, Chip, Container, Grid, Stack, Typography } from "@mui/material";
-import NotificationsActiveOutlinedIcon from "@mui/icons-material/NotificationsActiveOutlined";
-import TimelineOutlinedIcon from "@mui/icons-material/TimelineOutlined";
-import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
+import { Box, Button, Chip, Container, Stack, Typography } from "@mui/material";
+import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import LighthouseMark from "@/components/common/LighthouseMark";
+import LandingStory from "@/components/home/LandingStory";
 import HotUrlSection from "@/components/watch/HotUrlSection";
 import { useAuth } from "@/lib/AuthContext";
-
-const FEATURES = [
-  {
-    icon: <TimelineOutlinedIcon fontSize="large" />,
-    title: "조건 기반 감지",
-    description: "HTML 전체 변경, 키워드 등장/소멸 등 원하는 조건으로 사이트 변화를 감지합니다.",
-  },
-  {
-    icon: <NotificationsActiveOutlinedIcon fontSize="large" />,
-    title: "즉시 알림",
-    description: "디스코드·텔레그램으로 변경된 부분만 강조된 AI 요약을 바로 받아보세요.",
-  },
-  {
-    icon: <TuneOutlinedIcon fontSize="large" />,
-    title: "자유로운 조건 설정",
-    description: "확인 주기부터 감지 조건까지, 원하는 대로 세밀하게 설정할 수 있습니다.",
-  },
-];
 
 export default function HomePage() {
   const { isLoggedIn } = useAuth();
 
   return (
-    <Box>
-      {/* Hero */}
+    <Box component="main">
       <Box
+        component="section"
         sx={{
           position: "relative",
           overflow: "hidden",
           background:
-            "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(255,201,74,0.12), transparent), linear-gradient(180deg, #0B1622 0%, #0E1B28 100%)",
+            "radial-gradient(ellipse 72% 58% at 50% -8%, rgba(255,201,74,0.16), transparent), linear-gradient(180deg, #0B1622 0%, #0E1B28 100%)",
           borderBottom: "1px solid rgba(255,255,255,0.06)",
+          "&::after": {
+            content: '""',
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            opacity: 0.32,
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px)",
+            backgroundSize: "48px 48px",
+            maskImage: "linear-gradient(to bottom, black, transparent 75%)",
+          },
         }}
       >
-        <Container maxWidth="md" sx={{ py: { xs: 10, md: 16 }, textAlign: "center" }}>
+        <Container
+          maxWidth="md"
+          sx={{ position: "relative", zIndex: 1, py: { xs: 10, md: 15 }, textAlign: "center" }}
+        >
           <Box sx={{ display: "flex", justifyContent: "center", mb: 3 }}>
             <LighthouseMark size={64} />
           </Box>
           <Chip
-            label="URL 변화 감지 서비스"
+            label="놓치고 싶지 않은 페이지를 위한 변화 감지"
             size="small"
             color="secondary"
             variant="outlined"
-            sx={{ mb: 2 }}
+            sx={{ mb: 2.5 }}
           />
-          <Typography variant="h3" sx={{ fontWeight: 800, letterSpacing: -1, mb: 2 }}>
-            신경 쓰지 않아도
+          <Typography
+            variant="h2"
+            sx={{
+              mb: 2.5,
+              fontWeight: 850,
+              fontSize: { xs: "1.8rem", sm: "3.35rem", md: "4rem" },
+              lineHeight: 1.12,
+              letterSpacing: { xs: -1.3, md: -2 },
+              textWrap: "balance",
+            }}
+          >
+            기다리던 소식,
             <br />
-            놓치지 않는 변화
+            이번에는 놓치지 마세요
           </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 4, fontSize: 18 }}>
-            매일 새로고침하시죠? 이제 변화가 생기면 먼저 알려드릴게요!
+          <Typography
+            color="text.secondary"
+            sx={{
+              maxWidth: 600,
+              mx: "auto",
+              mb: 4.5,
+              fontSize: { xs: 16, sm: 18 },
+              lineHeight: 1.7,
+              textWrap: "pretty",
+            }}
+          >
+            매일 페이지를 열어보는 대신, 변화가 생긴 순간만 확인하세요.
+            <br />
+            Watchtower가 대신 지켜보고 달라진 내용을 AI로 요약해 드립니다.
           </Typography>
-          <Stack direction="row" spacing={2} justifyContent="center">
+          <Button
+            component={Link}
+            href={isLoggedIn ? "/watches" : "/login"}
+            variant="contained"
+            color="secondary"
+            size="large"
+            endIcon={<ArrowForwardRoundedIcon />}
+            sx={{ px: 3.5, py: 1.35, fontWeight: 750 }}
+          >
+            지금 감시 시작하기
+          </Button>
+          <HotUrlSection />
+        </Container>
+      </Box>
+
+      <LandingStory />
+
+      <Box
+        component="section"
+        sx={{
+          bgcolor: "background.default",
+          borderTop: "1px solid",
+          borderColor: "divider",
+        }}
+      >
+        <Container maxWidth="md" sx={{ py: { xs: 10, md: 14 }, textAlign: "center" }}>
+          <Typography
+            variant="h4"
+            sx={{
+              mb: 2,
+              fontWeight: 850,
+              fontSize: { xs: "1.8rem", sm: "2.125rem" },
+              letterSpacing: -1,
+              textWrap: "balance",
+            }}
+          >
+            다음 중요한 변화는
+            <br />
+            놓치지 않도록
+          </Typography>
+          <Typography color="text.secondary" sx={{ mb: 4, lineHeight: 1.75 }}>
+            지금 가장 기다리는 페이지부터 등록해 보세요.
+          </Typography>
+          <Stack direction="row" justifyContent="center">
             <Button
               component={Link}
               href={isLoggedIn ? "/watches" : "/login"}
               variant="contained"
               color="secondary"
               size="large"
+              endIcon={<ArrowForwardRoundedIcon />}
             >
-              지금 감시 시작하기
-            </Button>
-            <Button
-              component="a"
-              href="#hot-url"
-              variant="outlined"
-              color="inherit"
-              size="large"
-            >
-              지금 핫한 URL 보기
+              무료로 감시 시작하기
             </Button>
           </Stack>
         </Container>
-      </Box>
-
-      {/* Features */}
-      <Container maxWidth="lg" sx={{ py: { xs: 8, md: 12 } }}>
-        <Grid container spacing={4}>
-          {FEATURES.map((feature) => (
-            <Grid size={{ xs: 12, md: 4 }} key={feature.title}>
-              <Stack spacing={2} alignItems="flex-start">
-                <Box
-                  sx={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 2,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: "rgba(255,201,74,0.1)",
-                    color: "secondary.main",
-                  }}
-                >
-                  {feature.icon}
-                </Box>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  {feature.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {feature.description}
-                </Typography>
-              </Stack>
-            </Grid>
-          ))}
-        </Grid>
-      </Container>
-
-      {/* Hot URL - 로그인 여부와 무관하게 항상 노출 */}
-      <Box id="hot-url">
-        <HotUrlSection />
       </Box>
     </Box>
   );
