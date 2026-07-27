@@ -12,5 +12,5 @@ abstract class HistoryBase {
     // SEQUENCE 전략 사용으로 인해 아이디는 각 엔티티에서 정의함
 
     @CreatedDate
-    private val createdAt: LocalDateTime? = null
+    val createdAt: LocalDateTime? = null
 }

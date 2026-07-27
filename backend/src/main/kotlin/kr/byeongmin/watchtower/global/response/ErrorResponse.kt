@@ -4,6 +4,7 @@ import kr.byeongmin.watchtower.global.exception.BusinessException
 import java.time.LocalDateTime
 
 class ErrorResponse(businessException: BusinessException) : Response {
+    override val success: Boolean = false
     val statusCode: String = businessException.error.statusCode
     val message: String = businessException.error.message
     override val timestamp: LocalDateTime = businessException.timestamp

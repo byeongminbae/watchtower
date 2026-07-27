@@ -1,43 +1,51 @@
 package kr.byeongmin.watchtower.domain.auth.controller
 
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
+import kr.byeongmin.watchtower.domain.auth.dto.MemberTokenResponseDto
+import kr.byeongmin.watchtower.domain.auth.service.AuthService
+import kr.byeongmin.watchtower.global.response.SuccessDataResponse
 import kr.byeongmin.watchtower.global.response.SuccessResponse
-import org.springframework.web.bind.annotation.DeleteMapping
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/v1/auth")
-class AuthController {
+class AuthController(
+    val authService: AuthService,
+) {
     @Operation(summary = "네이버 OAuth URL 생성 및 반환")
     @GetMapping("/naver/url")
-    fun getNaverLoginUrl(): SuccessResponse<String> {
-        return SuccessResponse("")
+    fun getNaverLoginUrl(
+        @Parameter(description = "로그인 전 사용자가 머물렀던 주소")
+        @RequestParam(value = "state") state: String
+    ): SuccessDataResponse<String> {
+        return authService.getNaverLoginUrl(state)
     }
 
-    @Operation(summary = "네이버 OAuth 콜백 처리 및 Watchtower JWT 발급")
+    @Operation(summary = "네이버 로그인 처리 및 회원가입 처리 후 Watchtower JWT 발급")
     @GetMapping("/naver/callback")
-    fun loginWithNaverCallback(): SuccessResponse<String> {
-        return SuccessResponse("")
+    fun loginWithNaverCallback(
+        @RequestParam(value = "code") code: String,
+        @RequestParam(value = "state") state: String
+    ): SuccessDataResponse<MemberTokenResponseDto> {
+        return authService.loginWithNaverCallback(code, state)
     }
 
     @Operation(summary = "네이버 OAuth Token Revocation")
     @DeleteMapping("/naver/revoke")
-    fun revokeNaverToken(): SuccessResponse<String> {
-        return SuccessResponse("")
+    fun revokeNaverToken(): SuccessResponse {
+        return SuccessResponse()
     }
 
     @Operation(summary = "Watchtower Token 재발급")
     @PostMapping("/renew")
-    fun renewToken(): SuccessResponse<String> {
-        return SuccessResponse("")
+    fun renewToken(): SuccessResponse {
+        return SuccessResponse()
     }
 
     @Operation(summary = "Watchtower Refresh Token 삭제")
     @DeleteMapping("/logout")
-    fun logout(): SuccessResponse<String> {
-        return SuccessResponse("")
+    fun logout(): SuccessResponse {
+        return SuccessResponse()
     }
 }

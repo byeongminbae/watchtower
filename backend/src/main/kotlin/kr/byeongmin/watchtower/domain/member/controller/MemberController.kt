@@ -1,6 +1,7 @@
 package kr.byeongmin.watchtower.domain.member.controller
 
 import io.swagger.v3.oas.annotations.Operation
+import kr.byeongmin.watchtower.global.response.SuccessDataResponse
 import kr.byeongmin.watchtower.global.response.SuccessResponse
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -16,55 +17,55 @@ class MemberController {
     @GetMapping("/{memberId}")
     fun getMember(
         @PathVariable memberId: Long
-    ): SuccessResponse<String> {
-        return SuccessResponse("")
+    ): SuccessDataResponse<String> {
+        return SuccessDataResponse("")
     }
 
     @Operation(summary = "결제 이력 조회")
     @GetMapping("/{memberId}/payments")
     fun getMemberPaymentHistories(
         @PathVariable memberId: Long
-    ): SuccessResponse<String> {
-        return SuccessResponse("")
+    ): SuccessDataResponse<String> {
+        return SuccessDataResponse("")
     }
 
     @Operation(summary = "와치 목록 조회")
     @GetMapping("/{memberId}/watches")
     fun getMemberWatches(
         @PathVariable memberId: Long
-    ): SuccessResponse<String> {
-        return SuccessResponse("")
+    ): SuccessDataResponse<String> {
+        return SuccessDataResponse("")
     }
 
     @Operation(summary = "프로필 정보 수정")
     @PatchMapping("/{memberId}")
     fun updateMember(
         @PathVariable memberId: Long
-    ): SuccessResponse<String> {
-        return SuccessResponse("")
+    ): SuccessDataResponse<String> {
+        return SuccessDataResponse("")
     }
 
     @Operation(summary = "회원 탈퇴 (논리삭제 + 네이버 revoke)")
     @DeleteMapping("/{memberId}")
     fun deleteMember(
         @PathVariable memberId: Long
-    ): SuccessResponse<String> {
-        return SuccessResponse("")
+    ): SuccessResponse {
+        return SuccessResponse()
     }
 
     @Operation(summary = "현재 구독중인 플랜 조회")
     @GetMapping("/{memberId}/subscriptions")
     fun getMemberSubscription(
         @PathVariable memberId: Long
-    ): SuccessResponse<String> {
-        return SuccessResponse("")
+    ): SuccessDataResponse<String> {
+        return SuccessDataResponse("")
     }
 
     @Operation(summary = "구독 해지 요청(환불)")
     @DeleteMapping("/{memberId}/subscriptions")
     fun cancelMemberSubscription(
         @PathVariable memberId: Long
-    ): SuccessResponse<String> {
-        return SuccessResponse("")
+    ): SuccessResponse {
+        return SuccessResponse()
     }
 }

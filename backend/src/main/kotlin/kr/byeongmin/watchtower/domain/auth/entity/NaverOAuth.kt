@@ -4,7 +4,6 @@ import jakarta.persistence.DiscriminatorValue
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 import kr.byeongmin.watchtower.domain.member.entity.Member
-import java.time.LocalDateTime
 
 @Entity
 @DiscriminatorValue("NAVER")
@@ -12,7 +11,7 @@ import java.time.LocalDateTime
 class NaverOAuth(
     member: Member,
     providerId: String,
-    private val accessToken: String,
-    private val refreshToken: String,
-    private val expiredAt: LocalDateTime
+    val accessToken: String,
+    val refreshToken: String,
+    val expiredAt: Long
 ) : OAuth(member, providerId)

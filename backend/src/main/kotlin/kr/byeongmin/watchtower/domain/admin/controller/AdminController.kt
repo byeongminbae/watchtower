@@ -1,6 +1,7 @@
 package kr.byeongmin.watchtower.domain.admin.controller
 
 import io.swagger.v3.oas.annotations.Operation
+import kr.byeongmin.watchtower.global.response.SuccessDataResponse
 import kr.byeongmin.watchtower.global.response.SuccessResponse
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -16,43 +17,43 @@ class AdminController {
     @PatchMapping("/watches/{watchId}")
     fun updateWatchStatus(
         @PathVariable watchId: Long
-    ): SuccessResponse<String> {
-        return SuccessResponse("")
+    ): SuccessDataResponse<String> {
+        return SuccessDataResponse("")
     }
 
     @Operation(summary = "결제 직권 취소")
     @PostMapping("/payments/{paymentId}/cancel")
     fun cancelPayment(
         @PathVariable paymentId: Long
-    ): SuccessResponse<String> {
-        return SuccessResponse("")
+    ): SuccessResponse {
+        return SuccessResponse()
     }
 
     @Operation(summary = "결제 내역 조회/검색")
     @GetMapping("/payments")
-    fun getPayments(): SuccessResponse<String> {
-        return SuccessResponse("")
+    fun getPayments(): SuccessDataResponse<String> {
+        return SuccessDataResponse("")
     }
 
     @Operation(summary = "전체 유저 조회/검색")
     @GetMapping("/users")
-    fun getUsers(): SuccessResponse<String> {
-        return SuccessResponse("")
+    fun getUsers(): SuccessDataResponse<String> {
+        return SuccessDataResponse("")
     }
 
     @Operation(summary = "유저 권한 수정")
     @PatchMapping("/users/{userId}/roles")
     fun updateUserRole(
         @PathVariable userId: Long
-    ): SuccessResponse<String> {
-        return SuccessResponse("")
+    ): SuccessDataResponse<String> {
+        return SuccessDataResponse("")
     }
 
     @Operation(summary = "ban/unban 등 유저 상태 변경")
     @PatchMapping("/users/{userId}/status")
     fun updateUserStatus(
         @PathVariable userId: Long
-    ): SuccessResponse<String> {
-        return SuccessResponse("")
+    ): SuccessDataResponse<String> {
+        return SuccessDataResponse("")
     }
 }

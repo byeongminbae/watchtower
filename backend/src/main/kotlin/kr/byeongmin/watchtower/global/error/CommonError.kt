@@ -12,6 +12,8 @@ enum class CommonError(
     RESOURCE_NOT_FOUND("RES_001", "리소스를 찾을 수 없습니다."),
     RESOURCE_CONFLICT("RES_002", "이미 존재하는 리소스입니다."),
 
+    EXTERNAL_API_ERROR("EXT_000", "외부 API에서 오류가 발생 했습니다."),
+    
     INTERNAL_SERVER_ERROR("SER_000", "서버 내부 오류가 발생했습니다.");
 
     override fun toString(): String {

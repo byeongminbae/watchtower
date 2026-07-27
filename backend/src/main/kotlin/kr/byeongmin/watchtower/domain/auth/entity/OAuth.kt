@@ -1,15 +1,6 @@
 package kr.byeongmin.watchtower.domain.auth.entity
 
-import jakarta.persistence.DiscriminatorColumn
-import jakarta.persistence.Entity
-import jakarta.persistence.FetchType
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
-import jakarta.persistence.Id
-import jakarta.persistence.Inheritance
-import jakarta.persistence.InheritanceType
-import jakarta.persistence.ManyToOne
-import jakarta.persistence.SequenceGenerator
+import jakarta.persistence.*
 import kr.byeongmin.watchtower.domain.member.entity.Member
 import kr.byeongmin.watchtower.global.entity.Base
 
@@ -18,8 +9,8 @@ import kr.byeongmin.watchtower.global.entity.Base
 @DiscriminatorColumn
 abstract class OAuth(
     @ManyToOne(fetch = FetchType.LAZY)
-    protected val member: Member,
-    protected val providerId: String
+    val member: Member,
+    val providerId: String
 ) : Base() {
     @Id
     @GeneratedValue(
