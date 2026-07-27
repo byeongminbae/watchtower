@@ -1,20 +1,14 @@
 import { apiClient } from "./client";
-import { requireObjectData } from "./types";
 import type { ApiEnvelope } from "./types";
 
-// 스웨거 응답이 SuccessResponse<String> 스텁이라, 실제 페이로드는 아래처럼 추론한다.
-interface NaverLoginUrlResult {
-  naverLoginUrl: string;
-}
-
 export const authApi = {
-  // GET /api/v1/auth/naver/url?redirectUrl=...
-  // redirectUrl: 로그인 완료 후 백엔드가 최종적으로 302 리다이렉트할 프론트 경로.
+  // GET /api/v1/auth/naver/url?state=...
+  // state: 로그인 완료 후 백엔드가 최종적으로 302 리다이렉트할 프론트 경로.
   // 백엔드가 이 값을 JWT로 인코딩한 state에 담아 위변조를 방지한다.
-  getNaverLoginUrl: (redirectUrl: string) =>
-    apiClient.get<ApiEnvelope<NaverLoginUrlResult>>(
-      `/api/v1/auth/naver/url?redirectUrl=${encodeURIComponent(redirectUrl)}`,
-    ).then(requireObjectData),
+  getNaverLoginUrl: (state: string) =>
+    apiClient.get<ApiEnvelope<string>>(
+      `/api/v1/auth/naver/url?state=${encodeURIComponent(state)}`,
+    ),
 
   // DELETE /api/v1/auth/naver/revoke
   revokeNaverToken: () => apiClient.delete<ApiEnvelope<string>>("/api/v1/auth/naver/revoke"),

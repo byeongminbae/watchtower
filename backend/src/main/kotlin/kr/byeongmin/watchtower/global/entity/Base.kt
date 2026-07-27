@@ -1,5 +1,6 @@
 package kr.byeongmin.watchtower.global.entity
 
+import jakarta.persistence.Column
 import jakarta.persistence.EntityListeners
 import jakarta.persistence.MappedSuperclass
 import org.springframework.data.annotation.CreatedDate
@@ -13,12 +14,16 @@ abstract class Base {
     // SEQUENCE 전략 사용으로 인해 아이디는 각 엔티티에서 정의함
 
     @CreatedDate
-    private val createdAt: LocalDateTime? = null
+    @Column(name = "created_at", nullable = false, updatable = false)
+    var createdAt: LocalDateTime? = null
+        protected set
 
     @LastModifiedDate
-    private val updatedAt: LocalDateTime? = null
+    var updatedAt: LocalDateTime? = null
+        protected set
 
-    private var deletedAt: LocalDateTime? = null
+    var deletedAt: LocalDateTime? = null
+        protected set
 
     fun delete() {
         deletedAt = LocalDateTime.now()

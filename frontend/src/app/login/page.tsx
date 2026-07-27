@@ -18,9 +18,9 @@ function LoginContent() {
     try {
       // RequireAuth/RequireAdmin이 원래 가려던 경로를 ?next= 로 실어 보내준다.
       // 없으면 기본값으로 /watches를 사용.
-      const redirectUrl = searchParams.get("next") ?? "/watches";
-      const res = await authApi.getNaverLoginUrl(redirectUrl);
-      window.location.href = res.data.naverLoginUrl;
+      const state = searchParams.get("next") ?? "/watches";
+      const res = await authApi.getNaverLoginUrl(state);
+      window.location.href = res.data;
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "로그인을 시작할 수 없습니다. 잠시 후 다시 시도해주세요.");
       setLoading(false);

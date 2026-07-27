@@ -1,7 +1,7 @@
 package kr.byeongmin.watchtower.domain.payment.controller
 
 import io.swagger.v3.oas.annotations.Operation
-import kr.byeongmin.watchtower.global.response.SuccessResponse
+import kr.byeongmin.watchtower.global.response.SuccessDataResponse
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -15,13 +15,13 @@ class PaymentController {
     @GetMapping("/{paymentId}")
     fun getPayment(
         @PathVariable paymentId: Long
-    ): SuccessResponse<String> {
-        return SuccessResponse("")
+    ): SuccessDataResponse<String> {
+        return SuccessDataResponse("")
     }
 
     @Operation(summary = "토스 결제 승인")
     @PostMapping("/toss/confirm")
-    fun confirmTossPayment(): SuccessResponse<String> {
-        return SuccessResponse("")
+    fun confirmTossPayment(): SuccessDataResponse<String> {
+        return SuccessDataResponse("")
     }
 }

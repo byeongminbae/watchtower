@@ -1,24 +1,19 @@
 package kr.byeongmin.watchtower.domain.member.entity
 
-import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
-import jakarta.persistence.Id
-import jakarta.persistence.SequenceGenerator
+import jakarta.persistence.*
 import kr.byeongmin.watchtower.domain.member.enums.MemberRole
 import kr.byeongmin.watchtower.global.entity.Base
+import kr.byeongmin.watchtower.global.utils.TimeUtil
 import java.time.LocalDateTime
 
 @Entity
 class Member(
-    @Enumerated(EnumType.STRING)
-    private val role: MemberRole = MemberRole.USER,
-    private val lastLoginAt: LocalDateTime,
-    private val nickname: String,
     private val email: String,
-    private val profileImageUrl: String
+    private val nickname: String,
+    private val profileImageUrl: String,
+    private val lastLoginAt: LocalDateTime = TimeUtil.entityTime(),
+    @Enumerated(EnumType.STRING)
+    val role: MemberRole = MemberRole.USER
 ) : Base() {
     @Id
     @GeneratedValue(
