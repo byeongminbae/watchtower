@@ -13,10 +13,10 @@ import { memberApi, watchApi } from "@/lib/api";
 import { CreateWatchRequest } from "@/lib/api/watch";
 import { useAuth } from "@/lib/AuthContext";
 import { useApiData } from "@/lib/useApiData";
-import { Watch } from "@/types/domain";
 
 export default function WatchesPage() {
-  const { member } = useAuth();
+  const { principal } = useAuth();
+  const memberId = principal?.memberId;
   // 사용자가 명시적으로 다른 와치를 선택했을 때만 값이 채워짐. null이면 "첫 번째 와치를 기본 선택"으로 간주(렌더 시점에 파생).
   const [manualSelectedId, setManualSelectedId] = React.useState<number | null>(null);
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -28,8 +28,11 @@ export default function WatchesPage() {
     error,
     refetch,
   } = useApiData(
-    () => (member ? memberApi.getMemberWatches(member.id).then((r) => r.data) : Promise.resolve([] as Watch[])),
-    [member?.id],
+    () =>
+      memberId === undefined
+        ? new Promise<never>(() => undefined)
+        : memberApi.getMemberWatches(memberId).then((r) => r.data),
+    [memberId],
   );
 
   const filteredWatches = (watches ?? []).filter(
@@ -53,7 +56,7 @@ export default function WatchesPage() {
     refetch();
   };
 
-  if (loading) {
+  if (memberId === undefined || loading || (watches === null && !error)) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 20 }}>
         <CircularProgress color="secondary" size={28} />

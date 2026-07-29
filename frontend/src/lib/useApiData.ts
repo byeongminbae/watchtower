@@ -1,6 +1,8 @@
 "use client";
 
 import React from "react";
+import { BackendFeatureUnavailableError } from "@/lib/api/errors";
+import { BACKEND_FEATURE_UNAVAILABLE_MESSAGE } from "@/lib/api/availability";
 
 interface UseApiDataResult<T> {
   data: T | null;
@@ -39,9 +41,14 @@ export function useApiData<T>(fetcher: () => Promise<T>, deps: React.DependencyL
         setError(null);
         setResolvedGeneration(currentGeneration);
       })
-      .catch(() => {
+      .catch((reason: unknown) => {
         if (generationRef.current !== currentGeneration) return;
-        setError("현재는 데이터를 불러올 수 없습니다");
+        setData(null);
+        setError(
+          reason instanceof BackendFeatureUnavailableError
+            ? BACKEND_FEATURE_UNAVAILABLE_MESSAGE
+            : "현재는 데이터를 불러올 수 없습니다",
+        );
         setResolvedGeneration(currentGeneration);
       });
   }, []);

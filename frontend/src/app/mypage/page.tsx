@@ -31,7 +31,8 @@ import { ApiError } from "@/lib/api/errors";
 import { useApiData } from "@/lib/useApiData";
 
 export default function MyPage() {
-  const { member, refreshMember, logout } = useAuth();
+  const { principal, member, refreshMember, logout } = useAuth();
+  const memberId = principal?.memberId;
   const router = useRouter();
 
   const [nickname, setNickname] = React.useState(member?.nickname ?? "");
@@ -40,10 +41,37 @@ export default function MyPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
 
-  const { data: subscription } = useApiData(
-    () => (member ? memberApi.getMemberSubscription(member.id).then((r) => r.data) : Promise.resolve(null)),
-    [member?.id],
+  const {
+    data: subscription,
+    loading: subscriptionLoading,
+    error: subscriptionError,
+  } = useApiData(
+    () =>
+      memberId === undefined
+        ? new Promise<never>(() => undefined)
+        : memberApi.getMemberSubscription(memberId).then((r) => r.data),
+    [memberId],
   );
+
+  if (
+    memberId === undefined ||
+    subscriptionLoading ||
+    (subscription === null && !subscriptionError)
+  ) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 20 }}>
+        <CircularProgress color="secondary" size={28} />
+      </Box>
+    );
+  }
+
+  if (subscriptionError) {
+    return (
+      <Container maxWidth="sm" sx={{ py: 10 }}>
+        <Alert severity="error">{subscriptionError}</Alert>
+      </Container>
+    );
+  }
 
   if (!member) return null;
 

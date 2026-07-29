@@ -1,15 +1,12 @@
-import { apiClient } from "./client";
-import { requireArrayData, requireObjectData } from "./types";
+import { rejectUnavailable } from "./availability";
 import type { ApiEnvelope } from "./types";
 import type { HotUrl, Watch, WatchCondition, WatchSnapshot } from "@/types/domain";
 
-// 스웨거에 요청 body 스펙이 비어있어(스텁 상태), README 기능 요구사항 기준으로 필드를 추론한다.
 export interface CreateWatchRequest {
   name: string;
   url: string;
   intervalSeconds: number;
   includeInStat: boolean;
-  // 최초 등록 시 조건 최소 1개는 있어야 한다고 추론 (없으면 감지할 기준이 없음)
   conditions: Array<Pick<WatchCondition, "type" | "keyword" | "regex">>;
 }
 
@@ -17,7 +14,6 @@ export interface UpdateWatchRequest {
   name?: string;
   intervalSeconds?: number;
   includeInStat?: boolean;
-  // 일시정지/재개는 PATCH로 status만 바꾸는 것으로 추론
   status?: "RUNNING" | "PAUSED";
 }
 
@@ -25,61 +21,88 @@ export type CreateWatchConditionRequest = Pick<WatchCondition, "type" | "keyword
 export type UpdateWatchConditionRequest = Partial<CreateWatchConditionRequest>;
 
 export const watchApi = {
-  // POST /api/v1/watches
-  createWatch: (body: CreateWatchRequest) =>
-    apiClient.post<ApiEnvelope<Watch>>("/api/v1/watches", body).then(requireObjectData),
+  createWatch: (body: CreateWatchRequest) => {
+    void body;
+    return rejectUnavailable<ApiEnvelope<Watch>>("watch.createWatch");
+  },
 
-  // GET /api/v1/watches/trending
   getTrendingWatches: () =>
-    apiClient.get<ApiEnvelope<HotUrl[]>>("/api/v1/watches/trending").then(requireArrayData),
+    rejectUnavailable<ApiEnvelope<HotUrl[]>>("watch.getTrendingWatches"),
 
-  // GET /api/v1/watches/{watchId}
-  getWatch: (watchId: number) =>
-    apiClient.get<ApiEnvelope<Watch>>(`/api/v1/watches/${watchId}`).then(requireObjectData),
+  getWatch: (watchId: number) => {
+    void watchId;
+    return rejectUnavailable<ApiEnvelope<Watch>>("watch.getWatch");
+  },
 
-  // PATCH /api/v1/watches/{watchId}
-  updateWatch: (watchId: number, body: UpdateWatchRequest) =>
-    apiClient.patch<ApiEnvelope<Watch>>(`/api/v1/watches/${watchId}`, body).then(requireObjectData),
+  updateWatch: (watchId: number, body: UpdateWatchRequest) => {
+    void watchId;
+    void body;
+    return rejectUnavailable<ApiEnvelope<Watch>>("watch.updateWatch");
+  },
 
-  // DELETE /api/v1/watches/{watchId}
-  deleteWatch: (watchId: number) => apiClient.delete<ApiEnvelope<string>>(`/api/v1/watches/${watchId}`),
+  deleteWatch: (watchId: number) => {
+    void watchId;
+    return rejectUnavailable<ApiEnvelope<string>>("watch.deleteWatch");
+  },
 
-  // POST /api/v1/watches/{watchId}/notify
-  sendTestNotification: (watchId: number) =>
-    apiClient.post<ApiEnvelope<string>>(`/api/v1/watches/${watchId}/notify`),
+  sendTestNotification: (watchId: number) => {
+    void watchId;
+    return rejectUnavailable<ApiEnvelope<string>>(
+      "watch.sendTestNotification",
+    );
+  },
 
-  // GET /api/v1/watches/{watchId}/conditions
-  getWatchConditions: (watchId: number) =>
-    apiClient
-      .get<ApiEnvelope<WatchCondition[]>>(`/api/v1/watches/${watchId}/conditions`)
-      .then(requireArrayData),
+  getWatchConditions: (watchId: number) => {
+    void watchId;
+    return rejectUnavailable<ApiEnvelope<WatchCondition[]>>(
+      "watch.getWatchConditions",
+    );
+  },
 
-  // POST /api/v1/watches/{watchId}/conditions
-  createWatchCondition: (watchId: number, body: CreateWatchConditionRequest) =>
-    apiClient
-      .post<ApiEnvelope<WatchCondition>>(`/api/v1/watches/${watchId}/conditions`, body)
-      .then(requireObjectData),
+  createWatchCondition: (
+    watchId: number,
+    body: CreateWatchConditionRequest,
+  ) => {
+    void watchId;
+    void body;
+    return rejectUnavailable<ApiEnvelope<WatchCondition>>(
+      "watch.createWatchCondition",
+    );
+  },
 
-  // PATCH /api/v1/watches/{watchId}/conditions/{conditionId}
-  updateWatchCondition: (watchId: number, conditionId: number, body: UpdateWatchConditionRequest) =>
-    apiClient.patch<ApiEnvelope<WatchCondition>>(
-      `/api/v1/watches/${watchId}/conditions/${conditionId}`,
-      body,
-    ).then(requireObjectData),
+  updateWatchCondition: (
+    watchId: number,
+    conditionId: number,
+    body: UpdateWatchConditionRequest,
+  ) => {
+    void watchId;
+    void conditionId;
+    void body;
+    return rejectUnavailable<ApiEnvelope<WatchCondition>>(
+      "watch.updateWatchCondition",
+    );
+  },
 
-  // DELETE /api/v1/watches/{watchId}/conditions/{conditionId}
-  deleteWatchCondition: (watchId: number, conditionId: number) =>
-    apiClient.delete<ApiEnvelope<string>>(`/api/v1/watches/${watchId}/conditions/${conditionId}`),
+  deleteWatchCondition: (watchId: number, conditionId: number) => {
+    void watchId;
+    void conditionId;
+    return rejectUnavailable<ApiEnvelope<string>>(
+      "watch.deleteWatchCondition",
+    );
+  },
 
-  // GET /api/v1/watches/{watchId}/snapshots
-  listWatchSnapshots: (watchId: number) =>
-    apiClient
-      .get<ApiEnvelope<WatchSnapshot[]>>(`/api/v1/watches/${watchId}/snapshots`)
-      .then(requireArrayData),
+  listWatchSnapshots: (watchId: number) => {
+    void watchId;
+    return rejectUnavailable<ApiEnvelope<WatchSnapshot[]>>(
+      "watch.listWatchSnapshots",
+    );
+  },
 
-  // GET /api/v1/watches/{watchId}/snapshots/{snapshotId}
-  getWatchSnapshot: (watchId: number, snapshotId: number) =>
-    apiClient
-      .get<ApiEnvelope<WatchSnapshot>>(`/api/v1/watches/${watchId}/snapshots/${snapshotId}`)
-      .then(requireObjectData),
+  getWatchSnapshot: (watchId: number, snapshotId: number) => {
+    void watchId;
+    void snapshotId;
+    return rejectUnavailable<ApiEnvelope<WatchSnapshot>>(
+      "watch.getWatchSnapshot",
+    );
+  },
 };

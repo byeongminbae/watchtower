@@ -1,9 +1,7 @@
-import { apiClient } from "./client";
-import { requireObjectData } from "./types";
+import { rejectUnavailable } from "./availability";
 import type { ApiEnvelope } from "./types";
 import type { PaymentHistory } from "@/types/domain";
 
-// 토스 결제 승인 요청 바디는 토스 API 문서 기준 필드로 추론 (paymentKey, orderId, amount)
 export interface ConfirmTossPaymentRequest {
   paymentKey: string;
   orderId: string;
@@ -11,13 +9,17 @@ export interface ConfirmTossPaymentRequest {
 }
 
 export const paymentApi = {
-  // GET /api/v1/payments/{paymentId}
-  getPayment: (paymentId: number) =>
-    apiClient.get<ApiEnvelope<PaymentHistory>>(`/api/v1/payments/${paymentId}`).then(requireObjectData),
+  getPayment: (paymentId: number) => {
+    void paymentId;
+    return rejectUnavailable<ApiEnvelope<PaymentHistory>>(
+      "payment.getPayment",
+    );
+  },
 
-  // POST /api/v1/payments/toss/confirm
-  confirmTossPayment: (body: ConfirmTossPaymentRequest) =>
-    apiClient
-      .post<ApiEnvelope<PaymentHistory>>("/api/v1/payments/toss/confirm", body)
-      .then(requireObjectData),
+  confirmTossPayment: (body: ConfirmTossPaymentRequest) => {
+    void body;
+    return rejectUnavailable<ApiEnvelope<PaymentHistory>>(
+      "payment.confirmTossPayment",
+    );
+  },
 };

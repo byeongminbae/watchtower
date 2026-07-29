@@ -1,23 +1,71 @@
 import { apiClient } from "./client";
+import { rejectUnavailable } from "./availability";
 import type { ApiEnvelope } from "./types";
+
+export type NaverCallbackTokens = {
+  readonly accessToken: string;
+  readonly refreshToken: string;
+  readonly accessTokenExpiry: number;
+};
+
+function isNaverCallbackTokens(value: unknown): value is NaverCallbackTokens {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    "accessToken" in value &&
+    typeof value.accessToken === "string" &&
+    value.accessToken.length > 0 &&
+    "refreshToken" in value &&
+    typeof value.refreshToken === "string" &&
+    value.refreshToken.length > 0 &&
+    "accessTokenExpiry" in value &&
+    typeof value.accessTokenExpiry === "number" &&
+    Number.isSafeInteger(value.accessTokenExpiry) &&
+    value.accessTokenExpiry > 0
+  );
+}
+
+export function isNaverAuthorizeUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      url.hostname === "nid.naver.com" &&
+      url.port === "" &&
+      url.username === "" &&
+      url.password === "" &&
+      url.pathname === "/oauth2.0/authorize"
+    );
+  } catch (error) {
+    if (error instanceof TypeError) return false;
+    throw error;
+  }
+}
 
 export const authApi = {
   // GET /api/v1/auth/naver/url?state=...
-  // state: 로그인 완료 후 백엔드가 최종적으로 302 리다이렉트할 프론트 경로.
-  // 백엔드가 이 값을 JWT로 인코딩한 state에 담아 위변조를 방지한다.
   getNaverLoginUrl: (state: string) =>
-    apiClient.get<ApiEnvelope<string>>(
+    apiClient.get(
       `/api/v1/auth/naver/url?state=${encodeURIComponent(state)}`,
+      isNaverAuthorizeUrl,
+    ),
+
+  loginWithNaverCallback: (code: string, state: string) =>
+    apiClient.get(
+      `/api/v1/auth/naver/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
+      isNaverCallbackTokens,
     ),
 
   // DELETE /api/v1/auth/naver/revoke
-  revokeNaverToken: () => apiClient.delete<ApiEnvelope<string>>("/api/v1/auth/naver/revoke"),
+  revokeNaverToken: () =>
+    rejectUnavailable<ApiEnvelope<string>>("auth.revokeNaverToken"),
 
   // POST /api/v1/auth/renew
-  // 응답 바디가 아니라 Set-Cookie로 JWT 쿠키를 갱신해준다고 가정한다.
-  renewSession: () => apiClient.post<ApiEnvelope<string>>("/api/v1/auth/renew"),
+  renewSession: () => rejectUnavailable<ApiEnvelope<string>>("auth.renewSession"),
 
   // DELETE /api/v1/auth/logout
-  // 백엔드가 JWT 쿠키를 삭제(만료 처리)해준다고 가정한다.
-  logout: () => apiClient.delete<ApiEnvelope<string>>("/api/v1/auth/logout"),
+  logout: () => rejectUnavailable<ApiEnvelope<string>>("auth.logout"),
 };

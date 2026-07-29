@@ -6,23 +6,29 @@ import { Alert, Box, Button, CircularProgress, Container, Paper, Stack, Typograp
 import LighthouseMark from "@/components/common/LighthouseMark";
 import { authApi } from "@/lib/api";
 import { ApiError } from "@/lib/api/errors";
+import { clearOAuthTransaction, createOAuthTransaction, sanitizeReturnPath } from "@/lib/oauthTransaction";
 
 function LoginContent() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const isStarting = React.useRef(false);
 
   const handleNaverLogin = async () => {
+    if (isStarting.current) return;
+
+    isStarting.current = true;
     setLoading(true);
     setError(null);
     try {
-      // RequireAuth/RequireAdmin이 원래 가려던 경로를 ?next= 로 실어 보내준다.
-      // 없으면 기본값으로 /watches를 사용.
-      const state = searchParams.get("next") ?? "/watches";
-      const res = await authApi.getNaverLoginUrl(state);
-      window.location.href = res.data;
+      const returnPath = sanitizeReturnPath(searchParams.get("next") ?? "/watches");
+      const nonce = createOAuthTransaction(returnPath);
+      const response = await authApi.getNaverLoginUrl(nonce);
+      globalThis.location.assign(response.data);
     } catch (err) {
+      clearOAuthTransaction();
       setError(err instanceof ApiError ? err.message : "로그인을 시작할 수 없습니다. 잠시 후 다시 시도해주세요.");
+      isStarting.current = false;
       setLoading(false);
     }
   };
@@ -74,6 +80,9 @@ function LoginContent() {
 
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 3 }}>
             현재는 네이버 로그인만 지원합니다.
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+            실제 네이버 로그인은 이 프론트엔드 주소의 /login/callback이 네이버 콜백 URL로 외부 설정되어 있어야 합니다.
           </Typography>
         </Paper>
       </Container>

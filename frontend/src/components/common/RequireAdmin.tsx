@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/AuthContext";
 
 // /admin 하위 라우트 전용 가드. 로그인 + ADMIN 권한을 모두 확인.
 export default function RequireAdmin({ children }: { children: React.ReactNode }) {
-  const { isLoggedIn, isInitializing, member } = useAuth();
+  const { isLoggedIn, isInitializing, principal } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -25,7 +25,7 @@ export default function RequireAdmin({ children }: { children: React.ReactNode }
     );
   }
 
-  if (member?.role !== "ADMIN") {
+  if (principal?.role !== "ADMIN") {
     return (
       <Container maxWidth="sm" sx={{ py: 16, textAlign: "center" }}>
         <Typography variant="h6" sx={{ fontWeight: 700 }} gutterBottom>

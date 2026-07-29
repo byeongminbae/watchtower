@@ -1,24 +1,20 @@
-// 백엔드는 SuccessResponse<T> = { data, timestamp } 형태로 응답한다.
-// 에러 응답 스펙은 스웨거에 명시되어 있지 않아, 기존 코드베이스의 ErrorResponse 컨벤션을 따른다고 추론한다:
-// { error: { code, message }, timestamp }
 export class ApiError extends Error {
-  status: number;
-  code?: string;
-  raw?: unknown;
+  readonly name: string = "ApiError";
 
-  constructor(message: string, status: number, code?: string, raw?: unknown) {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code: string | undefined = undefined,
+    readonly raw: unknown = undefined,
+  ) {
     super(message);
-    this.name = "ApiError";
-    this.status = status;
-    this.code = code;
-    this.raw = raw;
   }
 }
 
-export interface ApiErrorBody {
-  error?: {
-    code?: string;
-    message?: string;
-  };
-  timestamp?: string;
+export class BackendFeatureUnavailableError extends ApiError {
+  readonly name: string = "BackendFeatureUnavailableError";
+
+  constructor(readonly feature: string) {
+    super("백엔드 기능이 아직 제공되지 않습니다.", 501, "BACKEND_FEATURE_UNAVAILABLE", { feature });
+  }
 }

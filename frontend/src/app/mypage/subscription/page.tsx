@@ -32,7 +32,8 @@ const KNOWN_PLANS = [
 ];
 
 export default function SubscriptionPage() {
-  const { member } = useAuth();
+  const { principal, member } = useAuth();
+  const memberId = principal?.memberId;
   const router = useRouter();
   const [cancelDialogOpen, setCancelDialogOpen] = React.useState(false);
   const [cancelling, setCancelling] = React.useState(false);
@@ -44,8 +45,11 @@ export default function SubscriptionPage() {
     error,
     refetch,
   } = useApiData(
-    () => (member ? memberApi.getMemberSubscription(member.id).then((r) => r.data) : Promise.resolve(null)),
-    [member?.id],
+    () =>
+      memberId === undefined
+        ? new Promise<never>(() => undefined)
+        : memberApi.getMemberSubscription(memberId).then((r) => r.data),
+    [memberId],
   );
 
   const handleCancel = async () => {
@@ -63,7 +67,7 @@ export default function SubscriptionPage() {
     }
   };
 
-  if (loading) {
+  if (memberId === undefined || loading || (subscription === null && !error)) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 20 }}>
         <CircularProgress color="secondary" />
