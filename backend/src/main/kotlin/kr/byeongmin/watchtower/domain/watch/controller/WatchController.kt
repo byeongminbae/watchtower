@@ -3,6 +3,7 @@ package kr.byeongmin.watchtower.domain.watch.controller
 import io.swagger.v3.oas.annotations.Operation
 import kr.byeongmin.watchtower.global.response.SuccessDataResponse
 import kr.byeongmin.watchtower.global.response.SuccessResponse
+import kr.byeongmin.watchtower.global.security.AuthenticatedUser
 import org.springframework.web.bind.annotation.*
 
 @RestController
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.*
 class WatchController {
     @Operation(summary = "와치 등록")
     @PostMapping
+    @AuthenticatedUser
     fun createWatch(): SuccessResponse {
         return SuccessResponse()
     }

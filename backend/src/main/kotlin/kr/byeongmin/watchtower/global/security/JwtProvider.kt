@@ -1,9 +1,11 @@
 package kr.byeongmin.watchtower.global.security
 
 import io.jsonwebtoken.Claims
+import io.jsonwebtoken.ExpiredJwtException
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
-import kr.byeongmin.watchtower.domain.member.entity.Member
+import kr.byeongmin.watchtower.global.error.AuthError
+import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.nio.charset.StandardCharsets
@@ -11,12 +13,52 @@ import java.util.*
 
 @Component
 class JwtProvider(
-    val date: Date,
     @Value("\${watchtower.jwt.secret}") private val secret: String,
-    @Value("\${watchtower.jwt.access-expiry}") private val accessTokenExpiry: Long,
-    @Value("\${watchtower.jwt.refresh-expiry}") private val refreshTokenExpiry: Long
+    @Value("\${watchtower.jwt.access-expiry}") val accessTokenExpiry: Long,
+    @Value("\${watchtower.jwt.refresh-expiry}") val refreshTokenExpiry: Long
 ) {
-    private val secretKey = Keys.hmacShaKeyFor(secret.toByteArray(StandardCharsets.UTF_8))
+    private val secretKey = Keys.hmacShaKeyFor(
+        secret.toByteArray(StandardCharsets.UTF_8)
+    )
+
+    private fun getExpiry(tokenExpiry: Long): Date {
+        return Date(Date().time + refreshTokenExpiry)
+    }
+
+    fun createAccessToken(memberId: Long, role: String): String {
+        return Jwts.builder()
+            .subject(memberId.toString())
+            .claim("role", role)
+            .issuedAt(Date())
+            .expiration(getExpiry(accessTokenExpiry))
+            .signWith(secretKey)
+            .compact()
+    }
+
+    fun createRefreshToken(memberId: Long): String {
+        return Jwts.builder()
+            .subject(memberId.toString())
+            .issuedAt(Date())
+            .expiration(getExpiry(refreshTokenExpiry))
+            .signWith(secretKey)
+            .compact()
+    }
+
+    fun validateToken(token: String): Boolean {
+        return runCatching {
+            Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token)
+        }.isSuccess
+    }
+
+    fun validateTokenThenThrow(token: String) {
+        try {
+            Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token)
+        } catch (e: ExpiredJwtException) {
+            throw BusinessException(AuthError.EXPIRED_TOKEN)
+        } catch (e: Exception) { // 보안 관점에서 뭉뚱그려 응답하면 공격이 피곤해짐
+            throw BusinessException(AuthError.INVALID_TOKEN)
+        }
+    }
 
     private fun getClaims(token: String): Claims {
         return Jwts.parser()
@@ -26,44 +68,10 @@ class JwtProvider(
             .payload
     }
 
-    fun createAccessToken(member: Member): String {
-        val currentDate = date
-        val expiry = Date(date.time + accessTokenExpiry)
-
-        return Jwts.builder()
-            .subject(member.id.toString())
-            .claim("role", member.role.name)
-            .issuedAt(currentDate)
-            .expiration(expiry)
-            .signWith(secretKey)
-            .compact()
-    }
-
-    fun createRefreshToken(member: Member): String {
-        val currentDate = date
-        val expiry = Date(date.time + accessTokenExpiry)
-
-        return Jwts.builder()
-            .subject(member.id.toString())
-            .issuedAt(currentDate)
-            .expiration(expiry)
-            .signWith(secretKey)
-            .compact()
-    }
-
-    fun getAccessTokenExpiry() = accessTokenExpiry
-
-    fun validateToken(token: String): Boolean {
-        return try {
-            Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token)
-            true
-        } catch (e: Exception) {
-            false
-        }
-    }
-
     fun getMemberId(token: String): Long {
-        return getClaims(token).subject.toLong()
+        return getClaims(token)
+            .subject
+            .toLong()
     }
 
     fun getRole(token: String): String {

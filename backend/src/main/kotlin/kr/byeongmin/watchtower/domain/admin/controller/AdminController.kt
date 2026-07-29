@@ -3,6 +3,7 @@ package kr.byeongmin.watchtower.domain.admin.controller
 import io.swagger.v3.oas.annotations.Operation
 import kr.byeongmin.watchtower.global.response.SuccessDataResponse
 import kr.byeongmin.watchtower.global.response.SuccessResponse
+import kr.byeongmin.watchtower.global.security.AdminOnly
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/api/v1/admin")
+@AdminOnly
 class AdminController {
     @Operation(summary = "와치 상태 변경(정책 위반 정지 포함)")
     @PatchMapping("/watches/{watchId}")
