@@ -16,7 +16,7 @@ class AuthController(
     @Operation(summary = "네이버 OAuth URL 생성 및 반환")
     @GetMapping("/naver/url")
     fun getNaverLoginUrl(
-        @Parameter(description = "로그인 전 사용자가 머물렀던 주소")
+        @Parameter(description = "CSRF 방지용으로 임의 생성된 nonce 값")
         @RequestParam(value = "state") state: String
     ): SuccessDataResponse<String> {
         return authService.getNaverLoginUrl(state)

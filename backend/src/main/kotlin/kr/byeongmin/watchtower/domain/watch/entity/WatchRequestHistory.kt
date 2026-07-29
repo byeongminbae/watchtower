@@ -1,12 +1,6 @@
 package kr.byeongmin.watchtower.domain.watch.entity
 
-import jakarta.persistence.Entity
-import jakarta.persistence.FetchType
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
-import jakarta.persistence.Id
-import jakarta.persistence.ManyToOne
-import jakarta.persistence.SequenceGenerator
+import jakarta.persistence.*
 import kr.byeongmin.watchtower.domain.member.entity.Member
 import kr.byeongmin.watchtower.global.entity.HistoryBase
 import java.time.LocalDateTime
@@ -14,17 +8,15 @@ import java.time.LocalDateTime
 @Entity
 class WatchRequestHistory(
     @ManyToOne(fetch = FetchType.LAZY)
-    private val watch: Watch,
-
+    val watch: Watch,
     // 관리자가 트리거 하면 주인이 아니어도 트리거 가능
     // null 은 자동 트리거
     @ManyToOne(fetch = FetchType.LAZY)
-    private val triggeredBy: Member? = null,
-
-    private val url: String,
-    private val startedAt: LocalDateTime,
-    private val endedAt: LocalDateTime,
-    private val httpStatusCode: Int
+    val triggeredBy: Member? = null,
+    val url: String,
+    val startedAt: LocalDateTime,
+    val endedAt: LocalDateTime,
+    val httpStatusCode: Int
 ) : HistoryBase() {
     @Id
     @GeneratedValue(
