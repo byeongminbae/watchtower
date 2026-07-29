@@ -78,9 +78,14 @@ class AuthService(
         )
         return SuccessDataResponse(
             MemberTokenResponseDto(
-                accessToken = jwtProvider.createAccessToken(member),
-                refreshToken = jwtProvider.createRefreshToken(member),
-                accessTokenExpiry = jwtProvider.getAccessTokenExpiry()
+                accessToken = jwtProvider.createAccessToken(
+                    member.id ?: throw BusinessException(CommonError.INTERNAL_SERVER_ERROR),
+                    member.role.name
+                ),
+                refreshToken = jwtProvider.createRefreshToken(
+                    member.id ?: throw BusinessException(CommonError.INTERNAL_SERVER_ERROR)
+                ),
+                accessTokenExpiry = jwtProvider.accessTokenExpiry
             )
         )
     }
@@ -91,9 +96,14 @@ class AuthService(
         val naverOAuth = naverOAuthRepository.findByProviderId(naverMemberProfile.response.id)
         return SuccessDataResponse(
             MemberTokenResponseDto(
-                accessToken = jwtProvider.createAccessToken(naverOAuth.member),
-                refreshToken = jwtProvider.createRefreshToken(naverOAuth.member),
-                accessTokenExpiry = jwtProvider.getAccessTokenExpiry()
+                accessToken = jwtProvider.createAccessToken(
+                    naverOAuth.member.id ?: throw BusinessException(CommonError.INTERNAL_SERVER_ERROR),
+                    naverOAuth.member.role.name
+                ),
+                refreshToken = jwtProvider.createRefreshToken(
+                    naverOAuth.member.id ?: throw BusinessException(CommonError.INTERNAL_SERVER_ERROR)
+                ),
+                accessTokenExpiry = jwtProvider.accessTokenExpiry
             )
         )
     }

@@ -2,12 +2,14 @@ package kr.byeongmin.watchtower.domain.admin.controller
 
 import io.swagger.v3.oas.annotations.Operation
 import kr.byeongmin.watchtower.global.response.SuccessDataResponse
+import kr.byeongmin.watchtower.global.security.AdminOnly
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/api/v1/admin/stats")
+@AdminOnly
 class StatsController {
     @Operation(summary = "대시보드 와치 통계 조회")
     @GetMapping("/watches")

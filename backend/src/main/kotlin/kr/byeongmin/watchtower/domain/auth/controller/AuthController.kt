@@ -6,6 +6,7 @@ import kr.byeongmin.watchtower.domain.auth.dto.MemberTokenResponseDto
 import kr.byeongmin.watchtower.domain.auth.service.AuthService
 import kr.byeongmin.watchtower.global.response.SuccessDataResponse
 import kr.byeongmin.watchtower.global.response.SuccessResponse
+import kr.byeongmin.watchtower.global.security.AuthenticatedUser
 import org.springframework.web.bind.annotation.*
 
 @RestController
@@ -33,6 +34,7 @@ class AuthController(
 
     @Operation(summary = "네이버 OAuth Token Revocation")
     @DeleteMapping("/naver/revoke")
+    @AuthenticatedUser
     fun revokeNaverToken(): SuccessResponse {
         return SuccessResponse()
     }
@@ -45,6 +47,7 @@ class AuthController(
 
     @Operation(summary = "Watchtower Refresh Token 삭제")
     @DeleteMapping("/logout")
+    @AuthenticatedUser
     fun logout(): SuccessResponse {
         return SuccessResponse()
     }
