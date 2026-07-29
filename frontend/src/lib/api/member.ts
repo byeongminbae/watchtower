@@ -1,37 +1,52 @@
-import { apiClient } from "./client";
-import { requireArrayData, requireObjectData } from "./types";
+import { rejectUnavailable } from "./availability";
 import type { ApiEnvelope } from "./types";
 import type { Member, PaymentHistory, Subscription, Watch } from "@/types/domain";
 
 export const memberApi = {
-  // GET /api/v1/member/{memberId}
-  getMember: (memberId: number) =>
-    apiClient.get<ApiEnvelope<Member>>(`/api/v1/member/${memberId}`).then(requireObjectData),
+  getMember: (memberId: number) => {
+    void memberId;
+    return rejectUnavailable<ApiEnvelope<Member>>("member.getMember");
+  },
 
-  // PATCH /api/v1/member/{memberId}
-  updateMember: (memberId: number, body: Partial<Pick<Member, "nickname" | "profileImageUrl">>) =>
-    apiClient.patch<ApiEnvelope<Member>>(`/api/v1/member/${memberId}`, body).then(requireObjectData),
+  updateMember: (
+    memberId: number,
+    body: Partial<Pick<Member, "nickname" | "profileImageUrl">>,
+  ) => {
+    void memberId;
+    void body;
+    return rejectUnavailable<ApiEnvelope<Member>>("member.updateMember");
+  },
 
-  // DELETE /api/v1/member/{memberId}
-  deleteMember: (memberId: number) => apiClient.delete<ApiEnvelope<string>>(`/api/v1/member/${memberId}`),
+  deleteMember: (memberId: number) => {
+    void memberId;
+    return rejectUnavailable<ApiEnvelope<string>>("member.deleteMember");
+  },
 
-  // GET /api/v1/member/{memberId}/watches
-  getMemberWatches: (memberId: number) =>
-    apiClient.get<ApiEnvelope<Watch[]>>(`/api/v1/member/${memberId}/watches`).then(requireArrayData),
+  getMemberWatches: (memberId: number) => {
+    void memberId;
+    return rejectUnavailable<ApiEnvelope<Watch[]>>(
+      "member.getMemberWatches",
+    );
+  },
 
-  // GET /api/v1/member/{memberId}/payments
-  getMemberPaymentHistories: (memberId: number) =>
-    apiClient
-      .get<ApiEnvelope<PaymentHistory[]>>(`/api/v1/member/${memberId}/payments`)
-      .then(requireArrayData),
+  getMemberPaymentHistories: (memberId: number) => {
+    void memberId;
+    return rejectUnavailable<ApiEnvelope<PaymentHistory[]>>(
+      "member.getMemberPaymentHistories",
+    );
+  },
 
-  // GET /api/v1/member/{memberId}/subscriptions
-  getMemberSubscription: (memberId: number) =>
-    apiClient
-      .get<ApiEnvelope<Subscription>>(`/api/v1/member/${memberId}/subscriptions`)
-      .then(requireObjectData),
+  getMemberSubscription: (memberId: number) => {
+    void memberId;
+    return rejectUnavailable<ApiEnvelope<Subscription>>(
+      "member.getMemberSubscription",
+    );
+  },
 
-  // DELETE /api/v1/member/{memberId}/subscriptions
-  cancelMemberSubscription: (memberId: number) =>
-    apiClient.delete<ApiEnvelope<string>>(`/api/v1/member/${memberId}/subscriptions`),
+  cancelMemberSubscription: (memberId: number) => {
+    void memberId;
+    return rejectUnavailable<ApiEnvelope<string>>(
+      "member.cancelMemberSubscription",
+    );
+  },
 };

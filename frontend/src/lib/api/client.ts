@@ -1,49 +1,77 @@
 import { logError, logRequest, logResponse, safeParseForLog } from "@/lib/apiLogger";
 import { getJwtFromCookie } from "@/lib/jwtCookie";
-import { ApiError, ApiErrorBody } from "./errors";
+import { clearSession } from "../session";
+import { ApiError } from "./errors";
+import {
+  decodeEmptyData,
+  decodeGuardedData,
+  decodeUnknownData,
+  invalidResponse,
+  isSuccessEnvelope,
+} from "./types";
+import type {
+  ApiDataGuard,
+  ApiEnvelope,
+  ResponseDecoder,
+} from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "PATCH" | "DELETE" | "PUT";
-  body?: unknown;
-  // 401을 받았을 때 /auth/renew로 자동 재시도할지 여부. 재발급 요청 자체에는 false로 넘겨 무한루프 방지.
-  skipAuthRetry?: boolean;
+  readonly method?: "GET" | "POST" | "PATCH" | "DELETE" | "PUT";
+  readonly body?: unknown;
 }
 
-let renewPromise: Promise<boolean> | null = null;
+type ErrorEnvelope = {
+  readonly success: false;
+  readonly statusCode: string;
+  readonly message: string;
+  readonly timestamp: string;
+};
 
-// 인증 만료(401) 시 /auth/renew를 호출해 쿠키(JWT)를 갱신한다.
-// 응답 바디로 새 토큰을 받는 게 아니라, 백엔드가 Set-Cookie로 쿠키 자체를 갱신해준다고 가정한다.
-// 동시에 여러 요청이 401을 맞아도 재발급은 한 번만 수행되도록 Promise를 공유한다.
-async function renewSession(): Promise<boolean> {
-  if (renewPromise) return renewPromise;
+type BodyParseResult =
+  | { readonly kind: "empty" }
+  | { readonly kind: "malformed"; readonly cause: SyntaxError }
+  | { readonly kind: "json"; readonly value: unknown };
 
-  renewPromise = (async () => {
-    try {
-      await rawFetch("/api/v1/auth/renew", { method: "POST", skipAuthRetry: true });
-      // 갱신 후 쿠키가 실제로 새로 세팅되었는지 확인
-      return getJwtFromCookie() !== null;
-    } catch {
-      return false;
-    } finally {
-      renewPromise = null;
-    }
-  })();
-
-  return renewPromise;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-async function rawFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", body, skipAuthRetry } = options;
+function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
+  return (
+    isRecord(value) &&
+    value.success === false &&
+    typeof value.statusCode === "string" &&
+    typeof value.message === "string" &&
+    typeof value.timestamp === "string"
+  );
+}
+
+function parseBody(rawText: string): BodyParseResult {
+  if (rawText.length === 0) return { kind: "empty" };
+
+  try {
+    const value: unknown = JSON.parse(rawText);
+    return { kind: "json", value };
+  } catch (error) {
+    if (error instanceof SyntaxError) return { kind: "malformed", cause: error };
+    throw error;
+  }
+}
+
+async function rawFetch<T>(
+  path: string,
+  options: RequestOptions,
+  decode: ResponseDecoder<T>,
+): Promise<T> {
+  const { method = "GET", body } = options;
   const url = `${BASE_URL}${path}`;
-  // 매 요청마다 쿠키에서 직접 읽는다 (localStorage 등 별도 캐시를 두지 않음 - 쿠키가 유일한 source of truth).
   const jwt = getJwtFromCookie();
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (jwt) headers.Authorization = `Bearer ${jwt}`;
+  const headers: Record<string, string> =
+    jwt === null
+      ? { "Content-Type": "application/json" }
+      : { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` };
 
   logRequest({ method, url, headers, body });
   const start = performance.now();
@@ -53,18 +81,19 @@ async function rawFetch<T>(path: string, options: RequestOptions = {}): Promise<
     response = await fetch(url, {
       method,
       headers,
-      credentials: "include", // 쿠키(JWT) 자동 첨부/갱신을 위해 필요
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      credentials: "include",
+      body: body === undefined ? undefined : JSON.stringify(body),
     });
-  } catch (err) {
+  } catch (error) { // no-excuse-ok: catch — this transport boundary normalizes all fetch rejection values.
     const durationMs = Math.round(performance.now() - start);
-    logError({ method, url, durationMs, error: err });
-    throw new ApiError("네트워크 오류가 발생했습니다.", 0, "NETWORK_ERROR", err);
+    logError({ method, url, durationMs, error });
+    throw new ApiError("네트워크 오류가 발생했습니다.", 0, "NETWORK_ERROR", error);
   }
 
   const durationMs = Math.round(performance.now() - start);
   const rawText = await response.text();
-  const parsedBody = safeParseForLog(rawText);
+  const bodyResult = parseBody(rawText);
+  const parsedForLog = safeParseForLog(rawText);
 
   logResponse({
     method,
@@ -73,34 +102,145 @@ async function rawFetch<T>(path: string, options: RequestOptions = {}): Promise<
     statusText: response.statusText,
     durationMs,
     headers: response.headers,
-    body: parsedBody,
+    body: parsedForLog,
   });
 
-  // 인증 만료 시 한 번 재발급(쿠키 갱신) 시도 후 재요청
-  if (response.status === 401 && !skipAuthRetry) {
-    const renewed = await renewSession();
-    if (renewed) {
-      return rawFetch<T>(path, { ...options, skipAuthRetry: true });
+  if (response.status === 401) {
+    clearSession();
+    const value = bodyResult.kind === "json" ? bodyResult.value : parsedForLog;
+    if (isErrorEnvelope(value)) {
+      throw new ApiError(value.message, 401, value.statusCode, value);
     }
-    throw new ApiError("인증이 만료되었습니다. 다시 로그인해주세요.", 401, "UNAUTHORIZED", parsedBody);
-  }
-
-  if (!response.ok) {
-    const errBody = parsedBody as ApiErrorBody | undefined;
     throw new ApiError(
-      errBody?.error?.message ?? `요청에 실패했습니다. (${response.status})`,
-      response.status,
-      errBody?.error?.code,
-      parsedBody,
+      "인증이 만료되었습니다. 다시 로그인해주세요.",
+      401,
+      "UNAUTHORIZED",
+      value,
     );
   }
 
-  return parsedBody as T;
+  switch (bodyResult.kind) {
+    case "empty":
+      throw new ApiError(
+        "API 응답 본문이 비어 있습니다.",
+        response.status,
+        "EMPTY_RESPONSE",
+      );
+    case "malformed":
+      throw new ApiError(
+        "API 응답이 올바른 JSON 형식이 아닙니다.",
+        response.status,
+        "MALFORMED_RESPONSE",
+        rawText,
+      );
+    case "json":
+      if (isErrorEnvelope(bodyResult.value)) {
+        throw new ApiError(
+          bodyResult.value.message,
+          response.status,
+          bodyResult.value.statusCode,
+          bodyResult.value,
+        );
+      }
+      if (!isSuccessEnvelope(bodyResult.value)) {
+        throw invalidResponse(bodyResult.value, response.status);
+      }
+      if (!response.ok) {
+        throw new ApiError(
+          `요청에 실패했습니다. (${response.status})`,
+          response.status,
+          "HTTP_ERROR",
+          bodyResult.value,
+        );
+      }
+      return decode(bodyResult.value, response.status);
+    default: {
+      const exhaustive: never = bodyResult;
+      throw new ApiError(
+        "처리할 수 없는 API 응답 상태입니다.",
+        response.status,
+        "INVALID_RESPONSE",
+        exhaustive,
+      );
+    }
+  }
+}
+
+function dataDecoder<T>(
+  guard?: ApiDataGuard<T>,
+): ResponseDecoder<ApiEnvelope<T> | ApiEnvelope<unknown>> {
+  if (guard === undefined) return decodeUnknownData;
+  return (value, status) => decodeGuardedData(value, status, guard);
+}
+
+function get<T>(
+  path: string,
+  guard: ApiDataGuard<T>,
+): Promise<ApiEnvelope<T>>;
+function get<T extends ApiEnvelope<unknown>>(path: string): Promise<T>;
+function get<T>(
+  path: string,
+  guard?: ApiDataGuard<T>,
+): Promise<ApiEnvelope<T> | ApiEnvelope<unknown>> {
+  return rawFetch(path, { method: "GET" }, dataDecoder(guard));
+}
+
+function post<T>(
+  path: string,
+  body: unknown,
+  guard: ApiDataGuard<T>,
+): Promise<ApiEnvelope<T>>;
+function post<T extends ApiEnvelope<unknown>>(
+  path: string,
+  body?: unknown,
+): Promise<T>;
+function post<T>(
+  path: string,
+  body?: unknown,
+  guard?: ApiDataGuard<T>,
+): Promise<ApiEnvelope<T> | ApiEnvelope<unknown>> {
+  return rawFetch(path, { method: "POST", body }, dataDecoder(guard));
+}
+
+function patch<T>(
+  path: string,
+  body: unknown,
+  guard: ApiDataGuard<T>,
+): Promise<ApiEnvelope<T>>;
+function patch<T extends ApiEnvelope<unknown>>(
+  path: string,
+  body?: unknown,
+): Promise<T>;
+function patch<T>(
+  path: string,
+  body?: unknown,
+  guard?: ApiDataGuard<T>,
+): Promise<ApiEnvelope<T> | ApiEnvelope<unknown>> {
+  return rawFetch(path, { method: "PATCH", body }, dataDecoder(guard));
+}
+
+function remove<T>(
+  path: string,
+  body: unknown,
+  guard: ApiDataGuard<T>,
+): Promise<ApiEnvelope<T>>;
+function remove<T extends ApiEnvelope<unknown>>(
+  path: string,
+  body?: unknown,
+): Promise<T>;
+function remove<T>(
+  path: string,
+  body?: unknown,
+  guard?: ApiDataGuard<T>,
+): Promise<ApiEnvelope<T> | ApiEnvelope<unknown>> {
+  return rawFetch(path, { method: "DELETE", body }, dataDecoder(guard));
 }
 
 export const apiClient = {
-  get: <T>(path: string) => rawFetch<T>(path, { method: "GET" }),
-  post: <T>(path: string, body?: unknown) => rawFetch<T>(path, { method: "POST", body }),
-  patch: <T>(path: string, body?: unknown) => rawFetch<T>(path, { method: "PATCH", body }),
-  delete: <T>(path: string, body?: unknown) => rawFetch<T>(path, { method: "DELETE", body }),
+  get,
+  post,
+  patch,
+  delete: remove,
+  deleteEmpty: (path: string, body?: unknown) =>
+    rawFetch(path, { method: "DELETE", body }, decodeEmptyData),
 };

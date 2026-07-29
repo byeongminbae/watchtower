@@ -20,15 +20,20 @@ import { memberApi } from "@/lib/api";
 import { useApiData } from "@/lib/useApiData";
 
 export default function PaymentsPage() {
-  const { member } = useAuth();
+  const { principal } = useAuth();
+  const memberId = principal?.memberId;
   const {
     data: payments,
     loading,
     error,
   } = useApiData(
-    () => (member ? memberApi.getMemberPaymentHistories(member.id).then((r) => r.data) : Promise.resolve([])),
-    [member?.id],
+    () =>
+      memberId === undefined
+        ? new Promise<never>(() => undefined)
+        : memberApi.getMemberPaymentHistories(memberId).then((r) => r.data),
+    [memberId],
   );
+  const pending = memberId === undefined || loading || (payments === null && !error);
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
@@ -36,15 +41,15 @@ export default function PaymentsPage() {
         결제 이력
       </Typography>
 
-      {loading && (
+      {pending && (
         <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
           <CircularProgress color="secondary" />
         </Box>
       )}
 
-      {!loading && error && <Alert severity="error">{error}</Alert>}
+      {!pending && error && <Alert severity="error">{error}</Alert>}
 
-      {!loading && !error && (
+      {!pending && !error && (
         <TableContainer component={Paper} variant="outlined">
           <Table>
             <TableHead>

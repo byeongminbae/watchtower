@@ -20,11 +20,12 @@ import LighthouseMark from "@/components/common/LighthouseMark";
 import { useAuth } from "@/lib/AuthContext";
 
 export default function Header() {
-  const { isLoggedIn, member, logout } = useAuth();
+  const { isLoggedIn, principal, member, logout } = useAuth();
   const router = useRouter();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
-  const isAdmin = member?.role === "ADMIN";
+  const isAdmin = principal?.role === "ADMIN";
+  const displayName = member?.nickname.trim() || "회원";
 
   const handleLogout = async () => {
     setAnchorEl(null);
@@ -90,11 +91,23 @@ export default function Header() {
               )}
 
               <Box
-                sx={{ display: "flex", alignItems: "center", gap: 0.5, cursor: "pointer" }}
+                component="button"
+                type="button"
+                aria-label={`${displayName} 메뉴`}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                  p: 0,
+                  border: 0,
+                  bgcolor: "transparent",
+                  color: "inherit",
+                  cursor: "pointer",
+                }}
                 onClick={(e) => setAnchorEl(e.currentTarget)}
               >
                 <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main" }}>
-                  {isAdmin ? <AdminPanelSettingsOutlinedIcon fontSize="small" /> : member?.nickname[0]}
+                  {isAdmin ? <AdminPanelSettingsOutlinedIcon fontSize="small" /> : displayName[0]}
                 </Avatar>
                 <KeyboardArrowDownIcon fontSize="small" sx={{ color: "text.secondary" }} />
               </Box>

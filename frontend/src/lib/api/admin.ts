@@ -1,9 +1,7 @@
-import { apiClient } from "./client";
-import { requireArrayData, requireObjectData } from "./types";
+import { rejectUnavailable } from "./availability";
 import type { ApiEnvelope } from "./types";
 import type { Member, MemberRole, PaymentHistory, Watch, WatchStatus } from "@/types/domain";
 
-// 통계 응답도 스텁 상태라, 대시보드에서 실제로 필요한 형태로 추론한다.
 export interface WatchStatsResult {
   totalActiveWatches: number;
   dailyTrend: Array<{ date: string; count: number }>;
@@ -26,69 +24,61 @@ export interface AuthStatsResult {
 }
 
 export const adminApi = {
-  // GET /api/v1/admin/watches?query=
-  // 스웨거 스펙에는 없으나, "결제 내역 조회/검색"·"전체 유저 조회/검색"과 대칭되는
-  // "전체 와치리스트 조회/검색" 엔드포인트가 관리자 기능상 반드시 필요하다고 추론해 채운다.
-  getWatches: (query?: string) =>
-    apiClient.get<ApiEnvelope<Watch[]>>(
-      `/api/v1/admin/watches${query ? `?query=${encodeURIComponent(query)}` : ""}`,
-    ).then(requireArrayData),
+  getWatches: (query?: string) => {
+    void query;
+    return rejectUnavailable<ApiEnvelope<Watch[]>>("admin.getWatches");
+  },
 
-  // PATCH /api/v1/admin/watches/{watchId}
-  updateWatchStatus: (watchId: number, status: WatchStatus) =>
-    apiClient
-      .patch<ApiEnvelope<Watch>>(`/api/v1/admin/watches/${watchId}`, { status })
-      .then(requireObjectData),
+  updateWatchStatus: (watchId: number, status: WatchStatus) => {
+    void watchId;
+    void status;
+    return rejectUnavailable<ApiEnvelope<Watch>>(
+      "admin.updateWatchStatus",
+    );
+  },
 
-  // POST /api/v1/admin/payments/{paymentId}/cancel
-  cancelPayment: (paymentId: number) =>
-    apiClient.post<ApiEnvelope<string>>(`/api/v1/admin/payments/${paymentId}/cancel`),
+  cancelPayment: (paymentId: number) => {
+    void paymentId;
+    return rejectUnavailable<ApiEnvelope<string>>("admin.cancelPayment");
+  },
 
-  // GET /api/v1/admin/payments?query=
-  getPayments: (query?: string) =>
-    apiClient.get<ApiEnvelope<PaymentHistory[]>>(
-      `/api/v1/admin/payments${query ? `?query=${encodeURIComponent(query)}` : ""}`,
-    ).then(requireArrayData),
+  getPayments: (query?: string) => {
+    void query;
+    return rejectUnavailable<ApiEnvelope<PaymentHistory[]>>(
+      "admin.getPayments",
+    );
+  },
 
-  // GET /api/v1/admin/users?query=
-  getUsers: (query?: string) =>
-    apiClient.get<ApiEnvelope<Member[]>>(
-      `/api/v1/admin/users${query ? `?query=${encodeURIComponent(query)}` : ""}`,
-    ).then(requireArrayData),
+  getUsers: (query?: string) => {
+    void query;
+    return rejectUnavailable<ApiEnvelope<Member[]>>("admin.getUsers");
+  },
 
-  // PATCH /api/v1/admin/users/{userId}/roles
-  updateUserRole: (userId: number, role: MemberRole) =>
-    apiClient
-      .patch<ApiEnvelope<Member>>(`/api/v1/admin/users/${userId}/roles`, { role })
-      .then(requireObjectData),
+  updateUserRole: (userId: number, role: MemberRole) => {
+    void userId;
+    void role;
+    return rejectUnavailable<ApiEnvelope<Member>>("admin.updateUserRole");
+  },
 
-  // PATCH /api/v1/admin/users/{userId}/status (ban/unban)
-  updateUserStatus: (userId: number, banned: boolean) =>
-    apiClient
-      .patch<ApiEnvelope<Member>>(`/api/v1/admin/users/${userId}/status`, { banned })
-      .then(requireObjectData),
+  updateUserStatus: (userId: number, banned: boolean) => {
+    void userId;
+    void banned;
+    return rejectUnavailable<ApiEnvelope<Member>>(
+      "admin.updateUserStatus",
+    );
+  },
 
-  // GET /api/v1/admin/stats/watches
   getWatchStats: () =>
-    apiClient
-      .get<ApiEnvelope<WatchStatsResult>>("/api/v1/admin/stats/watches")
-      .then(requireObjectData),
+    rejectUnavailable<ApiEnvelope<WatchStatsResult>>("admin.getWatchStats"),
 
-  // GET /api/v1/admin/stats/users
   getUserStats: () =>
-    apiClient
-      .get<ApiEnvelope<UserStatsResult>>("/api/v1/admin/stats/users")
-      .then(requireObjectData),
+    rejectUnavailable<ApiEnvelope<UserStatsResult>>("admin.getUserStats"),
 
-  // GET /api/v1/admin/stats/payments
   getPaymentStats: () =>
-    apiClient
-      .get<ApiEnvelope<PaymentStatsResult>>("/api/v1/admin/stats/payments")
-      .then(requireObjectData),
+    rejectUnavailable<ApiEnvelope<PaymentStatsResult>>(
+      "admin.getPaymentStats",
+    ),
 
-  // GET /api/v1/admin/stats/auth
   getAuthStats: () =>
-    apiClient
-      .get<ApiEnvelope<AuthStatsResult>>("/api/v1/admin/stats/auth")
-      .then(requireObjectData),
+    rejectUnavailable<ApiEnvelope<AuthStatsResult>>("admin.getAuthStats"),
 };
