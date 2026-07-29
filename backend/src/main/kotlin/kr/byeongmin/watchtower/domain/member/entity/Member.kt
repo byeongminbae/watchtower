@@ -8,10 +8,10 @@ import java.time.LocalDateTime
 
 @Entity
 class Member(
-    private val email: String,
-    private val nickname: String,
-    private val profileImageUrl: String,
-    private val lastLoginAt: LocalDateTime = TimeUtil.entityTime(),
+    val email: String,
+    val nickname: String,
+    val profileImageUrl: String,
+    val lastLoginAt: LocalDateTime = TimeUtil.entityTime(),
     @Enumerated(EnumType.STRING)
     val role: MemberRole = MemberRole.USER
 ) : Base() {

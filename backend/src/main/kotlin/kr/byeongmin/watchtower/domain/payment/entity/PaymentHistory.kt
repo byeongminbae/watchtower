@@ -1,15 +1,6 @@
 package kr.byeongmin.watchtower.domain.payment.entity
 
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
-import jakarta.persistence.FetchType
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
-import jakarta.persistence.Id
-import jakarta.persistence.ManyToOne
-import jakarta.persistence.SequenceGenerator
+import jakarta.persistence.*
 import kr.byeongmin.watchtower.domain.member.entity.Member
 import kr.byeongmin.watchtower.domain.subscription.enums.PlanTier
 import kr.byeongmin.watchtower.global.entity.HistoryBase
@@ -25,14 +16,14 @@ import java.math.BigDecimal
 @Entity
 class PaymentHistory(
     @ManyToOne(fetch = FetchType.LAZY)
-    private val member: Member,
-    private val planName: String,
-    private val planPrice: BigDecimal,
-    private val planDurationDays: Int,
+    val member: Member,
+    val planName: String,
+    val planPrice: BigDecimal,
+    val planDurationDays: Int,
     @Enumerated(EnumType.STRING)
-    private val planTier: PlanTier,
+    val planTier: PlanTier,
     @Column(columnDefinition = "TEXT")
-    private val tossRawResponse: String
+    val tossRawResponse: String
 ) : HistoryBase() {
     @Id
     @GeneratedValue(

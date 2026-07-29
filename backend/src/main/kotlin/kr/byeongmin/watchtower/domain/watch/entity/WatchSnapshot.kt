@@ -1,25 +1,19 @@
 package kr.byeongmin.watchtower.domain.watch.entity
 
-import jakarta.persistence.Entity
-import jakarta.persistence.FetchType
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
-import jakarta.persistence.Id
-import jakarta.persistence.ManyToOne
-import jakarta.persistence.SequenceGenerator
+import jakarta.persistence.*
 import kr.byeongmin.watchtower.global.entity.Base
 import java.time.LocalDateTime
 
 @Entity
 class WatchSnapshot(
     @ManyToOne(fetch = FetchType.LAZY)
-    private val watch: Watch,
-    private val htmlContentUrl: String,
-    private val htmlContentDiffUrl: String,
-    private val screenshotUrl: String,
-    private val screenshotDiffUrl: String,
-    private val aiDiffSummary: String,
-    private val notifiedAt: LocalDateTime
+    val watch: Watch,
+    val htmlContentUrl: String,
+    val htmlContentDiffUrl: String,
+    val screenshotUrl: String,
+    val screenshotDiffUrl: String,
+    val aiDiffSummary: String,
+    val notifiedAt: LocalDateTime
 ) : Base() {
     @Id
     @GeneratedValue(
