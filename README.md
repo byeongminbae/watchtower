@@ -1,5 +1,9 @@
-[![watchtower-deploy](https://github.com/byeongminbae/watchtower/actions/workflows/watchtower-deploy.yml/badge.svg)](https://github.com/byeongminbae/watchtower/actions/workflows/watchtower-deploy.yml)
-<img width="1659" height="948" alt="watchtower" src="https://github.com/user-attachments/assets/a4ec5a62-4680-4004-aecc-9527fd0cd2a7" />
+<div align="center">
+<picture>
+  <img width="400" height="400" alt="watchtower-shadow" src="https://github.com/user-attachments/assets/a736b7ce-1f7b-425d-9da6-327b8c11073f" />
+</picture>
+ <p><strong>매일 새로고침하시죠? 이제 변화가 생기면 먼저 알려드릴게요!</strong></p>
+</div>
 
 ## 🚀 진행 상황
 현재 개발 진행 상황과 이슈는 [Projects 탭](https://github.com/users/byeongminbae/projects/6)에서 확인하실 수 있습니다.
