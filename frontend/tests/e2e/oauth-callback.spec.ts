@@ -58,6 +58,18 @@ test.describe("OAuth callback desktop", () => {
         body: successEnvelope(oauth.validTokens()),
       });
     });
+    await page.route("**/api/v1/member/7", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: successEnvelope({
+          id: 7,
+          nickname: "실제 감시자",
+          email: "watcher@example.com",
+          profileImageUrl: "",
+          lastSignInAt: TIMESTAMP,
+        }),
+      }),
+    );
     await page.goto("/login?next=%2Fwatches");
 
     // When
@@ -75,7 +87,9 @@ test.describe("OAuth callback desktop", () => {
 
     // Then
     await expect(page).toHaveURL(/\/watches$/u);
-    await expect(page.getByRole("button", { name: "회원 메뉴" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "실제 감시자 메뉴" }),
+    ).toBeVisible();
     await expect(
       page.getByText("백엔드 기능이 아직 제공되지 않습니다."),
     ).toBeVisible();
@@ -90,7 +104,9 @@ test.describe("OAuth callback desktop", () => {
     await page.reload();
     await expect(page).toHaveURL(/\/watches$/u);
     expect(page.url()).not.toContain("/login?");
-    await expect(page.getByRole("button", { name: "회원 메뉴" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "실제 감시자 메뉴" }),
+    ).toBeVisible();
     await expect(
       page.getByText("백엔드 기능이 아직 제공되지 않습니다."),
     ).toBeVisible();

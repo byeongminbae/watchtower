@@ -89,7 +89,17 @@ export default function LandingStory() {
                       {experience.icon}
                     </Box>
                     <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.45, textWrap: "pretty" }}>
-                      {experience.title}
+                      {experience.title.includes("공연·행사") ? (
+                        <>
+                          {experience.title.slice(0, experience.title.indexOf("공연·행사"))}
+                          <Box component="span" sx={{ whiteSpace: "nowrap" }}>
+                            공연·행사
+                          </Box>
+                          {experience.title.slice(experience.title.indexOf("공연·행사") + "공연·행사".length)}
+                        </>
+                      ) : (
+                        experience.title
+                      )}
                     </Typography>
                   </Stack>
                 ))}
@@ -105,7 +115,7 @@ export default function LandingStory() {
           position: "relative",
           overflow: "hidden",
           bgcolor: "background.paper",
-          backgroundImage: "radial-gradient(circle at 80% 20%, rgba(255,201,74,0.09), transparent 34%)",
+          backgroundImage: "var(--wt-story-atmosphere)",
           borderTop: "1px solid",
           borderColor: "divider",
           "& .MuiTypography-root": { wordBreak: "keep-all", overflowWrap: "break-word" },
@@ -133,8 +143,11 @@ export default function LandingStory() {
                 필요한 내용만 알려드릴게요
               </Typography>
               <Typography color="text.secondary" sx={{ maxWidth: 460, lineHeight: 1.8, textWrap: "pretty" }}>
-                계속 확인하지 않아도 괜찮습니다. Watchtower는 등록한 페이지의 변화를 감지하고, 무엇이
-                달라졌는지 AI로 짧고 이해하기 쉽게 요약합니다.
+                계속 확인하지 않아도 괜찮습니다.{" "}
+                <Box component="span" sx={{ whiteSpace: "nowrap" }}>
+                  Watchtower는 등록한
+                </Box>{" "}
+                페이지의 변화를 감지하고, 무엇이 달라졌는지 AI로 짧고 이해하기 쉽게 요약합니다.
               </Typography>
             </Grid>
             <Grid size={{ xs: 12, md: 7 }}>

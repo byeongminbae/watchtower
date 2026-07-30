@@ -1,17 +1,25 @@
 import { Box, Chip, Tooltip } from "@mui/material";
-import { WatchStatus } from "@/types/domain";
+import type { WatchStatus } from "@/types/domain";
 
 const STATUS_META: Record<WatchStatus, { label: string; color: string; description: string }> = {
-  RUNNING: { label: "감시중", color: "#4ADE80", description: "정상적으로 감시가 진행 중입니다." },
-  PAUSED: { label: "일시정지", color: "#9FB3C8", description: "사용자가 감시를 일시정지했습니다." },
+  RUNNING: {
+    label: "감시중",
+    color: "var(--wt-status-success)",
+    description: "정상적으로 감시가 진행 중입니다.",
+  },
+  PAUSED: {
+    label: "일시정지",
+    color: "var(--wt-text-tertiary)",
+    description: "사용자가 감시를 일시정지했습니다.",
+  },
   PAYMENT_REQUIRED: {
     label: "결제 필요",
-    color: "#FFC94A",
+    color: "var(--wt-status-warning)",
     description: "플랜 범위를 초과하여 결제가 필요합니다.",
   },
   ILLEGAL_SUSPENDED: {
     label: "정책 위반 정지",
-    color: "#F87171",
+    color: "var(--wt-status-error)",
     description: "정책 위반으로 관리자에 의해 정지되었습니다.",
   },
 };
@@ -47,9 +55,9 @@ export default function WatchStatusDot({
       size="small"
       label={meta.label}
       sx={{
-        backgroundColor: `${meta.color}22`,
+        backgroundColor: `color-mix(in srgb, ${meta.color} 13%, transparent)`,
         color: meta.color,
-        border: `1px solid ${meta.color}55`,
+        border: `1px solid color-mix(in srgb, ${meta.color} 34%, transparent)`,
         fontWeight: 600,
       }}
     />

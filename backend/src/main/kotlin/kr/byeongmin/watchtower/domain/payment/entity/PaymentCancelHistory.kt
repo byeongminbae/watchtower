@@ -5,7 +5,7 @@ import kr.byeongmin.watchtower.global.entity.HistoryBase
 import java.time.LocalDateTime
 
 @Entity
-class PaymentCancelHistory(
+class PaymentCancelHistory private constructor(
     @ManyToOne(fetch = FetchType.LAZY)
     val paymentHistory: PaymentHistory,
 

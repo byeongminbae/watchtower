@@ -37,7 +37,7 @@ function installSession(): void {
   commitSession(
     createJwt({
       sub: "7",
-      role: "USER",
+      role: "NORMAL",
       iat: NOW_SECONDS,
       exp: NOW_SECONDS + 60,
     }),
@@ -139,8 +139,8 @@ describe("AuthProvider unauthorized session handling", () => {
           nickname: "늦은 회원",
           email: "late@example.com",
           profileImageUrl: "",
-          role: "USER",
-          lastLoginAt: "2033-05-18T00:00:00Z",
+          role: "NORMAL",
+          lastSignInAt: "2033-05-18T00:00:00Z",
         },
         timestamp: "2033-05-18T00:00:00Z",
       });

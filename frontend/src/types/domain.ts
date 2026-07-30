@@ -1,15 +1,15 @@
 // 백엔드 도메인 엔티티에 대응하는 프론트엔드 타입.
 // domain: member, watch, subscription, payment 구조를 그대로 따름.
 
-export type MemberRole = "USER" | "ADMIN";
+export type MemberRole = "NORMAL" | "ADMIN";
 
 export interface Member {
   id: number;
   nickname: string;
   email: string;
   profileImageUrl: string;
-  role: MemberRole;
-  lastLoginAt: string;
+  role?: MemberRole;
+  lastSignInAt: string;
   isBanned?: boolean;
 }
 

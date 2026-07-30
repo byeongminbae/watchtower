@@ -5,7 +5,7 @@ import jakarta.persistence.Entity
 
 @Entity
 @DiscriminatorValue("KEYWORD")
-class KeywordCondition(
+class KeywordCondition private constructor(
     watch: Watch,
     var keyword: String
 ) : WatchCondition(watch)

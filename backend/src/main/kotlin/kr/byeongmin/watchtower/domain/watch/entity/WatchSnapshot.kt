@@ -5,7 +5,7 @@ import kr.byeongmin.watchtower.global.entity.Base
 import java.time.LocalDateTime
 
 @Entity
-class WatchSnapshot(
+class WatchSnapshot private constructor(
     @ManyToOne(fetch = FetchType.LAZY)
     val watch: Watch,
     val htmlContentUrl: String,

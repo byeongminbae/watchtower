@@ -158,7 +158,7 @@ export default function AdminUsersPage() {
                   <TableCell>
                     {user.isBanned && <Chip size="small" label="정지됨" color="error" variant="outlined" />}
                   </TableCell>
-                  <TableCell>{new Date(user.lastLoginAt).toLocaleDateString("ko-KR")}</TableCell>
+                  <TableCell>{new Date(user.lastSignInAt).toLocaleDateString("ko-KR")}</TableCell>
                   <TableCell align="right">
                     <Button
                       size="small"
@@ -187,7 +187,7 @@ export default function AdminUsersPage() {
       )}
 
       <Menu anchorEl={roleMenuAnchor} open={Boolean(roleMenuAnchor)} onClose={() => setRoleMenuAnchor(null)}>
-        <MenuItem onClick={() => handleChangeRole("USER")}>USER로 변경</MenuItem>
+        <MenuItem onClick={() => handleChangeRole("NORMAL")}>NORMAL로 변경</MenuItem>
         <MenuItem onClick={() => handleChangeRole("ADMIN")}>ADMIN으로 변경</MenuItem>
       </Menu>
 

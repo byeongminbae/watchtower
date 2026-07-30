@@ -39,12 +39,20 @@ function LoginContent() {
         minHeight: "calc(100vh - 64px)",
         display: "flex",
         alignItems: "center",
-        background:
-          "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(255,201,74,0.08), transparent)",
+        background: "var(--wt-login-atmosphere)",
       }}
     >
       <Container maxWidth="xs">
-        <Paper elevation={0} sx={{ p: 5, textAlign: "center", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 3, sm: 5 },
+            textAlign: "center",
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 4,
+          }}
+        >
           <Stack spacing={1} alignItems="center" sx={{ mb: 4 }}>
             <LighthouseMark size={48} />
             <Typography variant="h5" sx={{ fontWeight: 800 }}>
@@ -80,9 +88,6 @@ function LoginContent() {
 
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 3 }}>
             현재는 네이버 로그인만 지원합니다.
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
-            실제 네이버 로그인은 이 프론트엔드 주소의 /login/callback이 네이버 콜백 URL로 외부 설정되어 있어야 합니다.
           </Typography>
         </Paper>
       </Container>

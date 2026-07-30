@@ -63,9 +63,13 @@ export const authApi = {
   revokeNaverToken: () =>
     rejectUnavailable<ApiEnvelope<string>>("auth.revokeNaverToken"),
 
-  // POST /api/v1/auth/renew
-  renewSession: () => rejectUnavailable<ApiEnvelope<string>>("auth.renewSession"),
+  renewSession: (refreshToken: string) =>
+    apiClient.post(
+      `/api/v1/auth/renew?refreshToken=${encodeURIComponent(refreshToken)}`,
+      undefined,
+      isNaverCallbackTokens,
+    ),
 
   // DELETE /api/v1/auth/logout
-  logout: () => rejectUnavailable<ApiEnvelope<string>>("auth.logout"),
+  logout: () => apiClient.deleteEmpty("/api/v1/auth/logout"),
 };

@@ -40,11 +40,12 @@ export default function HotUrlSection() {
         px: { xs: 2, sm: 2.5 },
         py: 1.5,
         border: "1px solid",
-        borderColor: "rgba(255,201,74,0.22)",
+        borderColor: "var(--wt-hot-border)",
         borderRadius: 2,
-        bgcolor: "rgba(7,17,27,0.64)",
+        bgcolor: "var(--wt-hot-surface)",
         backdropFilter: "blur(12px)",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
+        boxShadow:
+          "inset 0 1px 0 rgba(255,255,255,0.84), 0 18px 34px -28px rgba(30,92,135,0.42)",
       }}
     >
       <Stack direction="row" alignItems="center" spacing={1.5} sx={{ minWidth: 0, minHeight: 32 }}>
@@ -55,7 +56,7 @@ export default function HotUrlSection() {
           </Typography>
         </Stack>
 
-        {loading && <Skeleton variant="text" width="100%" sx={{ bgcolor: "rgba(255,255,255,0.08)" }} />}
+        {loading && <Skeleton variant="text" width="100%" sx={{ bgcolor: "var(--wt-hot-skeleton)" }} />}
 
         {!loading && (error || !activeItem) && (
           <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1, textAlign: "left" }}>
@@ -99,8 +100,8 @@ export default function HotUrlSection() {
                   display: { xs: "none", sm: "inline-flex" },
                   flexShrink: 0,
                   height: 24,
-                  bgcolor: "rgba(255,201,74,0.1)",
-                  color: "secondary.main",
+                  bgcolor: "var(--wt-hot-signal)",
+                  color: "warning.main",
                 }}
               />
               <Typography

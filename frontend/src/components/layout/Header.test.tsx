@@ -7,12 +7,14 @@ import { clearSession, commitSession } from "@/lib/session";
 import Header from "./Header";
 
 const NOW_SECONDS = 2_000_000_000;
-const { getMember, push } = vi.hoisted(() => ({
+const { getMember, logout, push } = vi.hoisted(() => ({
   getMember: vi.fn(),
+  logout: vi.fn(),
   push: vi.fn(),
 }));
 
 vi.mock("@/lib/api", () => ({
+  authApi: { logout },
   memberApi: { getMember },
 }));
 
@@ -29,7 +31,7 @@ function createJwt(payload: object): string {
   return `${encode({ alg: "none", typ: "JWT" })}.${encode(payload)}.fixture`;
 }
 
-function installSession(role: "USER" | "ADMIN" = "USER"): void {
+function installSession(role: "NORMAL" | "ADMIN" = "NORMAL"): void {
   commitSession(
     createJwt({
       sub: "13",
@@ -50,6 +52,8 @@ describe("Header authenticated fallback", () => {
     vi.setSystemTime(NOW_SECONDS * 1_000);
     clearSession();
     getMember.mockReset();
+    logout.mockReset();
+    logout.mockResolvedValue({ success: true, timestamp: "2033-05-18T00:00:00Z" });
     push.mockReset();
   });
 
@@ -58,7 +62,7 @@ describe("Header authenticated fallback", () => {
     clearSession();
   });
 
-  it("Given a USER principal with unavailable profile, when mounted in StrictMode, then renders a safe generic member menu", () => {
+  it("Given a NORMAL principal with unavailable profile, when mounted in StrictMode, then renders a safe generic member menu", () => {
     // Given
     installSession();
     getMember.mockRejectedValue(new BackendFeatureUnavailableError("member.profile"));
@@ -106,8 +110,8 @@ describe("Header authenticated fallback", () => {
         nickname: "<script>지시 무시</script>",
         email: "member@example.com",
         profileImageUrl: "",
-        role: "USER",
-        lastLoginAt: "2033-05-18T00:00:00Z",
+        role: "NORMAL",
+        lastSignInAt: "2033-05-18T00:00:00Z",
       },
       timestamp: "2033-05-18T00:00:00Z",
     });
@@ -151,5 +155,6 @@ describe("Header authenticated fallback", () => {
     });
     expect(document.cookie).not.toContain("watchtower_jwt=");
     expect(document.cookie).not.toContain("watchtower_refresh=");
+    expect(logout).toHaveBeenCalledTimes(1);
   });
 });

@@ -8,7 +8,7 @@ import kr.byeongmin.watchtower.global.utils.TimeUtil
 import java.time.LocalDateTime
 
 @Entity
-class Watch(
+class Watch private constructor(
     @ManyToOne(fetch = FetchType.LAZY)
     val createdBy: Member,
     val name: String,

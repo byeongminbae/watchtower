@@ -10,6 +10,13 @@ function response(data: unknown): Response {
   );
 }
 
+function emptyResponse(): Response {
+  return new Response(
+    JSON.stringify({ success: true, timestamp: TIMESTAMP }),
+    { status: 200, headers: { "Content-Type": "application/json" } },
+  );
+}
+
 describe("authApi.getNaverLoginUrl", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -111,4 +118,46 @@ describe("authApi.loginWithNaverCallback", () => {
       });
     },
   );
+});
+
+describe("authApi session endpoints", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("Given a refresh token, when renewed, then sends it as an encoded query parameter", async () => {
+    // Given
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      response({
+        accessToken: "renewed.access.fixture",
+        refreshToken: "renewed.refresh.fixture",
+        accessTokenExpiry: 3_600_000,
+      }),
+    );
+
+    // When
+    const result = await authApi.renewSession("refresh token/fixture");
+
+    // Then
+    expect(result.data.accessToken).toBe("renewed.access.fixture");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/v1/auth/renew?refreshToken=refresh%20token%2Ffixture",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("Given an authenticated session, when logged out, then accepts the empty success response", async () => {
+    // Given
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(emptyResponse());
+
+    // When
+    const result = await authApi.logout();
+
+    // Then
+    expect(result).toEqual({ success: true, timestamp: TIMESTAMP });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/v1/auth/logout",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
 });

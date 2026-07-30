@@ -6,7 +6,7 @@ import kr.byeongmin.watchtower.global.entity.HistoryBase
 import java.time.LocalDateTime
 
 @Entity
-class WatchRequestHistory(
+class WatchRequestHistory private constructor(
     @ManyToOne(fetch = FetchType.LAZY)
     val watch: Watch,
     // 관리자가 트리거 하면 주인이 아니어도 트리거 가능

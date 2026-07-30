@@ -40,7 +40,7 @@ export default function Header() {
   return (
     <AppBar position="sticky" elevation={0}>
       <Container maxWidth="lg">
-        <Toolbar disableGutters sx={{ gap: 3 }}>
+        <Toolbar disableGutters sx={{ gap: { xs: 1, sm: 3 } }}>
           <Box
             component={Link}
             href="/"
@@ -66,7 +66,12 @@ export default function Header() {
                   component={Link}
                   href={item.href}
                   color="inherit"
-                  sx={{ color: "text.secondary", "&:hover": { color: "text.primary" } }}
+                  sx={{
+                    color: "text.secondary",
+                    whiteSpace: "nowrap",
+                    px: { xs: 0.5, sm: 1 },
+                    "&:hover": { color: "text.primary" },
+                  }}
                 >
                   {item.label}
                 </Button>
@@ -97,8 +102,11 @@ export default function Header() {
                 sx={{
                   display: "flex",
                   alignItems: "center",
+                  justifyContent: "center",
                   gap: 0.5,
                   p: 0,
+                  minWidth: 40,
+                  minHeight: 40,
                   border: 0,
                   bgcolor: "transparent",
                   color: "inherit",
@@ -106,7 +114,15 @@ export default function Header() {
                 }}
                 onClick={(e) => setAnchorEl(e.currentTarget)}
               >
-                <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main" }}>
+                <Avatar
+                  src={
+                    !isAdmin && member?.profileImageUrl
+                      ? member.profileImageUrl
+                      : undefined
+                  }
+                  alt={!isAdmin ? `${displayName} 프로필 사진` : undefined}
+                  sx={{ width: 32, height: 32, bgcolor: "primary.main" }}
+                >
                   {isAdmin ? <AdminPanelSettingsOutlinedIcon fontSize="small" /> : displayName[0]}
                 </Avatar>
                 <KeyboardArrowDownIcon fontSize="small" sx={{ color: "text.secondary" }} />

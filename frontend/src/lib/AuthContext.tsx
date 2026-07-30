@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { memberApi } from "@/lib/api";
+import { authApi, memberApi } from "@/lib/api";
 import { ApiError, BackendFeatureUnavailableError } from "@/lib/api/errors";
 import { InvalidApiDataError } from "@/lib/api/types";
 import {
@@ -10,6 +10,7 @@ import {
   INVALID_SESSION_SNAPSHOT,
   readSessionSnapshot,
   readSession,
+  readRefreshToken,
   subscribeToSessionChanges,
   type SessionPrincipal,
 } from "@/lib/session";
@@ -34,7 +35,8 @@ type AuthContextValue = {
   readonly member: Member | null;
   readonly memberStatus: MemberProfileStatus;
   readonly acceptSession: (tokens: SessionTokens) => boolean;
-  readonly logout: () => void;
+  readonly renewSession: () => Promise<boolean>;
+  readonly logout: () => Promise<void>;
   readonly refreshMember: () => Promise<void>;
 };
 
@@ -58,8 +60,7 @@ function isMember(value: unknown): value is Member {
     !("nickname" in value) ||
     !("email" in value) ||
     !("profileImageUrl" in value) ||
-    !("role" in value) ||
-    !("lastLoginAt" in value)
+    !("lastSignInAt" in value)
   ) {
     return false;
   }
@@ -71,8 +72,8 @@ function isMember(value: unknown): value is Member {
     typeof value.nickname === "string" &&
     typeof value.email === "string" &&
     typeof value.profileImageUrl === "string" &&
-    (value.role === "USER" || value.role === "ADMIN") &&
-    typeof value.lastLoginAt === "string" &&
+    (!("role" in value) || value.role === "NORMAL" || value.role === "ADMIN") &&
+    typeof value.lastSignInAt === "string" &&
     (!("isBanned" in value) || typeof value.isBanned === "boolean")
   );
 }
@@ -202,9 +203,25 @@ export function AuthProvider({
     return true;
   }, [clearProfileState]);
 
-  const logout = React.useCallback((): void => {
-    clearSession();
-    clearProfileState();
+  const renewSession = React.useCallback(async (): Promise<boolean> => {
+    const refreshToken = readRefreshToken();
+    if (refreshToken === null) return false;
+
+    const response = await authApi.renewSession(refreshToken);
+    if (!acceptSession(response.data)) return false;
+    await refreshMember();
+    return true;
+  }, [acceptSession, refreshMember]);
+
+  const logout = React.useCallback(async (): Promise<void> => {
+    try {
+      await authApi.logout();
+    } catch (error) {
+      if (!(error instanceof ApiError)) throw error;
+    } finally {
+      clearSession();
+      clearProfileState();
+    }
   }, [clearProfileState]);
 
   const value = React.useMemo<AuthContextValue>(
@@ -215,6 +232,7 @@ export function AuthProvider({
       member,
       memberStatus,
       acceptSession,
+      renewSession,
       logout,
       refreshMember,
     }),
@@ -224,6 +242,7 @@ export function AuthProvider({
       member,
       memberStatus,
       principal,
+      renewSession,
       refreshMember,
       sessionSnapshot,
     ],

@@ -5,6 +5,6 @@ import jakarta.persistence.Entity
 
 @Entity
 @DiscriminatorValue("HTML")
-class HtmlCondition(
+class HtmlCondition private constructor(
     watch: Watch,
 ) : WatchCondition(watch)

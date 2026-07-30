@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { memberApi } from "@/lib/api";
 import type { Member } from "@/types/domain";
@@ -6,11 +6,15 @@ import MyPage from "./page";
 
 const authentication = vi.hoisted(
   (): {
-    principal: { readonly memberId: number; readonly role: "USER" };
+    principal: { readonly memberId: number; readonly role: "NORMAL" };
     member: Member | null;
+    memberStatus: "ready";
+    renewSession: ReturnType<typeof vi.fn>;
   } => ({
-    principal: { memberId: 7, role: "USER" },
+    principal: { memberId: 7, role: "NORMAL" },
     member: null,
+    memberStatus: "ready",
+    renewSession: vi.fn(),
   }),
 );
 
@@ -18,8 +22,10 @@ vi.mock("@/lib/AuthContext", () => ({
   useAuth: () => ({
     principal: authentication.principal,
     member: authentication.member,
+    memberStatus: authentication.memberStatus,
     refreshMember: async (): Promise<void> => undefined,
-    logout: (): void => undefined,
+    renewSession: authentication.renewSession,
+    logout: async (): Promise<void> => undefined,
   }),
 }));
 
@@ -27,53 +33,78 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
-describe("MyPage unavailable profile", () => {
+describe("MyPage member profile", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     authentication.member = null;
+    authentication.renewSession.mockReset();
   });
 
-  it("Given an authenticated principal without a profile, when membership data loads, then shows backend unavailability instead of hiding the page", async () => {
+  it("Given a loaded member profile, when MyPage opens, then shows current information without requesting subscription data", () => {
     // Given
     const getMemberSubscription = vi.spyOn(memberApi, "getMemberSubscription");
+    authentication.member = {
+      id: 7,
+      nickname: "감시자",
+      email: "watcher@example.com",
+      profileImageUrl: "https://example.com/profile.png",
+      role: "NORMAL",
+      lastSignInAt: "2026-07-29T00:00:00Z",
+    };
 
     // When
     render(<MyPage />);
 
     // Then
-    expect(await screen.findByText("백엔드 기능이 아직 제공되지 않습니다.")).toBeVisible();
-    expect(getMemberSubscription).toHaveBeenCalledWith(7);
-    expect(screen.queryByRole("heading", { name: "마이페이지" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "마이페이지" })).toBeVisible();
+    expect(screen.getAllByDisplayValue("감시자")).not.toHaveLength(0);
+    expect(screen.getAllByDisplayValue("watcher@example.com")).not.toHaveLength(0);
+    expect(
+      screen.getByRole("img", { name: "감시자 프로필 사진" }),
+    ).toHaveAttribute("src", "https://example.com/profile.png");
+    expect(screen.getByRole("button", { name: "수정" })).toBeVisible();
+    expect(getMemberSubscription).not.toHaveBeenCalled();
   });
 
-  it("Given the first subscription request is pending, when a real profile is available, then it keeps profile content hidden behind pending UI", async () => {
+  it("Given current member information, when the edit button is clicked, then enables nickname editing with save and cancel actions", () => {
     // Given
     authentication.member = {
       id: 7,
       nickname: "감시자",
       email: "watcher@example.com",
       profileImageUrl: "",
-      role: "USER",
-      lastLoginAt: "2026-07-29T00:00:00Z",
+      role: "NORMAL",
+      lastSignInAt: "2026-07-29T00:00:00Z",
     };
-    vi.spyOn(memberApi, "getMemberSubscription").mockImplementation(
-      () => new Promise(() => undefined),
-    );
-    let priorContentObserved = false;
-    const observer = new MutationObserver(() => {
-      priorContentObserved ||= document.body.textContent?.includes("마이페이지") ?? false;
-    });
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-
-    // When
     render(<MyPage />);
 
+    // When
+    fireEvent.click(screen.getByRole("button", { name: "수정" }));
+
     // Then
-    expect(screen.getByRole("progressbar")).toBeVisible();
-    await Promise.resolve();
-    observer.disconnect();
-    expect(priorContentObserved).toBe(false);
-    expect(screen.queryByRole("heading", { name: "마이페이지" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "닉네임" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "저장" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "취소" })).toBeVisible();
+  });
+
+  it("Given an active session, when session renewal is selected, then renews and shows success", async () => {
+    // Given
+    authentication.member = {
+      id: 7,
+      nickname: "감시자",
+      email: "watcher@example.com",
+      profileImageUrl: "",
+      role: "NORMAL",
+      lastSignInAt: "2026-07-29T00:00:00Z",
+    };
+    authentication.renewSession.mockResolvedValue(true);
+    render(<MyPage />);
+
+    // When
+    fireEvent.click(screen.getByRole("button", { name: "세션 갱신" }));
+
+    // Then
+    expect(await screen.findByText("세션이 갱신되었습니다.")).toBeVisible();
+    expect(authentication.renewSession).toHaveBeenCalledTimes(1);
   });
 });

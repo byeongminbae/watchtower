@@ -4,8 +4,8 @@ import { memberApi } from "@/lib/api";
 import WatchesPage from "./page";
 
 const authentication = vi.hoisted(
-  (): { principal: { readonly memberId: number; readonly role: "USER" } | null } => ({
-    principal: { memberId: 7, role: "USER" },
+  (): { principal: { readonly memberId: number; readonly role: "NORMAL" } | null } => ({
+    principal: { memberId: 7, role: "NORMAL" },
   }),
 );
 
@@ -21,7 +21,7 @@ vi.mock("@/lib/AuthContext", () => ({
 describe("WatchesPage unavailable profile", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    authentication.principal = { memberId: 7, role: "USER" };
+    authentication.principal = { memberId: 7, role: "NORMAL" };
   });
 
   it("Given an authenticated principal without a profile, when watches load, then shows backend unavailability instead of a fabricated empty list", async () => {
