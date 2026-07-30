@@ -8,27 +8,31 @@ import kr.byeongmin.watchtower.domain.auth.entity.NaverOAuth
 import kr.byeongmin.watchtower.domain.auth.repository.NaverOAuthRepository
 import kr.byeongmin.watchtower.domain.member.entity.Member
 import kr.byeongmin.watchtower.domain.member.repository.MemberRepository
+import kr.byeongmin.watchtower.domain.member.service.MemberTokenIssuer
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import kr.byeongmin.watchtower.global.response.SuccessDataResponse
+import kr.byeongmin.watchtower.global.response.SuccessResponse
 import kr.byeongmin.watchtower.global.security.JwtProvider
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders.AUTHORIZATION
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestClient
 import org.springframework.web.util.UriComponentsBuilder
+import kotlin.jvm.optionals.getOrNull
 
 @Service
 class AuthService(
     private val restClient: RestClient,
     private val memberRepository: MemberRepository,
     private val naverOAuthRepository: NaverOAuthRepository,
+    private val memberTokenIssuer: MemberTokenIssuer,
     private val jwtProvider: JwtProvider,
     @Value("\${watchtower.auth.naver.client-id}") private val naverClientId: String,
     @Value("\${watchtower.auth.naver.client-secret}") private val naverClientSecret: String,
     @Value("\${watchtower.auth.naver.callback-url}") private val callbackUrl: String
 ) {
-    fun getNaverLoginUrl(
+    fun getNaverSignInUrl(
         state: String
     ): SuccessDataResponse<String> {
         val url = UriComponentsBuilder.newInstance()
@@ -42,7 +46,8 @@ class AuthService(
         return SuccessDataResponse(url)
     }
 
-    fun loginWithNaverCallback(
+    @Transactional
+    fun signInWithNaverCallback(
         code: String,
         state: String
     ): SuccessDataResponse<MemberTokenResponseDto> {
@@ -53,70 +58,6 @@ class AuthService(
             return naverMemberSignIn(naverMemberProfile)
         }
         return naverMemberSignUpThenSignIn(naverMemberProfile, naverMemberToken)
-    }
-
-    @Transactional
-    private fun naverMemberSignUpThenSignIn(
-        naverMemberProfile: NaverProfileResponseExternalDto,
-        naverMemberToken: NaverTokenResponseExternalDto
-    ): SuccessDataResponse<MemberTokenResponseDto> {
-        val member = memberRepository.save(
-            Member(
-                email = naverMemberProfile.response.email,
-                nickname = naverMemberProfile.response.nickname,
-                profileImageUrl = naverMemberProfile.response.profileImage
-            )
-        )
-        naverOAuthRepository.save(
-            NaverOAuth(
-                member = member,
-                providerId = naverMemberProfile.response.id,
-                accessToken = naverMemberToken.accessToken,
-                refreshToken = naverMemberToken.refreshToken,
-                expiredAt = naverMemberToken.expiresIn
-            )
-        )
-        return SuccessDataResponse(
-            MemberTokenResponseDto(
-                accessToken = jwtProvider.createAccessToken(
-                    member.id ?: throw BusinessException(CommonError.INTERNAL_SERVER_ERROR),
-                    member.role.name
-                ),
-                refreshToken = jwtProvider.createRefreshToken(
-                    member.id ?: throw BusinessException(CommonError.INTERNAL_SERVER_ERROR)
-                ),
-                accessTokenExpiry = jwtProvider.accessTokenExpiry
-            )
-        )
-    }
-
-    private fun naverMemberSignIn(
-        naverMemberProfile: NaverProfileResponseExternalDto
-    ): SuccessDataResponse<MemberTokenResponseDto> {
-        val naverOAuth = naverOAuthRepository.findByProviderId(naverMemberProfile.response.id)
-        return SuccessDataResponse(
-            MemberTokenResponseDto(
-                accessToken = jwtProvider.createAccessToken(
-                    naverOAuth.member.id ?: throw BusinessException(CommonError.INTERNAL_SERVER_ERROR),
-                    naverOAuth.member.role.name
-                ),
-                refreshToken = jwtProvider.createRefreshToken(
-                    naverOAuth.member.id ?: throw BusinessException(CommonError.INTERNAL_SERVER_ERROR)
-                ),
-                accessTokenExpiry = jwtProvider.accessTokenExpiry
-            )
-        )
-    }
-
-    private fun getNaverMemberProfile(
-        naverToken: NaverTokenResponseExternalDto
-    ): NaverProfileResponseExternalDto {
-        return restClient.get()
-            .uri("https://openapi.naver.com/v1/nid/me")
-            .header(AUTHORIZATION, "Bearer ${naverToken.accessToken}")
-            .retrieve()
-            .body(NaverProfileResponseExternalDto::class.java)
-            ?: throw BusinessException(CommonError.EXTERNAL_API_ERROR)
     }
 
     private fun getNaverMemberToken(
@@ -139,5 +80,66 @@ class AuthService(
             .retrieve()
             .body(NaverTokenResponseExternalDto::class.java)
             ?: throw BusinessException(CommonError.EXTERNAL_API_ERROR)
+    }
+
+    private fun getNaverMemberProfile(
+        naverToken: NaverTokenResponseExternalDto
+    ): NaverProfileResponseExternalDto {
+        return restClient.get()
+            .uri("https://openapi.naver.com/v1/nid/me")
+            .header(AUTHORIZATION, "Bearer ${naverToken.accessToken}")
+            .retrieve()
+            .body(NaverProfileResponseExternalDto::class.java)
+            ?: throw BusinessException(CommonError.EXTERNAL_API_ERROR)
+    }
+
+    private fun naverMemberSignIn(
+        naverMemberProfile: NaverProfileResponseExternalDto
+    ): SuccessDataResponse<MemberTokenResponseDto> {
+        val naverOAuth = naverOAuthRepository.findByProviderId(naverMemberProfile.response.id)
+        return SuccessDataResponse(
+            memberTokenIssuer.signIn(naverOAuth.member)
+        )
+    }
+
+    private fun naverMemberSignUpThenSignIn(
+        naverMemberProfile: NaverProfileResponseExternalDto,
+        naverMemberToken: NaverTokenResponseExternalDto
+    ): SuccessDataResponse<MemberTokenResponseDto> {
+        val member = memberRepository.save(
+            Member.from(naverMemberProfile)
+        )
+        naverOAuthRepository.save(
+            NaverOAuth.from(
+                member = member,
+                naverMemberProfile = naverMemberProfile,
+                naverMemberToken = naverMemberToken
+            )
+        )
+
+        return SuccessDataResponse(
+            data = memberTokenIssuer.signIn(member)
+        )
+    }
+
+    @Transactional
+    fun renewToken(refreshToken: String): SuccessDataResponse<MemberTokenResponseDto> {
+        val memberId = jwtProvider.getMemberId(refreshToken)
+        val member = memberRepository.findById(memberId).getOrNull()
+            ?: throw BusinessException(CommonError.RESOURCE_NOT_FOUND)
+
+        return SuccessDataResponse(
+            data = memberTokenIssuer.rotate(member)
+        )
+    }
+
+    @Transactional
+    fun logout(memberId: Long): SuccessResponse {
+        val member = memberRepository.findById(memberId).getOrNull()
+            ?: throw BusinessException(CommonError.RESOURCE_NOT_FOUND)
+
+        member.signOut()
+
+        return SuccessResponse()
     }
 }

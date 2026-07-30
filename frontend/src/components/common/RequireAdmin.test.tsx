@@ -29,7 +29,7 @@ function createJwt(payload: object): string {
   return `${encode({ alg: "none", typ: "JWT" })}.${encode(payload)}.fixture`;
 }
 
-function installSession(role: "USER" | "ADMIN"): void {
+function installSession(role: "NORMAL" | "ADMIN"): void {
   commitSession(
     createJwt({
       sub: "11",
@@ -58,7 +58,7 @@ describe("RequireAdmin", () => {
     clearSession();
   });
 
-  it("Given an ADMIN principal and mismatched USER profile, when mounted in StrictMode, then renders admin children", () => {
+  it("Given an ADMIN principal and mismatched NORMAL profile, when mounted in StrictMode, then renders admin children", () => {
     // Given
     installSession("ADMIN");
     getMember.mockResolvedValue({
@@ -68,8 +68,8 @@ describe("RequireAdmin", () => {
         nickname: "관리자",
         email: "admin@example.com",
         profileImageUrl: "",
-        role: "USER",
-        lastLoginAt: "2033-05-18T00:00:00Z",
+        role: "NORMAL",
+        lastSignInAt: "2033-05-18T00:00:00Z",
       },
       timestamp: "2033-05-18T00:00:00Z",
     });
@@ -90,9 +90,9 @@ describe("RequireAdmin", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("Given a USER principal, when mounted, then renders the access-denied state", () => {
+  it("Given a NORMAL principal, when mounted, then renders the access-denied state", () => {
     // Given
-    installSession("USER");
+    installSession("NORMAL");
     getMember.mockReturnValue(new Promise(() => undefined));
 
     // When

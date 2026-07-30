@@ -45,25 +45,25 @@ export default function AdminDashboardPage() {
       label: "총 유저 수",
       value: data.userStats.totalUsers.toLocaleString(),
       icon: <GroupOutlinedIcon />,
-      color: "#3B82C4",
+      color: "var(--wt-status-info)",
     },
     {
       label: "활성 와치리스트",
       value: data.watchStats.totalActiveWatches.toLocaleString(),
       icon: <VisibilityOutlinedIcon />,
-      color: "#FFC94A",
+      color: "var(--wt-signal-primary)",
     },
     {
       label: "이번 달 결제",
       value: `₩${data.paymentStats.thisMonthRevenue.toLocaleString()}`,
       icon: <PaymentsOutlinedIcon />,
-      color: "#4ADE80",
+      color: "var(--wt-status-success)",
     },
     {
       label: "오늘 로그인",
       value: data.authStats.todayLogins.toLocaleString(),
       icon: <LoginOutlinedIcon />,
-      color: "#60A5FA",
+      color: "var(--wt-accent-primary)",
     },
   ];
 
@@ -105,13 +105,13 @@ export default function AdminDashboardPage() {
                 {
                   data: data.watchStats.dailyTrend.map((d) => d.count),
                   label: "활성 와치리스트",
-                  color: "#FFC94A",
+                  color: "var(--wt-signal-primary)",
                 },
               ]}
               xAxis={[{ scaleType: "point", data: data.watchStats.dailyTrend.map((d) => d.date) }]}
               sx={{
-                "& .MuiChartsAxis-line": { stroke: "rgba(255,255,255,0.1)" },
-                "& .MuiChartsAxis-tick": { stroke: "rgba(255,255,255,0.1)" },
+                "& .MuiChartsAxis-line": { stroke: "rgba(36,107,158,0.2)" },
+                "& .MuiChartsAxis-tick": { stroke: "rgba(36,107,158,0.2)" },
               }}
             />
           </CardContent>

@@ -50,7 +50,7 @@ function hasValidCommonClaims(
 export function decodeAccessToken(token: string): WatchtowerJwtPayload | null {
   const payload = decodePayload(token);
   if (!hasValidCommonClaims(payload) || !("role" in payload)) return null;
-  if (payload.role !== "USER" && payload.role !== "ADMIN") return null;
+  if (payload.role !== "NORMAL" && payload.role !== "ADMIN") return null;
 
   return {
     sub: payload.sub,

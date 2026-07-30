@@ -21,7 +21,7 @@ function createValidTokens(memberId = "1"): readonly [string, string] {
   return [
     createJwt({
       sub: memberId,
-      role: "USER",
+      role: "NORMAL",
       iat: NOW_SECONDS,
       exp: NOW_SECONDS + 60,
     }),
@@ -36,13 +36,13 @@ describe("existing JWT utilities", () => {
 
   it("Given encoded JWT text, when decoded, then exposes the current payload", () => {
     // Given
-    const token = createJwt({ sub: "7", role: "USER", iat: 1, exp: 2 });
+    const token = createJwt({ sub: "7", role: "NORMAL", iat: 1, exp: 2 });
 
     // When
     const payload = decodeAccessToken(token);
 
     // Then
-    expect(payload).toEqual({ sub: "7", role: "USER", iat: 1, exp: 2 });
+    expect(payload).toEqual({ sub: "7", role: "NORMAL", iat: 1, exp: 2 });
   });
 
 });
@@ -78,7 +78,7 @@ describe("session cookies", () => {
     // Given
     const expiredAccessToken = createJwt({
       sub: "1",
-      role: "USER",
+      role: "NORMAL",
       iat: NOW_SECONDS - 60,
       exp: NOW_SECONDS,
     });
@@ -200,7 +200,7 @@ describe("session cookies", () => {
   it("Given JWT text containing cookie-reserved characters, when committed, then URI encodes it", () => {
     // Given
     const accessToken = createJwt(
-      { sub: "5", role: "USER", iat: NOW_SECONDS, exp: NOW_SECONDS + 60 },
+      { sub: "5", role: "NORMAL", iat: NOW_SECONDS, exp: NOW_SECONDS + 60 },
       "sig/value?",
     );
     const refreshToken = createJwt(
@@ -214,7 +214,7 @@ describe("session cookies", () => {
 
     // Then
     expect(cookieSetter).toHaveBeenCalledWith(expect.stringContaining("sig%2Fvalue%3F"));
-    expect(readSession()).toEqual({ memberId: 5, role: "USER" });
+    expect(readSession()).toEqual({ memberId: 5, role: "NORMAL" });
   });
 
   it.each([
@@ -225,20 +225,20 @@ describe("session cookies", () => {
       "invalid role",
       createJwt({ sub: "1", role: "OWNER", iat: NOW_SECONDS, exp: NOW_SECONDS + 60 }),
     ],
-    ["zero subject", createJwt({ sub: "0", role: "USER", iat: NOW_SECONDS, exp: NOW_SECONDS + 60 })],
+    ["zero subject", createJwt({ sub: "0", role: "NORMAL", iat: NOW_SECONDS, exp: NOW_SECONDS + 60 })],
     [
       "non-numeric subject",
-      createJwt({ sub: "one", role: "USER", iat: NOW_SECONDS, exp: NOW_SECONDS + 60 }),
+      createJwt({ sub: "one", role: "NORMAL", iat: NOW_SECONDS, exp: NOW_SECONDS + 60 }),
     ],
     [
       "fractional subject",
-      createJwt({ sub: "1.5", role: "USER", iat: NOW_SECONDS, exp: NOW_SECONDS + 60 }),
+      createJwt({ sub: "1.5", role: "NORMAL", iat: NOW_SECONDS, exp: NOW_SECONDS + 60 }),
     ],
-    ["invalid iat", createJwt({ sub: "1", role: "USER", iat: "now", exp: NOW_SECONDS + 60 })],
-    ["invalid exp", createJwt({ sub: "1", role: "USER", iat: NOW_SECONDS, exp: "later" })],
+    ["invalid iat", createJwt({ sub: "1", role: "NORMAL", iat: "now", exp: NOW_SECONDS + 60 })],
+    ["invalid exp", createJwt({ sub: "1", role: "NORMAL", iat: NOW_SECONDS, exp: "later" })],
     [
       "expired access",
-      createJwt({ sub: "1", role: "USER", iat: NOW_SECONDS - 60, exp: NOW_SECONDS }),
+      createJwt({ sub: "1", role: "NORMAL", iat: NOW_SECONDS - 60, exp: NOW_SECONDS }),
     ],
   ])(
     "Given %s access JWT, when committed, then rejects without partial cookies",
@@ -287,7 +287,7 @@ describe("session cookies", () => {
     // Given
     const accessToken = createJwt({
       sub: "1",
-      role: "USER",
+      role: "NORMAL",
       iat: NOW_SECONDS,
       exp: NOW_SECONDS + 60,
     });

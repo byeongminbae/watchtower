@@ -26,14 +26,14 @@ function createJwt(payload: object): string {
   return `${encode({ alg: "none", typ: "JWT" })}.${encode(payload)}.fixture`;
 }
 
-function installSession(memberId = "7", role: "USER" | "ADMIN" = "USER"): void {
+function installSession(memberId = "7", role: "NORMAL" | "ADMIN" = "NORMAL"): void {
   const [accessToken, refreshToken] = createTokens(memberId, role);
   commitSession(accessToken, refreshToken);
 }
 
 function createTokens(
   memberId = "7",
-  role: "USER" | "ADMIN" = "USER",
+  role: "NORMAL" | "ADMIN" = "NORMAL",
 ): readonly [string, string] {
   return [
     createJwt({
@@ -109,8 +109,8 @@ describe("AuthProvider existing member behavior", () => {
         nickname: "감시자",
         email: "watcher@example.com",
         profileImageUrl: "",
-        role: "USER",
-        lastLoginAt: "2033-05-18T00:00:00Z",
+        role: "NORMAL",
+        lastSignInAt: "2033-05-18T00:00:00Z",
       },
       timestamp: "2033-05-18T00:00:00Z",
     });
@@ -160,8 +160,8 @@ describe("AuthProvider existing member behavior", () => {
         nickname: "실제 회원",
         email: "member@example.com",
         profileImageUrl: "",
-        role: "USER",
-        lastLoginAt: "2033-05-18T00:00:00Z",
+        role: "NORMAL",
+        lastSignInAt: "2033-05-18T00:00:00Z",
       },
       timestamp: "2033-05-18T00:00:00Z",
     });
@@ -230,7 +230,7 @@ describe("AuthProvider existing member behavior", () => {
     expect(screen.getByLabelText("login-state")).toHaveTextContent("authenticated");
   });
 
-  it("Given a restored session, when locally logged out, then clears both cookies and all auth state", async () => {
+  it("Given a restored session, when logged out, then calls the backend and clears all auth state", async () => {
     // Given
     installSession();
     getMember.mockRejectedValue(new BackendFeatureUnavailableError("member.profile"));
@@ -251,7 +251,7 @@ describe("AuthProvider existing member behavior", () => {
     });
     expect(document.cookie).not.toContain("watchtower_jwt=");
     expect(document.cookie).not.toContain("watchtower_refresh=");
-    expect(logout).not.toHaveBeenCalled();
+    expect(logout).toHaveBeenCalledTimes(1);
   });
 
   it("Given malformed JWT cookies, when mounted, then stays anonymous and clears stale state", () => {

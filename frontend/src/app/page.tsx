@@ -18,19 +18,32 @@ export default function HomePage() {
         sx={{
           position: "relative",
           overflow: "hidden",
-          background:
-            "radial-gradient(ellipse 72% 58% at 50% -8%, rgba(255,201,74,0.16), transparent), linear-gradient(180deg, #0B1622 0%, #0E1B28 100%)",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          background: "var(--wt-hero-atmosphere)",
+          borderBottom: "1px solid",
+          borderColor: "divider",
+          "&::before": {
+            content: '""',
+            position: "absolute",
+            width: "62rem",
+            height: "14rem",
+            top: "-4rem",
+            left: "calc(50% - 31rem)",
+            opacity: 0.42,
+            background:
+              "conic-gradient(from 248deg at 50% 0%, transparent 0deg, rgba(244,184,58,0.28) 8deg, transparent 19deg)",
+            filter: "blur(10px)",
+            transform: "rotate(-2deg)",
+            pointerEvents: "none",
+          },
           "&::after": {
             content: '""',
             position: "absolute",
             inset: 0,
             pointerEvents: "none",
-            opacity: 0.32,
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px)",
+            opacity: 0.56,
+            backgroundImage: "var(--wt-grid-pattern)",
             backgroundSize: "48px 48px",
-            maskImage: "linear-gradient(to bottom, black, transparent 75%)",
+            maskImage: "linear-gradient(to bottom, black, transparent 82%)",
           },
         }}
       >
@@ -38,8 +51,16 @@ export default function HomePage() {
           maxWidth="md"
           sx={{ position: "relative", zIndex: 1, py: { xs: 10, md: 15 }, textAlign: "center" }}
         >
-          <Box sx={{ display: "flex", justifyContent: "center", mb: 3 }}>
-            <LighthouseMark size={64} />
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              mb: 3,
+              filter: "drop-shadow(0 18px 24px rgba(36,107,158,0.24))",
+              transform: "translateZ(0)",
+            }}
+          >
+            <LighthouseMark size={72} />
           </Box>
           <Chip
             label="놓치고 싶지 않은 페이지를 위한 변화 감지"

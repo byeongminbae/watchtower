@@ -10,7 +10,7 @@ data class MemberResponseDto(
     val email: String,
     val nickname: String,
     val profileImageUrl: String,
-    val lastLoginAt: LocalDateTime = TimeUtil.entityTime(),
+    val lastSignInAt: LocalDateTime = TimeUtil.entityTime(),
 ) {
     companion object {
         fun from(member: Member): MemberResponseDto {
@@ -19,7 +19,7 @@ data class MemberResponseDto(
                 email = member.email,
                 nickname = member.nickname,
                 profileImageUrl = member.profileImageUrl,
-                lastLoginAt = member.lastLoginAt
+                lastSignInAt = member.lastSignInAt
             )
         }
     }

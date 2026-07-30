@@ -78,11 +78,39 @@ describe("backend API availability inventory", () => {
     );
   });
 
+  it("Given the implemented member profile contract, when requested, then performs one guarded member fetch", async () => {
+    // Given
+    const member = {
+      id: 7,
+      nickname: "감시자",
+      email: "watcher@example.com",
+      profileImageUrl: "https://example.com/profile.png",
+      lastSignInAt: "2026-07-29T10:00:00",
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: member,
+          timestamp: TIMESTAMP,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    // When
+    const result = await memberApi.getMember(7);
+
+    // Then
+    expect(result.data).toEqual(member);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "/api/v1/member/7",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
   const unavailableCases = [
     { feature: "auth.revokeNaverToken", invoke: () => authApi.revokeNaverToken() },
-    { feature: "auth.renewSession", invoke: () => authApi.renewSession() },
-    { feature: "auth.logout", invoke: () => authApi.logout() },
-    { feature: "member.getMember", invoke: () => memberApi.getMember(1) },
     { feature: "member.updateMember", invoke: () => memberApi.updateMember(1, { nickname: "수정" }) },
     { feature: "member.deleteMember", invoke: () => memberApi.deleteMember(1) },
     { feature: "member.getMemberWatches", invoke: () => memberApi.getMemberWatches(1) },
@@ -152,7 +180,7 @@ describe("backend API availability inventory", () => {
     { feature: "admin.getAuthStats", invoke: () => adminApi.getAuthStats() },
   ] as const;
 
-  it("Given the backend contract inventory, when counted, then only two auth features are callable", () => {
+  it("Given the backend contract inventory, when counted, then five features are callable", () => {
     // Given
     const callableFeatures = Object.entries(backendFeatureInventory)
       .filter(([, entry]) => entry.contractClass === "callable")
@@ -162,10 +190,13 @@ describe("backend API availability inventory", () => {
     const callableFeatureCount = callableFeatures.length;
 
     // Then
-    expect(callableFeatureCount).toBe(2);
+    expect(callableFeatureCount).toBe(5);
     expect(callableFeatures).toEqual([
       "auth.getNaverLoginUrl",
       "auth.loginWithNaverCallback",
+      "auth.renewSession",
+      "auth.logout",
+      "member.getMember",
     ]);
   });
 
@@ -201,7 +232,10 @@ describe("backend API availability inventory", () => {
     ].filter(
       (feature) =>
         feature !== "auth.getNaverLoginUrl" &&
-        feature !== "auth.loginWithNaverCallback",
+        feature !== "auth.loginWithNaverCallback" &&
+        feature !== "auth.renewSession" &&
+        feature !== "auth.logout" &&
+        feature !== "member.getMember",
     );
 
     // When
@@ -213,6 +247,7 @@ describe("backend API availability inventory", () => {
       expect.arrayContaining([
         "auth.getNaverLoginUrl",
         "auth.loginWithNaverCallback",
+        "member.getMember",
         ...currentExportFeatures,
       ]),
     );

@@ -4,7 +4,7 @@ import { memberApi } from "@/lib/api";
 import PaymentsPage from "./page";
 
 const authentication = vi.hoisted(() => ({
-  principal: { memberId: 7, role: "USER" as const },
+  principal: { memberId: 7, role: "NORMAL" as const },
 }));
 
 vi.mock("@/lib/AuthContext", () => ({

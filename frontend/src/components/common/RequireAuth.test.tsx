@@ -6,12 +6,14 @@ import { clearSession, commitSession } from "@/lib/session";
 import RequireAuth from "./RequireAuth";
 
 const NOW_SECONDS = 2_000_000_000;
-const { getMember, replace } = vi.hoisted(() => ({
+const { getMember, logout, replace } = vi.hoisted(() => ({
   getMember: vi.fn(),
+  logout: vi.fn(),
   replace: vi.fn(),
 }));
 
 vi.mock("@/lib/api", () => ({
+  authApi: { logout },
   memberApi: { getMember },
 }));
 
@@ -33,7 +35,7 @@ function installSession(): void {
   commitSession(
     createJwt({
       sub: "7",
-      role: "USER",
+      role: "NORMAL",
       iat: NOW_SECONDS,
       exp: NOW_SECONDS + 60,
     }),
@@ -55,6 +57,7 @@ describe("RequireAuth", () => {
     vi.setSystemTime(NOW_SECONDS * 1_000);
     clearSession();
     getMember.mockReset();
+    logout.mockReset();
     replace.mockReset();
   });
 
@@ -73,8 +76,8 @@ describe("RequireAuth", () => {
         nickname: "감시자",
         email: "watcher@example.com",
         profileImageUrl: "",
-        role: "USER",
-        lastLoginAt: "2033-05-18T00:00:00Z",
+        role: "NORMAL",
+        lastSignInAt: "2033-05-18T00:00:00Z",
       },
       timestamp: "2033-05-18T00:00:00Z",
     });

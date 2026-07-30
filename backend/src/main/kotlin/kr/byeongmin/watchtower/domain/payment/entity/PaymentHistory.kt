@@ -14,7 +14,7 @@ import java.math.BigDecimal
  */
 // TODO: 추후 쿠폰 엔티티나 적립금 사용 필드를 따로 만들어야함
 @Entity
-class PaymentHistory(
+class PaymentHistory private constructor(
     @ManyToOne(fetch = FetchType.LAZY)
     val member: Member,
     val planName: String,

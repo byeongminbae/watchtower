@@ -20,6 +20,7 @@ type ParsedSession = {
 
 type ValidatedSession = {
   readonly accessToken: string;
+  readonly refreshToken: string;
   readonly session: ParsedSession;
 };
 
@@ -76,7 +77,7 @@ function readStoredSession(): ValidatedSession | null {
 
   const session = parseSession(accessToken, refreshToken, Date.now());
   if (session === null) return null;
-  return { accessToken, session };
+  return { accessToken, refreshToken, session };
 }
 
 function readValidatedSession(): ValidatedSession | null {
@@ -129,6 +130,10 @@ export function readSession(): SessionPrincipal | null {
 
 export function readAccessToken(): string | null {
   return readValidatedSession()?.accessToken ?? null;
+}
+
+export function readRefreshToken(): string | null {
+  return readStoredSession()?.refreshToken ?? null;
 }
 
 export function readSessionSnapshot(): string {

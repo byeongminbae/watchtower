@@ -178,8 +178,7 @@ export default function OAuthCallbackPage(): React.JSX.Element {
         minHeight: "calc(100dvh - 64px)",
         display: "flex",
         alignItems: "center",
-        background:
-          "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(255,201,74,0.08), transparent)",
+        background: "var(--wt-login-atmosphere)",
       }}
     >
       <Container maxWidth="xs">
@@ -188,7 +187,9 @@ export default function OAuthCallbackPage(): React.JSX.Element {
           sx={{
             p: { xs: 3, sm: 5 },
             textAlign: "center",
-            border: "1px solid rgba(255,255,255,0.06)",
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 4,
           }}
         >
           <Stack spacing={2.5} alignItems="center">

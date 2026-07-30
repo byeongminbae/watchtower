@@ -5,7 +5,7 @@ import jakarta.persistence.Entity
 
 @Entity
 @DiscriminatorValue("REGEX")
-class RegexCondition(
+class RegexCondition private constructor(
     watch: Watch,
     var regex: String
 ) : WatchCondition(watch)

@@ -67,7 +67,7 @@ export const test = base.extend<OAuthFixtures>({
         return {
           accessToken: createJwt({
             sub: String(memberId),
-            role: "USER",
+            role: "NORMAL",
             iat: now,
             exp: now + 3_600,
           }),
