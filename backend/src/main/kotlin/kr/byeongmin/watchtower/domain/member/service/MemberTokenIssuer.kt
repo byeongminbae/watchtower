@@ -32,7 +32,8 @@ class MemberTokenIssuer(
         return MemberTokenResponseDto(
             accessToken = accessToken,
             refreshToken = refreshToken,
-            accessTokenExpiry = jwtProvider.accessTokenExpiry
+            accessTokenExpiry = jwtProvider.accessTokenExpiry,
+            refreshTokenExpiry = jwtProvider.refreshTokenExpiry
         )
     }
 
@@ -45,7 +46,8 @@ class MemberTokenIssuer(
         return MemberTokenResponseDto(
             accessToken = accessToken,
             refreshToken = refreshToken,
-            accessTokenExpiry = jwtProvider.accessTokenExpiry
+            accessTokenExpiry = jwtProvider.accessTokenExpiry,
+            refreshTokenExpiry = jwtProvider.refreshTokenExpiry
         )
     }
 }

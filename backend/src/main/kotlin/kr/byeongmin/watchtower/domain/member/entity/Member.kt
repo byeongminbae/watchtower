@@ -47,11 +47,11 @@ class Member private constructor(
     }
 
     companion object {
-        fun from(naverMemberProfile: NaverProfileResponseExternalDto): Member {
+        fun from(naverProfileResponseExternalDto: NaverProfileResponseExternalDto): Member {
             return Member(
-                email = naverMemberProfile.response.email,
-                nickname = naverMemberProfile.response.nickname,
-                profileImageUrl = naverMemberProfile.response.profileImage,
+                email = naverProfileResponseExternalDto.response.email,
+                nickname = naverProfileResponseExternalDto.response.nickname,
+                profileImageUrl = naverProfileResponseExternalDto.response.profileImage,
                 role = MemberRole.NORMAL
             )
         }

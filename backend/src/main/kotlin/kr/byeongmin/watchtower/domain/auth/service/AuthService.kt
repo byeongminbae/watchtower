@@ -32,11 +32,14 @@ class AuthService(
     @Value("\${watchtower.auth.naver.client-secret}") private val naverClientSecret: String,
     @Value("\${watchtower.auth.naver.callback-url}") private val callbackUrl: String
 ) {
+    // TODO: 이런건 추후 NaverAuthService 에 넣도록 하자.
     fun getNaverSignInUrl(
         state: String
     ): SuccessDataResponse<String> {
         val url = UriComponentsBuilder.newInstance()
-            .path("https://nid.naver.com/oauth2.0/authorize")
+            .scheme("https")
+            .host("nid.naver.com")
+            .path("/oauth2.0/authorize")
             .queryParam("response_type", "code")
             .queryParam("client_id", naverClientId)
             .queryParam("redirect_uri", callbackUrl)
@@ -54,7 +57,7 @@ class AuthService(
         val naverMemberToken = getNaverMemberToken(code, state)
         val naverMemberProfile = getNaverMemberProfile(naverMemberToken)
 
-        if (naverOAuthRepository.existsByProviderId(naverMemberProfile.response.id)) {
+        if (naverOAuthRepository.existsByProviderId(naverMemberProfile.response.providerId)) {
             return naverMemberSignIn(naverMemberProfile)
         }
         return naverMemberSignUpThenSignIn(naverMemberProfile, naverMemberToken)
@@ -96,7 +99,7 @@ class AuthService(
     private fun naverMemberSignIn(
         naverMemberProfile: NaverProfileResponseExternalDto
     ): SuccessDataResponse<MemberTokenResponseDto> {
-        val naverOAuth = naverOAuthRepository.findByProviderId(naverMemberProfile.response.id)
+        val naverOAuth = naverOAuthRepository.findByProviderId(naverMemberProfile.response.providerId)
         return SuccessDataResponse(
             memberTokenIssuer.signIn(naverOAuth.member)
         )

@@ -32,7 +32,7 @@ class JwtAuthenticationFilter(
         val token = getAuthorizationToken(request)
 
         if (!token.isNullOrBlank()) {
-            if (!jwtProvider.validateToken(token)) {
+            if (!jwtProvider.isValidToken(token)) {
                 response.sendErrorResponse(objectMapper, AuthError.INVALID_TOKEN)
                 return
             }
