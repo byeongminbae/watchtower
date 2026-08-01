@@ -22,7 +22,7 @@ class JwtProvider(
     )
 
     private fun getExpiry(tokenExpiry: Long): Date {
-        return Date(Date().time + refreshTokenExpiry)
+        return Date(Date().time + tokenExpiry)
     }
 
     fun createAccessToken(memberId: Long, role: String): String {
@@ -44,13 +44,13 @@ class JwtProvider(
             .compact()
     }
 
-    fun validateToken(token: String): Boolean {
+    fun isValidToken(token: String): Boolean {
         return runCatching {
             Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token)
         }.isSuccess
     }
 
-    fun validateTokenThenThrow(token: String) {
+    fun validateToken(token: String) {
         try {
             Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token)
         } catch (e: ExpiredJwtException) {

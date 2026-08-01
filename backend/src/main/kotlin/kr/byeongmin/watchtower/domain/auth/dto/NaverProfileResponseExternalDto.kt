@@ -9,7 +9,8 @@ data class NaverProfileResponseExternalDto(
     val response: NaverProfileDetailDto
 ) {
     data class NaverProfileDetailDto(
-        val id: String,
+        @JsonProperty("id")
+        val providerId: String,
         val email: String,
         val nickname: String,
         @JsonProperty("profile_image")

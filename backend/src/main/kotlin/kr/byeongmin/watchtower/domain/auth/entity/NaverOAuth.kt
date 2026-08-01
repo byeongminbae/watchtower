@@ -25,7 +25,7 @@ class NaverOAuth private constructor(
         ): NaverOAuth {
             return NaverOAuth(
                 member = member,
-                providerId = naverMemberProfile.response.id,
+                providerId = naverMemberProfile.response.providerId,
                 accessToken = naverMemberToken.accessToken,
                 refreshToken = naverMemberToken.refreshToken,
                 expiredAt = naverMemberToken.expiresIn
