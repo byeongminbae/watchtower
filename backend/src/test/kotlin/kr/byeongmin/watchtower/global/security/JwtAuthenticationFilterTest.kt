@@ -2,18 +2,18 @@ package kr.byeongmin.watchtower.global.security
 
 import jakarta.servlet.FilterChain
 import kr.byeongmin.watchtower.global.error.AuthError
+import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.*
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.security.core.context.SecurityContextHolder
-import tools.jackson.databind.json.JsonMapper
 import kotlin.test.*
 
 class JwtAuthenticationFilterTest {
     private val jwtProvider = mock<JwtProvider>()
-    private val filter = JwtAuthenticationFilter(jwtProvider, JsonMapper.builder().build())
+    private val filter = JwtAuthenticationFilter(jwtProvider)
 
     @AfterEach
     fun `시큐리티 컨텍스트 비우기(쓰레드 로컬 공유 이슈)`() {
@@ -31,7 +31,6 @@ class JwtAuthenticationFilterTest {
         }
         val response = MockHttpServletResponse()
         val chain = mock<FilterChain>()
-        whenever(jwtProvider.isValidToken(accessToken)).thenReturn(true)
         whenever(jwtProvider.getMemberId(accessToken)).thenReturn(memberId)
         whenever(jwtProvider.getRole(accessToken)).thenReturn(role)
 
@@ -44,6 +43,7 @@ class JwtAuthenticationFilterTest {
         assertEquals(memberId, principal.memberId)
         assertEquals(role, principal.role)
         assertTrue(authentication.authorities.any { it.authority == "ROLE_$role" })
+        verify(jwtProvider).validateToken(accessToken)
         verify(chain).doFilter(request, response)
     }
 
@@ -59,7 +59,7 @@ class JwtAuthenticationFilterTest {
 
         // Then
         assertNull(SecurityContextHolder.getContext().authentication)
-        verify(jwtProvider, never()).isValidToken(any())
+        verify(jwtProvider, never()).validateToken(any())
         verify(chain).doFilter(request, response)
     }
 
@@ -77,26 +77,32 @@ class JwtAuthenticationFilterTest {
 
         // Then
         assertNull(SecurityContextHolder.getContext().authentication)
+        verify(jwtProvider, never()).validateToken(any())
         verify(chain).doFilter(request, response)
     }
 
     @Test
-    fun `유효하지 않은 토큰을 사용한 경우`() {
+    fun `토큰 검증에 실패한 경우 예외를 전파하고 체인을 호출하지 않는다`() {
         // Given
         val request = MockHttpServletRequest().apply {
             addHeader("Authorization", "Bearer 유효하지-않은-와치타워-엑세스-토큰")
         }
         val response = MockHttpServletResponse()
         val chain = mock<FilterChain>()
-        whenever(jwtProvider.isValidToken("유효하지-않은-와치타워-엑세스-토큰")).thenReturn(false)
+        val exception = BusinessException(AuthError.INVALID_TOKEN)
+        doThrow(exception).whenever(jwtProvider).validateToken("유효하지-않은-와치타워-엑세스-토큰")
 
         // When
-        filter.doFilter(request, response, chain)
+        val thrown = assertFailsWith<BusinessException> {
+            filter.doFilter(request, response, chain)
+        }
 
         // Then
+        assertSame(exception, thrown)
         assertEquals(200, response.status)
-        assertEquals("application/json;charset=UTF-8", response.contentType)
-        assertTrue(response.contentAsString.contains(AuthError.INVALID_TOKEN.statusCode))
+        assertNull(response.contentType)
+        assertEquals("", response.contentAsString)
+        verify(jwtProvider).validateToken("유효하지-않은-와치타워-엑세스-토큰")
         verify(chain, never()).doFilter(request, response)
     }
 
@@ -108,7 +114,6 @@ class JwtAuthenticationFilterTest {
         }
         val response = MockHttpServletResponse()
         val chain = mock<FilterChain>()
-        whenever(jwtProvider.isValidToken("추출에-실패하는-와치타워-엑세스-토큰")).thenReturn(true)
         whenever(jwtProvider.getMemberId("추출에-실패하는-와치타워-엑세스-토큰"))
             .thenThrow(NumberFormatException())
 
@@ -117,6 +122,7 @@ class JwtAuthenticationFilterTest {
 
         // Then
         assertNull(SecurityContextHolder.getContext().authentication)
+        verify(jwtProvider).validateToken("추출에-실패하는-와치타워-엑세스-토큰")
         verify(chain).doFilter(request, response)
     }
 }

@@ -1,7 +1,5 @@
 package kr.byeongmin.watchtower.global.security
 
-import kr.byeongmin.watchtower.global.error.AuthError
-import kr.byeongmin.watchtower.global.utils.sendErrorResponse
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
@@ -26,6 +24,8 @@ class SecurityConfig(
         http: HttpSecurity,
         jwtAuthenticationFilter: JwtAuthenticationFilter
     ): SecurityFilterChain {
+        val securityExceptionHandlerFilter = SecurityExceptionHandlerFilter(objectMapper)
+
         http
             .cors { it.configurationSource(corsConfigurationSource()) }
             .csrf { it.disable() }
@@ -34,16 +34,13 @@ class SecurityConfig(
             .logout { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .exceptionHandling {
-                it.authenticationEntryPoint { _, response, _ ->
-                    response.sendErrorResponse(objectMapper, AuthError.UNAUTHORIZED)
-                }
-                it.accessDeniedHandler { _, response, _ ->
-                    response.sendErrorResponse(objectMapper, AuthError.ACCESS_DENIED)
-                }
+                it.authenticationEntryPoint(securityExceptionHandlerFilter)
+                it.accessDeniedHandler(securityExceptionHandlerFilter)
             }
             .authorizeHttpRequests { it.anyRequest().permitAll() }
             // formLogin이 disable이라 2번째 인자는 기준점으로만 사용됨
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
+            .addFilterBefore(securityExceptionHandlerFilter, JwtAuthenticationFilter::class.java)
 
         return http.build()
     }
