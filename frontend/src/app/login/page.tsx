@@ -4,15 +4,21 @@ import React from "react";
 import { useSearchParams } from "next/navigation";
 import { Alert, Box, Button, CircularProgress, Container, Paper, Stack, Typography } from "@mui/material";
 import LighthouseMark from "@/components/common/LighthouseMark";
+import { useAuth } from "@/lib/AuthContext";
 import { authApi } from "@/lib/api";
 import { ApiError } from "@/lib/api/errors";
 import { clearOAuthTransaction, createOAuthTransaction, sanitizeReturnPath } from "@/lib/oauthTransaction";
 
 function LoginContent() {
   const searchParams = useSearchParams();
+  const { isLoggedIn, isInitializing } = useAuth();
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const isStarting = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!isInitializing && isLoggedIn) globalThis.location.replace("/");
+  }, [isInitializing, isLoggedIn]);
 
   const handleNaverLogin = async () => {
     if (isStarting.current) return;
@@ -21,7 +27,7 @@ function LoginContent() {
     setLoading(true);
     setError(null);
     try {
-      const returnPath = sanitizeReturnPath(searchParams.get("next") ?? "/watches");
+      const returnPath = sanitizeReturnPath(searchParams.get("next") ?? "/");
       const nonce = createOAuthTransaction(returnPath);
       const response = await authApi.getNaverLoginUrl(nonce);
       globalThis.location.assign(response.data);
@@ -32,6 +38,14 @@ function LoginContent() {
       setLoading(false);
     }
   };
+
+  if (isInitializing || isLoggedIn) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 20 }}>
+        <CircularProgress color="secondary" />
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -59,7 +73,7 @@ function LoginContent() {
               Watchtower
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              로그인하고 감시를 시작하세요
+              로그인하고 무료로 변화 알림을 받아보세요!
             </Typography>
           </Stack>
 

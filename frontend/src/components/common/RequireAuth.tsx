@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Box, CircularProgress } from "@mui/material";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -10,13 +10,13 @@ import { useAuth } from "@/lib/AuthContext";
 export default function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isLoggedIn, isInitializing } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
 
   React.useEffect(() => {
     if (!isInitializing && !isLoggedIn) {
-      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+      const returnPath = `${globalThis.location.pathname}${globalThis.location.search}${globalThis.location.hash}`;
+      router.replace(`/login?next=${encodeURIComponent(returnPath)}`);
     }
-  }, [isInitializing, isLoggedIn, router, pathname]);
+  }, [isInitializing, isLoggedIn, router]);
 
   if (isInitializing || !isLoggedIn) {
     return (

@@ -1,8 +1,8 @@
 import { decodeAccessToken, decodeRefreshToken, isTokenExpired } from "@/lib/jwt";
 import type { MemberRole } from "@/types/domain";
 
-const ACCESS_COOKIE_NAME = "watchtower_jwt";
-const REFRESH_COOKIE_NAME = "watchtower_refresh";
+export const ACCESS_COOKIE_NAME = "watchtower_jwt";
+export const REFRESH_COOKIE_NAME = "watchtower_refresh";
 const COOKIE_BASE_ATTRIBUTES = "Path=/; SameSite=Lax";
 const SESSION_CHANGED_EVENT = "watchtower:session-changed";
 export const INVALID_SESSION_SNAPSHOT = "invalid";
@@ -68,6 +68,14 @@ function parseSession(accessToken: string, refreshToken: string, now: number): P
     accessExpiresAt: access.exp,
     refreshExpiresAt: refresh.exp,
   };
+}
+
+export function parseSessionPrincipal(
+  accessToken: string,
+  refreshToken: string,
+  now = Date.now(),
+): SessionPrincipal | null {
+  return parseSession(accessToken, refreshToken, now)?.principal ?? null;
 }
 
 function readStoredSession(): ValidatedSession | null {
@@ -147,8 +155,23 @@ export function readSessionSnapshot(): string {
 
 export function subscribeToSessionChanges(listener: () => void): () => void {
   if (typeof window === "undefined") return () => undefined;
-  window.addEventListener(SESSION_CHANGED_EVENT, listener);
-  return () => window.removeEventListener(SESSION_CHANGED_EVENT, listener);
+  let currentSnapshot = readSessionSnapshot();
+  const handleSessionChanged = (): void => {
+    currentSnapshot = readSessionSnapshot();
+    listener();
+  };
+  const handlePageShow = (): void => {
+    const restoredSnapshot = readSessionSnapshot();
+    if (restoredSnapshot === currentSnapshot) return;
+    currentSnapshot = restoredSnapshot;
+    listener();
+  };
+  window.addEventListener(SESSION_CHANGED_EVENT, handleSessionChanged);
+  window.addEventListener("pageshow", handlePageShow);
+  return () => {
+    window.removeEventListener(SESSION_CHANGED_EVENT, handleSessionChanged);
+    window.removeEventListener("pageshow", handlePageShow);
+  };
 }
 
 export function clearSession(): void {

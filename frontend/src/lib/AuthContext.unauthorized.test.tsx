@@ -67,6 +67,7 @@ function SessionProbe(): React.JSX.Element {
 describe("AuthProvider unauthorized session handling", () => {
   beforeEach(() => {
     vi.setSystemTime(NOW_SECONDS * 1_000);
+    history.replaceState(null, "", "/watches");
     clearSession();
     getMember.mockReset();
     push.mockReset();

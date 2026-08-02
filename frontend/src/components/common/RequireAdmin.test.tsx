@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "@/lib/AuthContext";
@@ -48,9 +48,31 @@ function installSession(role: "NORMAL" | "ADMIN"): void {
 describe("RequireAdmin", () => {
   beforeEach(() => {
     vi.setSystemTime(NOW_SECONDS * 1_000);
+    history.replaceState(null, "", "/admin");
     clearSession();
     getMember.mockReset();
     replace.mockReset();
+  });
+
+  it("Given an anonymous admin deep link, when redirected to login, then preserves its query and fragment", async () => {
+    // Given
+    history.replaceState(null, "", "/admin?tab=users#suspended");
+
+    // When
+    render(
+      <AuthProvider>
+        <RequireAdmin>
+          <span>관리 화면</span>
+        </RequireAdmin>
+      </AuthProvider>,
+    );
+
+    // Then
+    await waitFor(() => {
+      expect(replace).toHaveBeenCalledWith(
+        "/login?next=%2Fadmin%3Ftab%3Dusers%23suspended",
+      );
+    });
   });
 
   afterEach(() => {
