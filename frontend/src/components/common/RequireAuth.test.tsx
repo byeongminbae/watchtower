@@ -55,10 +55,32 @@ function LogoutButton(): React.JSX.Element {
 describe("RequireAuth", () => {
   beforeEach(() => {
     vi.setSystemTime(NOW_SECONDS * 1_000);
+    history.replaceState(null, "", "/watches");
     clearSession();
     getMember.mockReset();
     logout.mockReset();
     replace.mockReset();
+  });
+
+  it("Given an anonymous deep link, when the guard redirects to login, then preserves its query and fragment", async () => {
+    // Given
+    history.replaceState(null, "", "/watches?tab=mine#changes");
+
+    // When
+    render(
+      <AuthProvider>
+        <RequireAuth>
+          <span>보호된 화면</span>
+        </RequireAuth>
+      </AuthProvider>,
+    );
+
+    // Then
+    await waitFor(() => {
+      expect(replace).toHaveBeenCalledWith(
+        "/login?next=%2Fwatches%3Ftab%3Dmine%23changes",
+      );
+    });
   });
 
   afterEach(() => {

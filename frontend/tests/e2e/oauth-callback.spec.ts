@@ -70,7 +70,10 @@ test.describe("OAuth callback desktop", () => {
         }),
       }),
     );
-    await page.goto("/login?next=%2Fwatches");
+    await page.goto("/watches?tab=mine#changes");
+    await expect(page).toHaveURL(
+      /\/login\?next=%2Fwatches%3Ftab%3Dmine%23changes$/u,
+    );
 
     // When
     await page.getByRole("button", { name: "네이버로 시작하기" }).click();
@@ -86,7 +89,7 @@ test.describe("OAuth callback desktop", () => {
     releaseCallback();
 
     // Then
-    await expect(page).toHaveURL(/\/watches$/u);
+    await expect(page).toHaveURL(/\/watches\?tab=mine#changes$/u);
     await expect(
       page.getByRole("button", { name: "실제 감시자 메뉴" }),
     ).toBeVisible();
@@ -102,7 +105,7 @@ test.describe("OAuth callback desktop", () => {
       "watchtower_refresh",
     ]);
     await page.reload();
-    await expect(page).toHaveURL(/\/watches$/u);
+    await expect(page).toHaveURL(/\/watches\?tab=mine#changes$/u);
     expect(page.url()).not.toContain("/login?");
     await expect(
       page.getByRole("button", { name: "실제 감시자 메뉴" }),
@@ -116,6 +119,9 @@ test.describe("OAuth callback desktop", () => {
       path: testInfo.outputPath("desktop-success.png"),
       fullPage: true,
     });
+    const rootURL = new URL("/", page.url()).toString();
+    await page.goto("/login");
+    await expect(page).toHaveURL(rootURL);
   });
 
   test("Given a provider rejection, when callback loads, then query is removed and no exchange or cookie occurs", async ({
