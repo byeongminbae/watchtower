@@ -1,0 +1,137 @@
+{
+    "containerDefinitions": [
+        {
+            "name": "watchtower-caddy-container",
+            "image": "caddy:2-alpine",
+            "cpu": 0,
+            "portMappings": [
+                {
+                    "containerPort": 80,
+                    "hostPort": 80,
+                    "protocol": "tcp",
+                    "name": "caddy-http"
+                },
+                {
+                    "containerPort": 443,
+                    "hostPort": 443,
+                    "protocol": "tcp",
+                    "name": "caddy-https"
+                },
+                {
+                    "containerPort": 443,
+                    "hostPort": 443,
+                    "protocol": "udp",
+                    "name": "caddy-http3"
+                }
+            ],
+            "essential": true,
+            "entryPoint": [
+                "/bin/sh",
+                "-c"
+            ],
+            "command": [
+                "printf '%s\\n' \"$@\" > /tmp/Caddyfile && exec caddy run --config /tmp/Caddyfile --adapter caddyfile",
+                "--",
+                "{$CADDY_DEV_SITE_ADDRESS} {",
+                "handle /health {",
+                "respond 200",
+                "}",
+                "handle /api/* {",
+                "reverse_proxy {$DEV_BACKEND_UPSTREAM}",
+                "}",
+                "handle {",
+                "reverse_proxy {$DEV_FRONTEND_UPSTREAM}",
+                "}",
+                "}",
+                "{$CADDY_PROD_SITE_ADDRESS} {",
+                "handle /health {",
+                "respond 200",
+                "}",
+                "handle /api/* {",
+                "reverse_proxy {$PROD_BACKEND_UPSTREAM}",
+                "}",
+                "handle {",
+                "reverse_proxy {$PROD_FRONTEND_UPSTREAM}",
+                "}",
+                "}"
+            ],
+            "environment": [
+                {
+                    "name": "CADDY_DEV_SITE_ADDRESS",
+                    "value": "front-dev.watchtower.boo"
+                },
+                {
+                    "name": "DEV_BACKEND_UPSTREAM",
+                    "value": "back-dev:8080"
+                },
+                {
+                    "name": "DEV_FRONTEND_UPSTREAM",
+                    "value": "front-dev:3000"
+                },
+                {
+                    "name": "CADDY_PROD_SITE_ADDRESS",
+                    "value": "watchtower.boo"
+                },
+                {
+                    "name": "PROD_BACKEND_UPSTREAM",
+                    "value": "back-prod:8080"
+                },
+                {
+                    "name": "PROD_FRONTEND_UPSTREAM",
+                    "value": "front-prod:3000"
+                }
+            ],
+            "mountPoints": [
+                {
+                    "sourceVolume": "caddy-data",
+                    "containerPath": "/data",
+                    "readOnly": false
+                }
+            ],
+            "volumesFrom": [],
+            "healthCheck": {
+                "command": [
+                    "CMD-SHELL",
+                    "wget --quiet --tries=1 --spider http://127.0.0.1:2019/config/ || exit 1"
+                ],
+                "interval": 10,
+                "timeout": 5,
+                "retries": 3,
+                "startPeriod": 10
+            },
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/watchtower-caddy-task",
+                    "awslogs-create-group": "true",
+                    "awslogs-region": "ap-northeast-2",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            },
+            "systemControls": []
+        }
+    ],
+    "family": "watchtower-caddy-task",
+    "taskRoleArn": "arn:aws:iam::150103290480:role/watchtower-ecs-role",
+    "executionRoleArn": "arn:aws:iam::150103290480:role/watchtower-ecs-role",
+    "networkMode": "bridge",
+    "volumes": [
+        {
+            "name": "caddy-data",
+            "host": {
+                "sourcePath": "/var/lib/watchtower/caddy-data"
+            }
+        }
+    ],
+    "placementConstraints": [],
+    "runtimePlatform": {
+        "cpuArchitecture": "X86_64",
+        "operatingSystemFamily": "LINUX"
+    },
+    "requiresCompatibilities": [
+        "EC2"
+    ],
+    "cpu": "256",
+    "memory": "256",
+    "enableFaultInjection": false
+}
