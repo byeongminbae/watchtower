@@ -13,6 +13,16 @@
                 }
             ],
             "essential": true,
+            "healthCheck": {
+                "command": [
+                    "CMD-SHELL",
+                    "wget --quiet --tries=1 --spider http://127.0.0.1:3000/ || exit 1"
+                ],
+                "interval": 10,
+                "timeout": 5,
+                "retries": 5,
+                "startPeriod": 30
+            },
             "environment": [],
             "mountPoints": [],
             "volumesFrom": [],
@@ -69,6 +79,6 @@
         "EC2"
     ],
     "cpu": "256",
-    "memory": "512",
+    "memory": "256",
     "enableFaultInjection": false
 }

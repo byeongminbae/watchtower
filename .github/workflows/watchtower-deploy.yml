@@ -11,9 +11,10 @@ on:
         options:
           - backend
           - frontend
+          - caddy
         default: backend
       environment:
-        description: "배포 환경"
+        description: "배포 환경 (Caddy는 공용 서비스라 선택값 무시)"
         required: true
         type: choice
         options:
@@ -26,7 +27,7 @@ env:
   DEPLOY_ENV: ${{ inputs.environment }}
   ECR_REPOSITORY: watchtower-${{ inputs.service }}-ecr
   ECS_CLUSTER: watchtower-cluster
-  ECS_SERVICE: watchtower-${{ inputs.service }}-${{ inputs.environment }}-task-service
+  ECS_SERVICE: ${{ inputs.service == 'caddy' && 'watchtower-caddy-task-service' || format('watchtower-{0}-{1}-task-service', inputs.service, inputs.environment) }}
   TASK_CONTAINER_NAME: watchtower-${{ inputs.service }}-container
 
 jobs:
@@ -78,6 +79,7 @@ jobs:
             ' >> "$GITHUB_ENV"
 
       - name: Build image
+        if: env.SERVICE != 'caddy'
         env:
           IMAGE_TAG: ${{ env.SERVICE }}-${{ env.DEPLOY_ENV }}-${{ github.sha }}
         run: |
@@ -94,6 +96,7 @@ jobs:
           echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
 
       - name: Verify image health
+        if: env.SERVICE != 'caddy'
         run: |
           app_container="watchtower-ci-${SERVICE}"
           db_container="watchtower-ci-postgres"
@@ -190,10 +193,12 @@ jobs:
           fi
 
       - name: Login to ECR
+        if: env.SERVICE != 'caddy'
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Push image to ECR
+        if: env.SERVICE != 'caddy'
         env:
           ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
         run: |
@@ -208,7 +213,7 @@ jobs:
         with:
           task-definition: ecs/task-definition.${{ env.SERVICE }}.json
           container-name: ${{ env.TASK_CONTAINER_NAME }}
-          image: ${{ env.IMAGE_URI }}
+          image: ${{ env.SERVICE == 'caddy' && 'caddy:2-alpine' || env.IMAGE_URI }}
 
       - name: Deploy to ECS service
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
@@ -217,3 +222,15 @@ jobs:
           service: ${{ env.ECS_SERVICE }}
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
+
+      - name: Start deployed service
+        run: |
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --desired-count 1 \
+            --output json >/dev/null
+
+          aws ecs wait services-stable \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE"
