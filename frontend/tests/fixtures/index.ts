@@ -35,7 +35,7 @@ export const test = base.extend<OAuthFixtures>({
   oauth: async ({ page }, applyFixture) => {
     let callbackRequests = 0;
     page.on("request", (request) => {
-      if (new URL(request.url()).pathname === "/api/v1/auth/naver/callback") {
+      if (new URL(request.url()).pathname === "/bff/auth/naver/callback") {
         callbackRequests += 1;
       }
     });

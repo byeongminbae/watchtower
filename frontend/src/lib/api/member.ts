@@ -25,7 +25,7 @@ function isMember(value: unknown): value is Member {
 
 export const memberApi = {
   getMember: (memberId: number) =>
-    apiClient.get(`/api/v1/member/${memberId}`, isMember),
+    apiClient.get(`/bff/member/${memberId}`, isMember),
 
   updateMember: (
     memberId: number,

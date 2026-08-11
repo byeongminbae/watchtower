@@ -26,7 +26,7 @@ test.describe("MyPage member profile", () => {
       document.cookie = `watchtower_jwt=${accessToken}; Path=/; SameSite=Lax`;
       document.cookie = `watchtower_refresh=${refreshToken}; Path=/; SameSite=Lax`;
     }, tokens);
-    await page.route("**/api/v1/member/7", (route) =>
+    await page.route("**/bff/member/7", (route) =>
       route.fulfill({
         contentType: "application/json",
         body: successEnvelope({
@@ -38,22 +38,22 @@ test.describe("MyPage member profile", () => {
         }),
       }),
     );
-    await page.route("**/api/v1/auth/renew?**", (route) => {
+    await page.route("**/bff/auth/renew", (route) => {
       renewRequestCount += 1;
       expect(route.request().method()).toBe("POST");
       expect(route.request().headers().authorization).toBe(
         `Bearer ${currentTokens.accessToken}`,
       );
-      expect(
-        new URL(route.request().url()).searchParams.get("refreshToken"),
-      ).toBe(currentTokens.refreshToken);
+      expect(route.request().postDataJSON()).toEqual({
+        refreshToken: currentTokens.refreshToken,
+      });
       currentTokens = oauth.validTokens(7);
       return route.fulfill({
         contentType: "application/json",
         body: successEnvelope(currentTokens),
       });
     });
-    await page.route("**/api/v1/auth/logout", (route) => {
+    await page.route("**/bff/auth/logout", (route) => {
       logoutRequestCount += 1;
       expect(route.request().method()).toBe("DELETE");
       expect(route.request().headers().authorization).toContain("Bearer ");

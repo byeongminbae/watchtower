@@ -64,7 +64,7 @@ test("Given every route, when it renders at each breakpoint, then the daylight s
   oauth,
 }) => {
   // Given
-  await page.route("**/api/v1/member/7", (route) =>
+  await page.route("**/bff/member/7", (route) =>
     route.fulfill({
       contentType: "application/json",
       body: successEnvelope({

@@ -7,14 +7,14 @@ FROM node:20-alpine AS build
 WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-ARG NEXT_PUBLIC_API_BASE_URL
-ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 RUN npm run build
 
 FROM node:20-alpine AS runtime
+ARG INTERNAL_API_BASE_URL
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV TZ=Asia/Seoul
+ENV INTERNAL_API_BASE_URL=${INTERNAL_API_BASE_URL}
 WORKDIR /app
 
 RUN addgroup --system --gid 1001 nodejs && \

@@ -47,48 +47,21 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Load frontend build environment
-        if: env.SERVICE == 'frontend'
-        run: |
-          common_path="/watchtower/frontend/"
-          environment_path="${common_path}${{ env.DEPLOY_ENV }}/"
-
-          {
-            aws ssm get-parameters-by-path \
-              --path "$common_path" \
-              --with-decryption \
-              --output json
-            aws ssm get-parameters-by-path \
-              --path "$environment_path" \
-              --recursive \
-              --with-decryption \
-              --output json
-          } |
-            jq -ser '
-              (
-                reduce [.[].Parameters[]][] as $parameter
-                  ({}; .[$parameter.Name | split("/")[-1]] = $parameter)
-                | [.[]]
-              ) as $parameters |
-              if ($parameters | length) == 0 then error("No frontend build parameters found")
-              else $parameters[] |
-                if (.Value | test("[\r\n]")) then error("Frontend build parameters must be single-line values")
-                else "\(.Name | split("/")[-1])=\(.Value)"
-                end
-              end
-            ' >> "$GITHUB_ENV"
-
       - name: Build image
         if: env.SERVICE != 'caddy'
         env:
           IMAGE_TAG: ${{ env.SERVICE }}-${{ env.DEPLOY_ENV }}-${{ github.sha }}
         run: |
           local_image="watchtower/${SERVICE}:${IMAGE_TAG}"
+          build_args=(--build-arg "SPRING_PROFILE=${DEPLOY_ENV}")
+
+          if [ "$SERVICE" = "frontend" ]; then
+            build_args+=(--build-arg "INTERNAL_API_BASE_URL=http://back-${DEPLOY_ENV}:8080")
+          fi
 
           docker build \
             -f "${SERVICE}/Dockerfile" \
-            --build-arg SPRING_PROFILE="${DEPLOY_ENV}" \
-            --build-arg NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL:-}" \
+            "${build_args[@]}" \
             -t "$local_image" \
             "./${SERVICE}"
 

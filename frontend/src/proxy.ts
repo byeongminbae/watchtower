@@ -7,7 +7,9 @@ import {
 } from "@/lib/session";
 
 export function proxy(request: NextRequest): NextResponse {
-  if (request.nextUrl.pathname !== "/login") return NextResponse.next();
+  const { pathname } = request.nextUrl;
+
+  if (pathname !== "/login") return NextResponse.next();
 
   const accessToken = request.cookies.get(ACCESS_COOKIE_NAME)?.value;
   const refreshToken = request.cookies.get(REFRESH_COOKIE_NAME)?.value;
@@ -23,5 +25,5 @@ export function proxy(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: "/login/:path*",
+  matcher: ["/login"],
 };

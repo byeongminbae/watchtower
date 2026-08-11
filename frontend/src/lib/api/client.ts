@@ -15,8 +15,6 @@ import type {
   ResponseDecoder,
 } from "./types";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-
 interface RequestOptions {
   readonly method?: "GET" | "POST" | "PATCH" | "DELETE" | "PUT";
   readonly body?: unknown;
@@ -65,8 +63,17 @@ async function rawFetch<T>(
   options: RequestOptions,
   decode: ResponseDecoder<T>,
 ): Promise<T> {
+  if (!path.startsWith("/bff/")) {
+    throw new ApiError(
+      "프론트엔드 API 경로가 올바르지 않습니다.",
+      0,
+      "INVALID_CLIENT_ROUTE",
+      path,
+    );
+  }
+
   const { method = "GET", body } = options;
-  const url = `${BASE_URL}${path}`;
+  const url = path;
   const jwt = getJwtFromCookie();
   const headers: Record<string, string> =
     jwt === null
