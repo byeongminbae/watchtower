@@ -73,7 +73,7 @@ describe("backend API availability inventory", () => {
     expect(result.data).toEqual(tokens);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(fetchSpy).toHaveBeenCalledWith(
-      "/api/v1/auth/naver/callback?code=fixture%20code&state=fixture%20state",
+      "/bff/auth/naver/callback?code=fixture%20code&state=fixture%20state",
       expect.objectContaining({ method: "GET" }),
     );
   });
@@ -104,7 +104,7 @@ describe("backend API availability inventory", () => {
     // Then
     expect(result.data).toEqual(member);
     expect(fetchSpy).toHaveBeenCalledWith(
-      "/api/v1/member/7",
+      "/bff/member/7",
       expect.objectContaining({ method: "GET" }),
     );
   });

@@ -1,6 +1,6 @@
 import { expect, test } from "../fixtures";
 
-const CALLBACK_PATH = "/api/v1/auth/naver/callback";
+const CALLBACK_PATH = "/bff/auth/naver/callback";
 const TIMESTAMP = "2026-07-29T10:00:00";
 
 test("Given a mounted protected shell, when an in-flight callback returns 401, then header and guard log out without reload", async ({

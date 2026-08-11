@@ -53,7 +53,7 @@ describe("apiClient response boundary", () => {
 
     // When
     const result = await apiClient.get<TokenPair>(
-      "/api/v1/auth/naver/callback",
+      "/bff/test/auth/callback",
       isTokenPair,
     );
 
@@ -67,7 +67,7 @@ describe("apiClient response boundary", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(response(envelope));
 
     // When
-    const result = await apiClient.deleteEmpty("/api/v1/auth/logout");
+    const result = await apiClient.deleteEmpty("/bff/test/auth/logout");
 
     // Then
     expect(result).toEqual(envelope);
@@ -98,7 +98,7 @@ describe("apiClient response boundary", () => {
 
       // When
       const request = apiClient.get<TokenPair>(
-        "/api/v1/auth/naver/callback",
+        "/bff/test/auth/callback",
         isTokenPair,
       );
 
@@ -127,7 +127,7 @@ describe("apiClient response boundary", () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValue(response(envelope, httpStatus));
 
       // When
-      const request = apiClient.get<ApiEnvelope<string>>("/api/v1/member/404");
+      const request = apiClient.get<ApiEnvelope<string>>("/bff/test/member/404");
 
       // Then
       await expect(request).rejects.toMatchObject({
@@ -150,7 +150,7 @@ describe("apiClient response boundary", () => {
     );
 
     // When
-    const request = apiClient.get<ApiEnvelope<string>>("/api/v1/member/1");
+    const request = apiClient.get<ApiEnvelope<string>>("/bff/test/member/1");
 
     // Then
     await expect(request).rejects.toMatchObject({
@@ -171,7 +171,7 @@ describe("apiClient response boundary", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(response(malformedEnvelope));
 
     // When
-    const request = apiClient.get<ApiEnvelope<string>>("/api/v1/member/1");
+    const request = apiClient.get<ApiEnvelope<string>>("/bff/test/member/1");
 
     // Then
     await expect(request).rejects.toMatchObject({
@@ -187,7 +187,7 @@ describe("apiClient response boundary", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 200 }));
 
     // When
-    const request = apiClient.get<ApiEnvelope<string>>("/api/v1/member/1");
+    const request = apiClient.get<ApiEnvelope<string>>("/bff/test/member/1");
 
     // Then
     await expect(request).rejects.toMatchObject({
@@ -203,7 +203,7 @@ describe("apiClient response boundary", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(cause);
 
     // When
-    const request = apiClient.get<ApiEnvelope<string>>("/api/v1/member/1");
+    const request = apiClient.get<ApiEnvelope<string>>("/bff/test/member/1");
 
     // Then
     await expect(request).rejects.toEqual(
@@ -240,13 +240,34 @@ describe("apiClient response boundary", () => {
     });
 
     // When
-    const request = apiClient.get<ApiEnvelope<string>>("/api/v1/member/1");
+    const request = apiClient.get<ApiEnvelope<string>>("/bff/test/member/1");
 
     // Then
     await expect(request).rejects.toBeInstanceOf(ApiError);
     expect(document.cookie).not.toContain("watchtower_jwt=");
     expect(document.cookie).not.toContain("watchtower_refresh=");
-    expect(requestedUrls).toEqual(["https://watchtower.test/api/v1/member/1"]);
+    expect(requestedUrls).toEqual(["https://watchtower.test/bff/test/member/1"]);
     expect(requestedUrls.some((url) => url.includes("/auth/renew"))).toBe(false);
   });
+
+  it.each([
+    "/api/v1/auth/logout",
+    "https://backend.example/api/v1/member/1",
+  ])(
+    "Given disallowed browser route %s, when requested, then it fails before fetch",
+    async (path) => {
+      // Given
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+      // When
+      const request = apiClient.get<ApiEnvelope<string>>(path);
+
+      // Then
+      await expect(request).rejects.toMatchObject({
+        name: "ApiError",
+        code: "INVALID_CLIENT_ROUTE",
+      });
+      expect(fetchSpy).not.toHaveBeenCalled();
+    },
+  );
 });

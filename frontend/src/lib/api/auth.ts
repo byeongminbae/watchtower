@@ -46,30 +46,27 @@ export function isNaverAuthorizeUrl(value: unknown): value is string {
 }
 
 export const authApi = {
-  // GET /api/v1/auth/naver/url?state=...
   getNaverLoginUrl: (state: string) =>
     apiClient.get(
-      `/api/v1/auth/naver/url?state=${encodeURIComponent(state)}`,
+      `/bff/auth/naver/url?state=${encodeURIComponent(state)}`,
       isNaverAuthorizeUrl,
     ),
 
   loginWithNaverCallback: (code: string, state: string) =>
     apiClient.get(
-      `/api/v1/auth/naver/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
+      `/bff/auth/naver/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
       isNaverCallbackTokens,
     ),
 
-  // DELETE /api/v1/auth/naver/revoke
   revokeNaverToken: () =>
     rejectUnavailable<ApiEnvelope<string>>("auth.revokeNaverToken"),
 
   renewSession: (refreshToken: string) =>
     apiClient.post(
-      `/api/v1/auth/renew?refreshToken=${encodeURIComponent(refreshToken)}`,
-      undefined,
+      "/bff/auth/renew",
+      { refreshToken },
       isNaverCallbackTokens,
     ),
 
-  // DELETE /api/v1/auth/logout
-  logout: () => apiClient.deleteEmpty("/api/v1/auth/logout"),
+  logout: () => apiClient.deleteEmpty("/bff/auth/logout"),
 };

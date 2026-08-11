@@ -1,7 +1,7 @@
 import { expect, test } from "../fixtures";
 
 const TIMESTAMP = "2026-07-29T10:00:00";
-const CALLBACK_PATH = "/api/v1/auth/naver/callback";
+const CALLBACK_PATH = "/bff/auth/naver/callback";
 
 function successEnvelope(data: unknown): string {
   return JSON.stringify({ success: true, data, timestamp: TIMESTAMP });
@@ -39,7 +39,7 @@ test.describe("OAuth callback desktop", () => {
     const callbackGate = new Promise<void>((resolve) => {
       releaseCallback = resolve;
     });
-    await page.route("**/api/v1/auth/naver/url?**", async (route) => {
+    await page.route("**/bff/auth/naver/url?**", async (route) => {
       issuedState = new URL(route.request().url()).searchParams.get("state") ?? "";
       await route.fulfill({
         contentType: "application/json",
@@ -58,7 +58,7 @@ test.describe("OAuth callback desktop", () => {
         body: successEnvelope(oauth.validTokens()),
       });
     });
-    await page.route("**/api/v1/member/7", (route) =>
+    await page.route("**/bff/member/7", (route) =>
       route.fulfill({
         contentType: "application/json",
         body: successEnvelope({

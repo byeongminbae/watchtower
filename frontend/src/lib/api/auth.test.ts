@@ -92,7 +92,7 @@ describe("authApi.loginWithNaverCallback", () => {
       accessTokenExpiry: 2_000_000_000,
     });
     expect(fetch).toHaveBeenCalledWith(
-      "/api/v1/auth/naver/callback?code=fixture-code&state=fixture-state",
+      "/bff/auth/naver/callback?code=fixture-code&state=fixture-state",
       expect.objectContaining({ method: "GET" }),
     );
   });
@@ -125,7 +125,7 @@ describe("authApi session endpoints", () => {
     vi.restoreAllMocks();
   });
 
-  it("Given a refresh token, when renewed, then sends it as an encoded query parameter", async () => {
+  it("Given a refresh token, when renewed, then sends it only to the Next session endpoint body", async () => {
     // Given
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       response({
@@ -141,8 +141,11 @@ describe("authApi session endpoints", () => {
     // Then
     expect(result.data.accessToken).toBe("renewed.access.fixture");
     expect(fetch).toHaveBeenCalledWith(
-      "/api/v1/auth/renew?refreshToken=refresh%20token%2Ffixture",
-      expect.objectContaining({ method: "POST" }),
+      "/bff/auth/renew",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ refreshToken: "refresh token/fixture" }),
+      }),
     );
   });
 
@@ -156,7 +159,7 @@ describe("authApi session endpoints", () => {
     // Then
     expect(result).toEqual({ success: true, timestamp: TIMESTAMP });
     expect(fetch).toHaveBeenCalledWith(
-      "/api/v1/auth/logout",
+      "/bff/auth/logout",
       expect.objectContaining({ method: "DELETE" }),
     );
   });
