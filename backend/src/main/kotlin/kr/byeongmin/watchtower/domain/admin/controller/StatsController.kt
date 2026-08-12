@@ -1,0 +1,37 @@
+package kr.byeongmin.watchtower.domain.admin.controller
+
+import io.swagger.v3.oas.annotations.Operation
+import kr.byeongmin.watchtower.global.response.SuccessDataResponse
+import kr.byeongmin.watchtower.global.security.AdminOnly
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RestController
+
+@RestController
+@RequestMapping("/api/v1/admin/stats")
+@AdminOnly
+class StatsController {
+    @Operation(summary = "대시보드 와치 통계 조회")
+    @GetMapping("/watches")
+    fun getWatchStats(): SuccessDataResponse<String> {
+        return SuccessDataResponse("")
+    }
+
+    @Operation(summary = "대시보드 결제 통계 조회")
+    @GetMapping("/payments")
+    fun getPaymentStats(): SuccessDataResponse<String> {
+        return SuccessDataResponse("")
+    }
+
+    @Operation(summary = "대시보드 유저수/회원탈퇴수 등 통계 조회")
+    @GetMapping("/users")
+    fun getUserStats(): SuccessDataResponse<String> {
+        return SuccessDataResponse("")
+    }
+
+    @Operation(summary = "대시보드 로그인/회원가입 통계 조회")
+    @GetMapping("/auth")
+    fun getAuthStats(): SuccessDataResponse<String> {
+        return SuccessDataResponse("")
+    }
+}

@@ -1,0 +1,23 @@
+server:
+  shutdown: graceful
+
+watchtower:
+  jwt:
+    access-expiry: 3600000 # 1시간
+    refresh-expiry: 1209600000 # 14일
+
+spring:
+  application:
+    name: watchtower
+  config:
+    import: aws-parameterstore:/watchtower/backend/
+  lifecycle:
+    timeout-per-shutdown-phase: 60s
+
+  jpa:
+    database: POSTGRESQL
+    hibernate:
+      ddl-auto: validate
+  datasource:
+    platform: postgres
+    driverClassName: org.postgresql.Driver

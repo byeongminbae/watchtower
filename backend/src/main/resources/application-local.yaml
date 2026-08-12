@@ -1,0 +1,9 @@
+logging:
+  level:
+    kr.byeongmin: DEBUG
+
+spring:
+  config:
+    import: aws-parameterstore:/watchtower/backend/local/
+  jpa:
+    show-sql: true

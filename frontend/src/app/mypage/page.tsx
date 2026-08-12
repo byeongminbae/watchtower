@@ -1,0 +1,237 @@
+"use client";
+
+import React from "react";
+import {
+  Alert,
+  Avatar,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CircularProgress,
+  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Divider,
+  Grid,
+  Snackbar,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/AuthContext";
+import { memberApi } from "@/lib/api";
+import { ApiError } from "@/lib/api/errors";
+
+export default function MyPage() {
+  const { member, memberStatus, refreshMember, renewSession, logout } = useAuth();
+  const router = useRouter();
+
+  const [nicknameDraft, setNicknameDraft] = React.useState("");
+  const [editing, setEditing] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  const [renewingSession, setRenewingSession] = React.useState(false);
+  const [toast, setToast] = React.useState<{ message: string; severity: "success" | "error" } | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+
+  if (member === null && (memberStatus === "idle" || memberStatus === "loading")) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 20 }}>
+        <CircularProgress color="secondary" size={28} />
+      </Box>
+    );
+  }
+
+  if (member === null) {
+    return (
+      <Container maxWidth="sm" sx={{ py: 10 }}>
+        <Alert severity="error">회원 정보를 불러올 수 없습니다.</Alert>
+      </Container>
+    );
+  }
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await memberApi.updateMember(member.id, { nickname: nicknameDraft });
+      await refreshMember();
+      setEditing(false);
+      setToast({ message: "프로필이 저장되었습니다.", severity: "success" });
+    } catch (err) {
+      setToast({
+        message: err instanceof ApiError ? err.message : "저장에 실패했습니다.",
+        severity: "error",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelEdit = (): void => {
+    setEditing(false);
+  };
+
+  const handleStartEdit = (): void => {
+    setNicknameDraft(member.nickname);
+    setEditing(true);
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      await memberApi.deleteMember(member.id);
+      await logout();
+      router.push("/");
+    } catch (err) {
+      setToast({
+        message: err instanceof ApiError ? err.message : "회원 탈퇴에 실패했습니다.",
+        severity: "error",
+      });
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+    }
+  };
+
+  const handleRenewSession = async (): Promise<void> => {
+    setRenewingSession(true);
+    try {
+      const renewed = await renewSession();
+      setToast({
+        message: renewed ? "세션이 갱신되었습니다." : "세션을 갱신할 수 없습니다.",
+        severity: renewed ? "success" : "error",
+      });
+    } catch (err) {
+      setToast({
+        message: err instanceof ApiError ? err.message : "세션 갱신에 실패했습니다.",
+        severity: "error",
+      });
+    } finally {
+      setRenewingSession(false);
+    }
+  };
+
+  return (
+    <Container maxWidth="md" sx={{ py: 4 }}>
+      <Typography variant="h5" sx={{ mb: 3, fontWeight: 800 }}>
+        마이페이지
+      </Typography>
+
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, md: 5 }}>
+          <Card variant="outlined">
+            <CardContent sx={{ textAlign: "center", py: 4 }}>
+              <Avatar
+                src={member.profileImageUrl || undefined}
+                alt={`${member.nickname} 프로필 사진`}
+                sx={{ width: 72, height: 72, mx: "auto", mb: 2, bgcolor: "primary.main", fontSize: 28 }}
+              >
+                {member.nickname[0]}
+              </Avatar>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                {member.nickname}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {member.email}
+              </Typography>
+            </CardContent>
+          </Card>
+
+          <Stack spacing={1.5} sx={{ mt: 2, "& .MuiButton-root": { minHeight: 40 } }}>
+            <Button component={Link} href="/mypage/subscription" variant="outlined" fullWidth>
+              구독 관리
+            </Button>
+            <Button component={Link} href="/mypage/payments" variant="outlined" fullWidth>
+              결제 이력
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={handleRenewSession}
+              disabled={renewingSession}
+            >
+              {renewingSession ? <CircularProgress size={20} color="inherit" /> : "세션 갱신"}
+            </Button>
+            <Button variant="text" color="error" fullWidth onClick={() => setDeleteDialogOpen(true)}>
+              회원 탈퇴
+            </Button>
+          </Stack>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 7 }}>
+          <Card variant="outlined">
+            <CardContent>
+              <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 700 }}>
+                프로필 정보
+              </Typography>
+              <Stack spacing={2.5}>
+                <TextField
+                  label="닉네임"
+                  value={editing ? nicknameDraft : member.nickname}
+                  onChange={(event) => setNicknameDraft(event.target.value)}
+                  fullWidth
+                  disabled={!editing}
+                />
+                <TextField label="이메일" value={member.email} fullWidth disabled />
+                <Divider />
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: 1,
+                    "& .MuiButton-root": { minHeight: 40 },
+                  }}
+                >
+                  {editing ? (
+                    <>
+                      <Button color="inherit" onClick={handleCancelEdit} disabled={saving}>
+                        취소
+                      </Button>
+                      <Button variant="contained" color="secondary" onClick={handleSave} disabled={saving}>
+                        {saving ? <CircularProgress size={20} color="inherit" /> : "저장"}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button variant="contained" color="secondary" onClick={handleStartEdit}>
+                      수정
+                    </Button>
+                  )}
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      <Dialog open={deleteDialogOpen} onClose={() => !deleting && setDeleteDialogOpen(false)}>
+        <DialogTitle sx={{ fontWeight: 700 }}>정말 탈퇴하시겠어요?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            탈퇴 시 계정 정보는 논리 삭제되며, 네이버 연동도 함께 해제됩니다. 이 작업은 되돌릴 수 없습니다.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setDeleteDialogOpen(false)} color="inherit" disabled={deleting}>
+            취소
+          </Button>
+          <Button onClick={handleDeleteAccount} color="error" variant="contained" disabled={deleting}>
+            {deleting ? <CircularProgress size={20} color="inherit" /> : "탈퇴하기"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar open={toast !== null} autoHideDuration={4000} onClose={() => setToast(null)}>
+        {toast ? (
+          <Alert severity={toast.severity} onClose={() => setToast(null)} sx={{ width: "100%" }}>
+            {toast.message}
+          </Alert>
+        ) : undefined}
+      </Snackbar>
+    </Container>
+  );
+}
