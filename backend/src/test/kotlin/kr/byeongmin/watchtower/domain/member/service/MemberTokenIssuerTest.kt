@@ -32,7 +32,7 @@ class MemberTokenIssuerTest {
     )
 
     @Test
-    fun `로그인 토큰을 발급하고 회원 엔티티에도 리프레시 토큰을 저장`() {
+    fun `영속된 회원인 상황에서 로그인을 처리하면 토큰을 발급하고 리프레시 토큰을 저장한다`() {
         // Given
         val memberId = 11L
         val accessToken = "와치타워-엑세스-토큰"
@@ -57,7 +57,7 @@ class MemberTokenIssuerTest {
     }
 
     @Test
-    fun `토큰을 재발급하고 회원 엔티티의 리프레시 토큰을 교체`() {
+    fun `기존 리프레시 토큰이 있는 회원인 상황에서 토큰을 갱신하면 새 토큰으로 교체한다`() {
         // Given
         val memberId = 12L
         val accessToken = "새로운-와치타워-엑세스-토큰"
@@ -86,7 +86,7 @@ class MemberTokenIssuerTest {
     }
 
     @Test
-    fun `영속되지 않은 회원에게 토큰을 발행할 경우`() {
+    fun `영속되지 않은 회원인 상황에서 로그인을 처리하면 널 캐스팅 예외를 던진다`() {
         // Given
         val member = Member.from(naverProfile)
 

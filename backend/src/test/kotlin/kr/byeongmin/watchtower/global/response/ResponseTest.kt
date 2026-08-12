@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 
 class ResponseTest {
     @Test
-    fun `반환할 데이터가 있는 성공 응답일 경우`() {
+    fun `데이터가 있는 상황에서 성공 응답을 생성하면 성공 상태와 데이터를 반환한다`() {
         // Given
         val data = mutableListOf("첫 번째", "두 번째")
 
@@ -24,7 +24,7 @@ class ResponseTest {
     }
 
     @Test
-    fun `반환할 데이터가 없는 성공 응답일 경우`() {
+    fun `반환할 데이터가 없는 상황에서 성공 응답을 생성하면 성공 상태를 반환한다`() {
         // When
         val response = SuccessResponse()
 
@@ -33,7 +33,7 @@ class ResponseTest {
     }
 
     @Test
-    fun `비즈니스 예외로 오류 응답을 반환할 경우`() {
+    fun `비즈니스 예외가 있는 상황에서 오류 응답을 생성하면 실패 상태와 예외 정보를 반환한다`() {
         // Given
         val timestamp = LocalDateTime.of(2026, 7, 31, 12, 0)
         val exception = BusinessException(CommonError.RESOURCE_NOT_FOUND, timestamp)

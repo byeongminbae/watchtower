@@ -9,7 +9,7 @@ import kotlin.test.assertSame
 
 class GlobalExtensions {
     @Test
-    fun `널이 아닌 값은 객체를 그대로 반환`() {
+    fun `값이 널이 아닌 상황에서 ifNullThrow를 호출하면 원본 객체를 반환한다`() {
         // Given
         val value = mutableListOf("값")
 
@@ -21,7 +21,7 @@ class GlobalExtensions {
     }
 
     @Test
-    fun `널 값은 널 캐스팅 예외를 던짐`() {
+    fun `값이 널인 상황에서 ifNullThrow를 호출하면 널 캐스팅 예외를 전달한다`() {
         // Given
         val value: String? = null
 

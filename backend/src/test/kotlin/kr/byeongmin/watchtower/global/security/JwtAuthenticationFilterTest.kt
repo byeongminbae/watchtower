@@ -21,7 +21,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    fun `엑세스 토큰이 유효할 경우 시큐리티 컨텍스트에 인증 정보 저장`() {
+    fun `유효한 액세스 토큰이 전달된 상황에서 인증 필터를 실행하면 시큐리티 컨텍스트에 회원 인증 정보를 저장한다`() {
         // Given
         val accessToken = "와치타워-엑세스-토큰"
         val role = "ADMIN"
@@ -48,7 +48,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    fun `인증 헤더가 비어있는 경우`() {
+    fun `인증 헤더가 없는 상황에서 인증 필터를 실행하면 인증 없이 필터 체인에 위임한다`() {
         // Given
         val request = MockHttpServletRequest()
         val response = MockHttpServletResponse()
@@ -64,7 +64,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    fun `지원하지 않는 전달자 형식을 사용한 경우`() {
+    fun `Bearer가 아닌 인증 형식이 전달된 상황에서 인증 필터를 실행하면 인증 없이 필터 체인에 위임한다`() {
         // Given
         val request = MockHttpServletRequest().apply {
             addHeader("Authorization", "Basic 우린-베이직-안써용")
@@ -82,7 +82,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    fun `토큰 검증에 실패한 경우 예외를 전파하고 체인을 호출하지 않는다`() {
+    fun `유효하지 않은 액세스 토큰이 전달된 상황에서 토큰 검증에 실패하면 예외를 던지고 필터 체인 호출을 차단한다`() {
         // Given
         val request = MockHttpServletRequest().apply {
             addHeader("Authorization", "Bearer 유효하지-않은-와치타워-엑세스-토큰")
@@ -107,7 +107,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    fun `토큰 상세 정보 추출에 실패한 경우`() {
+    fun `토큰 상세 정보 추출이 실패하는 상황에서 인증 필터를 실행하면 인증 없이 필터 체인에 위임한다`() {
         // Given
         val request = MockHttpServletRequest().apply {
             addHeader("Authorization", "Bearer 추출에-실패하는-와치타워-엑세스-토큰")

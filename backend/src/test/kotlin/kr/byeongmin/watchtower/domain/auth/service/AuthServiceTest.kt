@@ -74,7 +74,7 @@ class AuthServiceTest {
     }
 
     @Test
-    fun `네이버 로그인 URL 검증`() {
+    fun `로그인 상태값이 주어진 상황에서 네이버 로그인 URL을 생성하면 OAuth 설정값을 포함한다`() {
         // Given
         val state = "프론트가-설정하는-CSRF-방지용-랜덤값"
         val authService = createAuthService()
@@ -152,7 +152,7 @@ class AuthServiceTest {
         }
 
         @Test
-        fun `가입된 네이버 회원은 기존 회원으로 로그인`() {
+        fun `가입된 네이버 회원인 상황에서 콜백 로그인을 요청하면 기존 회원 토큰을 발급한다`() {
             // Given
             val naverOAuth = NaverOAuth.from(
                 member = member,
@@ -174,7 +174,7 @@ class AuthServiceTest {
         }
 
         @Test
-        fun `처음 로그인한 네이버 회원은 가입 후 로그인`() {
+        fun `가입되지 않은 네이버 회원인 상황에서 콜백 로그인을 요청하면 회원가입 후 토큰을 발급한다`() {
             // Given
             whenever(naverOAuthRepository.existsByProviderId(providerId)).thenReturn(false)
             whenever(memberRepository.save(any<Member>())).thenReturn(member)
@@ -196,7 +196,7 @@ class AuthServiceTest {
     }
 
     @Test
-    fun `리프레시 토큰 재발급`() {
+    fun `유효한 회원의 리프레시 토큰이 주어진 상황에서 토큰 갱신을 요청하면 새 회원 토큰을 발급한다`() {
         // Given
         val authService = createAuthService()
         val memberId = 31L
@@ -220,7 +220,7 @@ class AuthServiceTest {
     }
 
     @Test
-    fun `존재하지 않는 회원의 토큰을 재발급 받으려는 경우`() {
+    fun `회원이 존재하지 않는 상황에서 리프레시 토큰으로 갱신하면 리소스 없음 예외를 던진다`() {
         // Given
         val authService = createAuthService()
         val memberId = 31L
@@ -238,7 +238,7 @@ class AuthServiceTest {
     }
 
     @Test
-    fun `회원이 로그아웃한 경우`() {
+    fun `리프레시 토큰을 가진 회원이 존재하는 상황에서 로그아웃하면 리프레시 토큰을 삭제한다`() {
         // Given
         val authService = createAuthService()
         val memberId = 31L
@@ -255,7 +255,7 @@ class AuthServiceTest {
     }
 
     @Test
-    fun `존재하지 않는 회원이 로그아웃을 한 경우`() {
+    fun `회원이 존재하지 않는 상황에서 로그아웃하면 리소스 없음 예외를 던진다`() {
         // Given
         val authService = createAuthService()
         val memberId = 31L

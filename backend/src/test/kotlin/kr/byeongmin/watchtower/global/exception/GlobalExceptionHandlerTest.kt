@@ -9,7 +9,7 @@ import kotlin.test.assertFalse
 
 class GlobalExceptionHandlerTest {
     @Test
-    fun `비즈니스 예외가 발생한 경우`() {
+    fun `비즈니스 예외가 주어진 상황에서 전역 예외 핸들러가 처리하면 예외 정보를 담은 오류 응답을 반환한다`() {
         // Given
         val timestamp = LocalDateTime.of(2026, 7, 31, 13, 0)
         val exception = BusinessException(CommonError.INVALID_INPUT_VALUE, timestamp)
