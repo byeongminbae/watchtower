@@ -21,7 +21,7 @@ class JwtProviderTest {
     )
 
     @Test
-    fun `회원 엑세스 토큰 발급`() {
+    fun `회원 ID와 역할이 주어진 상황에서 액세스 토큰을 생성하면 유효한 회원 토큰을 반환한다`() {
         // Given
         val memberId = 41L
         val role = "ADMIN"
@@ -36,7 +36,7 @@ class JwtProviderTest {
     }
 
     @Test
-    fun `회원 리프레시 토큰 발급`() {
+    fun `회원 ID가 주어진 상황에서 리프레시 토큰을 생성하면 유효한 회원 토큰을 반환한다`() {
         // Given
         val memberId = 42L
 
@@ -49,7 +49,7 @@ class JwtProviderTest {
     }
 
     @Test
-    fun `토큰이 유효하지 않을 경우`() {
+    fun `변조되거나 형식이 잘못된 토큰이 주어진 상황에서 유효성을 확인하면 유효하지 않은 토큰으로 판단한다`() {
         // Given
         val memberId = 43L
         val role = "NORMAL"
@@ -64,7 +64,7 @@ class JwtProviderTest {
     }
 
     @Test
-    fun `만료된 토큰은 만료 예외를 던짐`() {
+    fun `만료된 토큰이 주어진 상황에서 토큰을 검증하면 만료 토큰 예외를 던진다`() {
         // Given
         val key = Keys.hmacShaKeyFor(secretKeyString.toByteArray(StandardCharsets.UTF_8))
         val memberId = 44L
@@ -85,7 +85,7 @@ class JwtProviderTest {
     }
 
     @Test
-    fun `변조된 토큰은 유효하지 않은 토큰 예외를 던짐`() {
+    fun `변조된 토큰이 주어진 상황에서 토큰을 검증하면 유효하지 않은 토큰 예외를 던진다`() {
         // When
         val exception = assertFailsWith<BusinessException> {
             jwtProvider.validateToken("유효하지-않음")
@@ -96,7 +96,7 @@ class JwtProviderTest {
     }
 
     @Test
-    fun `엑세스 토큰과 리프레시 토큰은 각각 설정된 수명을 사용`() {
+    fun `액세스 토큰과 리프레시 토큰이 각각 발급된 상황에서 수명을 확인하면 각 토큰에 설정된 수명과 일치한다`() {
         // Given
         val memberId = 45L
         val role = "NORMAL"

@@ -22,7 +22,7 @@ class MemberTest {
     )
 
     @Test
-    fun `네이버 프로필로 일반 회원 생성`() {
+    fun `네이버 프로필이 주어진 상황에서 회원을 생성하면 프로필과 일반 회원 역할을 기본값으로 설정한다`() {
         // When
         val member = Member.from(naverProfile)
 
@@ -36,7 +36,7 @@ class MemberTest {
     }
 
     @Test
-    fun `로그인한 경우`() {
+    fun `기존 회원인 상황에서 로그인을 완료하면 리프레시 토큰과 최근 로그인 시각을 갱신한다`() {
         // Given
         val member = Member.from(naverProfile)
         val previousSignInAt = LocalDateTime.of(2000, 1, 1, 0, 0)
@@ -54,7 +54,7 @@ class MemberTest {
     }
 
     @Test
-    fun `토큰 로테이션은 최근 로그인 시각과 무관`() {
+    fun `기존 회원인 상황에서 리프레시 토큰을 교체하면 최근 로그인 시각을 유지한다`() {
         // Given
         val member = Member.from(naverProfile)
         val originalSignInAt = member.lastSignInAt
@@ -68,7 +68,7 @@ class MemberTest {
     }
 
     @Test
-    fun `로그아웃한 경우`() {
+    fun `리프레시 토큰이 있는 회원인 상황에서 로그아웃하면 리프레시 토큰을 삭제한다`() {
         // Given
         val member = Member.from(naverProfile)
         member.rotateRefreshToken("와치타워-리프레시-토큰")

@@ -23,7 +23,7 @@ class SecurityExceptionHandlerFilterTest {
     private val filter = SecurityExceptionHandlerFilter(objectMapper)
 
     @Test
-    fun `JWT 필터에서 발생한 비즈니스 예외를 오류 응답으로 변환`() {
+    fun `만료된 액세스 토큰이 전달된 상황에서 요청을 처리하면 만료 토큰 오류 응답을 반환하고 다음 필터를 호출하지 않는다`() {
         // Given
         val accessToken = "만료된-와치타워-액세스-토큰"
         val request = MockHttpServletRequest().apply {
@@ -58,7 +58,7 @@ class SecurityExceptionHandlerFilterTest {
     }
 
     @Test
-    fun `정상 요청은 필터 체인으로 위임`() {
+    fun `정상 요청이 들어온 상황에서 요청을 처리하면 다음 필터에 처리를 위임한다`() {
         // Given
         val request = MockHttpServletRequest()
         val response = MockHttpServletResponse()
@@ -72,7 +72,7 @@ class SecurityExceptionHandlerFilterTest {
     }
 
     @Test
-    fun `비즈니스 예외가 아닌 예외는 다시 던짐`() {
+    fun `필터 체인에서 일반 예외가 발생한 상황에서 요청을 처리하면 예외를 그대로 던진다`() {
         // Given
         val request = MockHttpServletRequest()
         val response = MockHttpServletResponse()
@@ -90,7 +90,7 @@ class SecurityExceptionHandlerFilterTest {
     }
 
     @Test
-    fun `토큰 없이 인증이 필요한 컨트롤러에 접근한 경우`() {
+    fun `인증 토큰이 없는 상황에서 인증 진입점을 호출하면 인증 실패 응답을 반환한다`() {
         // Given
         val request = MockHttpServletRequest()
         val response = MockHttpServletResponse()
@@ -105,7 +105,7 @@ class SecurityExceptionHandlerFilterTest {
     }
 
     @Test
-    fun `회원의 role이 컨트롤러에서 요구되는 role 미만인 경우`() {
+    fun `접근 거부 예외가 주어진 상황에서 접근 거부 핸들러가 예외를 처리하면 접근 거부 응답을 반환한다`() {
         // Given
         val request = MockHttpServletRequest()
         val response = MockHttpServletResponse()

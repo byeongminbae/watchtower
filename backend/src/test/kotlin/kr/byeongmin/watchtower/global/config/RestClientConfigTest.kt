@@ -10,7 +10,7 @@ import kotlin.test.assertFailsWith
 
 class RestClientConfigTest {
     @Test
-    fun `외부 API에서 오류가 발생한 경우`() {
+    fun `외부 API가 오류를 반환하는 상황에서 응답을 처리하면 외부 API 예외로 변환한다`() {
         // Given
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/always-fail") { exchange ->

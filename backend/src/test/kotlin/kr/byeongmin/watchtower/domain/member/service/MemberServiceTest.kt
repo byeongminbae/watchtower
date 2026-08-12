@@ -30,7 +30,7 @@ class MemberServiceTest {
     )
 
     @Test
-    fun `존재하는 회원의 프로필 조회`() {
+    fun `회원이 존재하는 상황에서 프로필을 조회하면 회원 정보를 반환한다`() {
         // Given
         val memberId = 21L
         val member = memberSupport.createMember(naverProfile, id = memberId)
@@ -48,7 +48,7 @@ class MemberServiceTest {
     }
 
     @Test
-    fun `존재하지 않는 회원을 조회하는 경우`() {
+    fun `회원이 존재하지 않는 상황에서 프로필을 조회하면 리소스 없음 예외를 던진다`() {
         // Given
         val memberId = 99L
         whenever(memberRepository.existsById(memberId)).thenReturn(false)
