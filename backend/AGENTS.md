@@ -1,3 +1,6 @@
+<!-- Parent: ../AGENTS.md -->
+<!-- Generated: 2026-09-12 | Updated: 2026-09-12 -->
+
 # Backend guide
 
 ## Overview
@@ -33,10 +36,23 @@
 - Keep user-facing messages/comments Korean where adjacent code does.
 - `TimeUtil.entityTime()` is UTC; response/debug timestamps use Asia/Seoul.
 
+## Subdirectories
+
+| Directory | AGENTS.md |
+|-----------|-----------|
+| `src/main/kotlin/.../domain/` | `src/main/kotlin/kr/byeongmin/watchtower/domain/AGENTS.md` (index over the 6 domain slices) |
+| `src/main/kotlin/.../domain/admin/` | `.../domain/admin/AGENTS.md` |
+| `src/main/kotlin/.../domain/auth/` | `.../domain/auth/AGENTS.md` (Naver OAuth login flow) |
+| `src/main/kotlin/.../domain/member/` | `.../domain/member/AGENTS.md` |
+| `src/main/kotlin/.../domain/payment/` | `.../domain/payment/AGENTS.md` |
+| `src/main/kotlin/.../domain/subscription/` | `.../domain/subscription/AGENTS.md` |
+| `src/main/kotlin/.../domain/watch/` | `.../domain/watch/AGENTS.md` (largest slice) |
+| `src/main/kotlin/.../global/` | `src/main/kotlin/kr/byeongmin/watchtower/global/AGENTS.md` |
+
 ## Local anti-patterns / gotchas
 
-- `HtmlCondition` and `RegexCondition` both use the JPA `REGEX` discriminator; this is a known defect, not a pattern to copy.
-- Flyway is a dependency, but `src/main/resources/db/migration/` is absent.
+- `HtmlCondition`/`RegexCondition`/`KeywordCondition` now each use a distinct `@DiscriminatorValue` (`HTML`/`REGEX`/`KEYWORD`); the earlier note about `HtmlCondition` and `RegexCondition` sharing `REGEX` is fixed and stale.
+- Flyway migrations exist at `src/main/resources/db/migration/` (`V1__initial_schema.sql` through `V4__update_member_sign_in_fields.sql`); the earlier "absent" note is stale.
 - Soft deletion is only a `deletedAt` marker; no automatic query filter is present.
 - `GlobalExceptionHandler` handles `BusinessException`, not generic binding or
   validation failures.

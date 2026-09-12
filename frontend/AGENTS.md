@@ -4,6 +4,9 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+<!-- Parent: ../AGENTS.md -->
+<!-- Generated: 2026-09-12 | Updated: 2026-09-12 -->
+
 # Overview
 
 - Next.js 16.2 / React 19 / MUI 7 client using the App Router.
@@ -31,14 +34,26 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Read auth from the `watchtower_jwt` cookie through existing JWT helpers, not a second cache.
 - Pages commonly call `useApiData(...)` and manually `refetch()` after mutations.
 - Prefer MUI components and `sx`; extend `src/theme/theme.ts` for shared visual tokens.
-- Current route leaves are client components; there are no route handlers,
-  middleware, or server actions.
+- Page/layout route leaves are client components; `src/app/bff/**/route.ts` are
+  Next.js Route Handlers (a backend-for-frontend proxy layer — see
+  `src/app/bff/AGENTS.md`) so the browser never calls the Spring backend
+  directly. `apiClient` only accepts paths starting with `/bff/`.
+
+# Subdirectories
+
+| Directory | AGENTS.md |
+|-----------|-----------|
+| `src/app/` | `src/app/AGENTS.md` (route-tree index) |
+| `src/app/bff/` | `src/app/bff/AGENTS.md` (Next BFF proxy layer) |
+| `src/components/` | `src/components/AGENTS.md` |
+| `src/lib/` | `src/lib/AGENTS.md` (api/, auth/session helpers, backendGateway) |
+| `tests/` | `tests/AGENTS.md` (Playwright e2e suite) |
 
 # Local anti-patterns / gotchas
 
-- Do not invent direct `fetch` calls; this bypasses credentials, API logging, and 401 renewal.
-- `apiClient` retries one 401 through `/api/v1/auth/renew`; avoid custom renewal loops.
-- Error parsing currently expects `{ error: { code, message } }`; verify backend changes before relying on it.
+- Do not invent direct `fetch` calls; this bypasses credentials and API logging, and `apiClient` rejects any path that doesn't start with `/bff/`.
+- `apiClient` does NOT auto-retry on 401: `rawFetch` in `src/lib/api/client.ts` calls `clearSession()` and throws immediately. Session renewal, if needed, must be triggered explicitly (see `src/lib/AGENTS.md` and `bff/auth/renew/route.ts`) — do not assume a transparent retry.
+- Error parsing expects `{ success: false, statusCode, message, timestamp }` (see `isErrorEnvelope` in `client.ts`), not `{ error: { code, message } }` — verify against current `client.ts` before relying on either shape.
 - API console logging includes raw headers and bodies and is enabled in
   production by default; disable with `NEXT_PUBLIC_API_LOG=false`.
 - JWT cookie name, readability, and claims are inferred contracts; verify them
