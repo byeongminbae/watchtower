@@ -1,8 +1,11 @@
+<!-- Generated: 2026-07-25 | Updated: 2026-09-12 -->
+
 # PROJECT KNOWLEDGE BASE
 
 **Generated:** 2026-07-25 (Asia/Seoul)
-**Commit:** 1ba1a42
-**Branch:** feature/11-프론트엔드-기초-작업
+**Updated:** 2026-09-12 (Asia/Seoul) — deep hierarchical AGENTS.md pass; several facts below refreshed, see NOTES.
+**Commit:** 1ba1a42 (content below); tree refreshed at 4646bd5
+**Branch:** feature/39-agentsmd-문서-트리-추가
 
 ## OVERVIEW
 
@@ -20,6 +23,14 @@ watchtower/
 ├── .github/    # Manual service/environment deployment workflow
 └── README.md   # Project/Wiki links only
 ```
+
+Each directory above (and several nested ones) carries its own `AGENTS.md` with
+a `<!-- Parent: ... -->` comment pointing back up the tree — start at the
+nearest one to where you're editing rather than re-deriving context from here.
+Notably: `backend/.../domain/{admin,auth,member,payment,subscription,watch}/AGENTS.md`,
+`backend/.../global/AGENTS.md`, `frontend/src/app/AGENTS.md` (+ `app/bff/AGENTS.md`
+for the Next BFF proxy layer), `frontend/src/components/AGENTS.md`,
+`frontend/src/lib/AGENTS.md`, and `frontend/tests/AGENTS.md`.
 
 ## WHERE TO LOOK
 
@@ -71,10 +82,11 @@ installed. Reference counts below come from CodeGraph/source relationships.
 - Do not rely on current auth as enforcement: backend security permits every
   request, while the frontend assumes a readable `watchtower_jwt` cookie,
   specific claims, renewal-by-cookie, and credentialed CORS.
-- Do not select frontend deployment expecting it to complete: the workflow
-  requires `frontend/Dockerfile`, which does not exist.
-- Do not assume CI covers tests. Backend deployment explicitly uses `-x test`;
-  frontend has no test framework or test script.
+- Do not assume CI covers tests. Backend deployment builds the image with
+  `-x test`; frontend now has vitest unit tests (co-located `*.test.ts(x)`)
+  and a Playwright e2e suite (`frontend/tests/e2e/`), but the deploy workflow
+  itself does not run either suite — it only gates on a Docker `HEALTHCHECK`
+  poll after building the image.
 
 ## USER-GOVERNED POLICY
 
@@ -115,12 +127,20 @@ docker build --build-arg SPRING_PROFILE=dev \
 
 - Dev/local Spring profiles import AWS Parameter Store and use PostgreSQL with
   `ddl-auto=create`; the default profile uses `validate`.
-- No `application-prod.yaml` exists. Production depends on common/external
-  configuration.
-- The only backend test is a Spring context-load smoke test; frontend has no
-  tests.
-- `HtmlCondition` and `RegexCondition` currently share the `REGEX` JPA
-  discriminator; treat this as a pre-existing defect, not a convention.
+- `application-prod.yaml` exists and only imports AWS Parameter Store
+  (`aws-parameterstore:/watchtower/backend/prod/`) — all other prod settings
+  live in Parameter Store, not in the repo.
+- Flyway migrations exist at `backend/src/main/resources/db/migration/`
+  (`V1__initial_schema.sql` through `V4__update_member_sign_in_fields.sql`) —
+  earlier notes claiming this directory was absent are outdated.
+- Backend has both the context-load smoke test and real unit/service tests
+  under `backend/src/test/`; frontend has vitest unit tests co-located with
+  source and a Playwright e2e suite under `frontend/tests/e2e/`. Earlier notes
+  claiming "no tests" on either side are outdated.
+- `HtmlCondition`/`RegexCondition`/`KeywordCondition` each now use their own
+  distinct `@DiscriminatorValue` (`HTML`/`REGEX`/`KEYWORD`) — the previously
+  noted defect where `HtmlCondition` and `RegexCondition` shared the `REGEX`
+  discriminator has been fixed; this note is now stale/historical.
 - Backend success and frontend success envelopes align around `data`, but
   backend errors expose `statusCode/message` while the frontend expects nested
   `error.code/message`.
