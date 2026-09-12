@@ -1,8 +1,8 @@
 package kr.byeongmin.watchtower.domain.member.entity
 
 import jakarta.persistence.*
-import kr.byeongmin.watchtower.domain.auth.dto.NaverProfileResponseExternalDto
 import kr.byeongmin.watchtower.domain.member.enums.MemberRole
+import kr.byeongmin.watchtower.external.naver.dto.NaverProfileResponseDto
 import kr.byeongmin.watchtower.global.entity.Base
 import kr.byeongmin.watchtower.global.utils.TimeUtil
 import java.time.LocalDateTime
@@ -47,11 +47,11 @@ class Member private constructor(
     }
 
     companion object {
-        fun from(naverProfileResponseExternalDto: NaverProfileResponseExternalDto): Member {
+        fun from(naverProfileResponseDto: NaverProfileResponseDto): Member {
             return Member(
-                email = naverProfileResponseExternalDto.response.email,
-                nickname = naverProfileResponseExternalDto.response.nickname,
-                profileImageUrl = naverProfileResponseExternalDto.response.profileImage,
+                email = naverProfileResponseDto.response.email,
+                nickname = naverProfileResponseDto.response.nickname,
+                profileImageUrl = naverProfileResponseDto.response.profileImage,
                 role = MemberRole.NORMAL
             )
         }

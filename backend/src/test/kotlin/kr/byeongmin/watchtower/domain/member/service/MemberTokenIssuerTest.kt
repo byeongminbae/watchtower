@@ -1,6 +1,6 @@
 package kr.byeongmin.watchtower.domain.member.service
 
-import kr.byeongmin.watchtower.domain.auth.dto.NaverProfileResponseExternalDto
+import kr.byeongmin.watchtower.external.naver.dto.NaverProfileResponseDto
 import kr.byeongmin.watchtower.domain.member.entity.Member
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
@@ -20,10 +20,10 @@ class MemberTokenIssuerTest {
     private val jwtProvider = mock<JwtProvider>()
     private val memberTokenIssuer = MemberTokenIssuer(jwtProvider)
 
-    private val naverProfile = NaverProfileResponseExternalDto(
+    private val naverProfile = NaverProfileResponseDto(
         resultCode = "00",
         message = "성공",
-        response = NaverProfileResponseExternalDto.NaverProfileDetailDto(
+        response = NaverProfileResponseDto.NaverProfileDetailDto(
             providerId = "네이버-고객-고유-아이디",
             email = "네이버-고객-이메일",
             nickname = "네이버-고객-닉네임",

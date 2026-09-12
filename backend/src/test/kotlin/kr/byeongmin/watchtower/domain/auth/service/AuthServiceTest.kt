@@ -1,13 +1,14 @@
 package kr.byeongmin.watchtower.domain.auth.service
 
 import kr.byeongmin.watchtower.domain.auth.dto.MemberTokenResponseDto
-import kr.byeongmin.watchtower.domain.auth.dto.NaverProfileResponseExternalDto
-import kr.byeongmin.watchtower.domain.auth.dto.NaverTokenResponseExternalDto
 import kr.byeongmin.watchtower.domain.auth.entity.NaverOAuth
 import kr.byeongmin.watchtower.domain.auth.repository.NaverOAuthRepository
 import kr.byeongmin.watchtower.domain.member.entity.Member
 import kr.byeongmin.watchtower.domain.member.repository.MemberRepository
 import kr.byeongmin.watchtower.domain.member.service.MemberTokenIssuer
+import kr.byeongmin.watchtower.external.naver.NaverAuthClient
+import kr.byeongmin.watchtower.external.naver.dto.NaverProfileResponseDto
+import kr.byeongmin.watchtower.external.naver.dto.NaverTokenResponseDto
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import kr.byeongmin.watchtower.global.security.JwtProvider
@@ -16,16 +17,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.*
-import org.springframework.http.HttpHeaders.AUTHORIZATION
-import org.springframework.http.HttpMethod.GET
-import org.springframework.http.HttpMethod.POST
-import org.springframework.http.MediaType.APPLICATION_JSON
-import org.springframework.test.web.client.MockRestServiceServer
-import org.springframework.test.web.client.match.MockRestRequestMatchers.*
-import org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess
-import org.springframework.web.client.RestClient
-import org.springframework.web.util.UriComponentsBuilder
-import tools.jackson.module.kotlin.jacksonObjectMapper
 import java.util.*
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -33,19 +24,16 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class AuthServiceTest {
-    private val clientId = "네이버에서-부여해준-클라이언트-아이디"
-    private val clientSecret = "네이버에서-부여해준-클라이언트-시크릿"
-    private val callbackUrl = "네이버에서-우리쪽으로-code와-state를-넘겨주는-콜백주소"
-    private val tokenResponse = NaverTokenResponseExternalDto(
+    private val tokenResponse = NaverTokenResponseDto(
         accessToken = "네이버에서-발급한-엑세스-토큰",
         refreshToken = "네이버에서-발급한-리프레시-토큰",
         tokenType = "bearer",
         expiresIn = 3600L,
     )
-    private val profileResponse = NaverProfileResponseExternalDto(
+    private val profileResponse = NaverProfileResponseDto(
         resultCode = "00",
         message = "성공",
-        response = NaverProfileResponseExternalDto.NaverProfileDetailDto(
+        response = NaverProfileResponseDto.NaverProfileDetailDto(
             providerId = "네이버-고객-고유-아이디",
             email = "네이버-고객-이메일",
             nickname = "네이버-고객-닉네임",
@@ -58,51 +46,37 @@ class AuthServiceTest {
     private val memberTokenIssuer = mock<MemberTokenIssuer>()
     private val jwtProvider = mock<JwtProvider>()
     private val memberSupport = MemberSupport()
-    private val objectMapper = jacksonObjectMapper()
 
-    private fun createAuthService(restClient: RestClient = mock()): AuthService {
+    private fun createAuthService(naverAuthClient: NaverAuthClient = mock()): AuthService {
         return AuthService(
-            restClient = restClient,
+            naverAuthClient = naverAuthClient,
             memberRepository = memberRepository,
             naverOAuthRepository = naverOAuthRepository,
             memberTokenIssuer = memberTokenIssuer,
             jwtProvider = jwtProvider,
-            naverClientId = clientId,
-            naverClientSecret = clientSecret,
-            callbackUrl = callbackUrl,
         )
     }
 
     @Test
-    fun `로그인 상태값이 주어진 상황에서 네이버 로그인 URL을 생성하면 OAuth 설정값을 포함한다`() {
+    fun `로그인 상태값이 주어진 상황에서 네이버 로그인 URL을 생성하면 네이버 인증 클라이언트가 생성한 URL을 반환한다`() {
         // Given
         val state = "프론트가-설정하는-CSRF-방지용-랜덤값"
-        val authService = createAuthService()
+        val signInUrl = "네이버-인증-클라이언트가-생성한-로그인-URL"
+        val naverAuthClient = mock<NaverAuthClient>()
+        whenever(naverAuthClient.buildSignInUrl(state)).thenReturn(signInUrl)
+        val authService = createAuthService(naverAuthClient)
 
         // When
         val response = authService.getNaverSignInUrl(state)
 
         // Then
-        val url = UriComponentsBuilder.fromUriString(response.data).build()
-        assertEquals("https", url.scheme)
-        assertEquals("nid.naver.com", url.host)
-        assertEquals("/oauth2.0/authorize", url.path)
-        assertEquals(
-            mapOf(
-                "response_type" to listOf("code"),
-                "client_id" to listOf(clientId),
-                "redirect_uri" to listOf(callbackUrl),
-                "state" to listOf(state),
-            ),
-            url.queryParams,
-        )
+        assertEquals(signInUrl, response.data)
     }
 
     @Nested
     inner class NaverCallbackTest {
-        private val restClientBuilder = RestClient.builder()
-        private val mockServer = MockRestServiceServer.bindTo(restClientBuilder).build()
-        private val authService = createAuthService(restClientBuilder.build())
+        private val naverAuthClient = mock<NaverAuthClient>()
+        private val authService = createAuthService(naverAuthClient)
         private val member = memberSupport.createMember(profileResponse)
         private val providerId = profileResponse.response.providerId
         private val watchtowerMemberToken = MemberTokenResponseDto(
@@ -116,39 +90,8 @@ class AuthServiceTest {
 
         @BeforeEach
         fun setUpNaverApiStubs() {
-            val tokenUri = UriComponentsBuilder.fromUriString("https://nid.naver.com/oauth2.0/token")
-                .queryParam("grant_type", "authorization_code")
-                .queryParam("client_id", clientId)
-                .queryParam("client_secret", clientSecret)
-                .queryParam("redirect_uri", callbackUrl)
-                .queryParam("code", code)
-                .queryParam("state", state)
-                .build()
-                .encode()
-                .toUri()
-
-            mockServer.expect(requestTo(tokenUri))
-                .andExpect(method(POST))
-                .andRespond(
-                    withSuccess(
-                        objectMapper.writeValueAsString(tokenResponse),
-                        APPLICATION_JSON
-                    )
-                )
-            mockServer.expect(requestTo("https://openapi.naver.com/v1/nid/me"))
-                .andExpect(method(GET))
-                .andExpect(
-                    header(
-                        AUTHORIZATION,
-                        "Bearer ${tokenResponse.accessToken}"
-                    )
-                )
-                .andRespond(
-                    withSuccess(
-                        objectMapper.writeValueAsString(profileResponse),
-                        APPLICATION_JSON
-                    )
-                )
+            whenever(naverAuthClient.fetchToken(code, state)).thenReturn(tokenResponse)
+            whenever(naverAuthClient.fetchProfile(tokenResponse.accessToken)).thenReturn(profileResponse)
         }
 
         @Test
@@ -170,7 +113,8 @@ class AuthServiceTest {
             assertEquals(expected = watchtowerMemberToken, actual = response.data)
             verify(memberRepository, never()).save(any<Member>())
             verify(memberTokenIssuer).signIn(member)
-            mockServer.verify()
+            verify(naverAuthClient).fetchToken(code, state)
+            verify(naverAuthClient).fetchProfile(tokenResponse.accessToken)
         }
 
         @Test
@@ -191,7 +135,8 @@ class AuthServiceTest {
             assertEquals(tokenResponse.refreshToken, oauthCaptor.firstValue.refreshToken)
             assertEquals(watchtowerMemberToken, response.data)
             verify(memberTokenIssuer).signIn(member)
-            mockServer.verify()
+            verify(naverAuthClient).fetchToken(code, state)
+            verify(naverAuthClient).fetchProfile(tokenResponse.accessToken)
         }
     }
 

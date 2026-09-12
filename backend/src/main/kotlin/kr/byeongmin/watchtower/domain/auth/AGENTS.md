@@ -17,16 +17,15 @@
 - Orchestration logic: `service/AuthService.kt`.
 - Naver OAuth link record (per-member, one row per provider): `entity/NaverOAuth.kt`, base class `entity/OAuth.kt`.
 - Naver-side lookup by provider id: `repository/NaverOAuthRepository.kt`.
-- External Naver API response shapes: `dto/NaverTokenResponseExternalDto.kt`, `dto/NaverProfileResponseExternalDto.kt`.
+- External Naver API calls and response shapes: `kr.byeongmin.watchtower.external.naver.NaverAuthClient`, DTOs in `external/naver/dto/`.
 - Watchtower's own issued-token response shape: `dto/MemberTokenResponseDto.kt`.
-- Expected behavior reference (mocked Naver HTTP calls via `MockRestServiceServer`): `backend/src/test/kotlin/.../domain/auth/service/AuthServiceTest.kt`.
+- Expected behavior reference (mocked Naver HTTP calls via `MockRestServiceServer`): `backend/src/test/kotlin/.../external/naver/NaverAuthClientTest.kt`. `AuthServiceTest.kt` mocks `NaverAuthClient` directly via Mockito instead.
 
 ## Local conventions
 
-- `AuthService` calls Naver directly with the injected `RestClient` (see `global/AGENTS.md` for the shared error-mapping behavior on non-2xx) rather than through a dedicated Naver client abstraction; a `TODO` in the file flags that this should move into a separate `NaverAuthService` later.
+- `AuthService` no longer calls Naver directly; it orchestrates via the injected `NaverAuthClient` (`kr.byeongmin.watchtower.external.naver`), which owns the `RestClient` calls and the null-body `EXTERNAL_API_ERROR` handling (see `global/AGENTS.md` for the shared error-mapping behavior on non-2xx).
 - `NaverOAuthRepository.existsByProviderId` decides sign-in vs. sign-up branching in `signInWithNaverCallback`.
 - `NaverOAuth`/`OAuth` use `JOINED` inheritance with `@DiscriminatorValue("NAVER")`; `OAuth` is the only other provider-agnostic base besides `NaverOAuth` today — no other provider is implemented.
-- Both `getNaverMemberToken` and `getNaverMemberProfile` throw `BusinessException(CommonError.EXTERNAL_API_ERROR)` on a null body, in addition to whatever `RestClientConfig`'s status handler already raises for non-2xx responses.
 
 ## Local anti-patterns / gotchas
 

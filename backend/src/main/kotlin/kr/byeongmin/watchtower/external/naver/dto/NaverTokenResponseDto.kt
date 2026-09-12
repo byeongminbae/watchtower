@@ -1,8 +1,8 @@
-package kr.byeongmin.watchtower.domain.auth.dto
+package kr.byeongmin.watchtower.external.naver.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
 
-data class NaverTokenResponseExternalDto(
+data class NaverTokenResponseDto(
     @JsonProperty("access_token")
     val accessToken: String,
     @JsonProperty("refresh_token")
