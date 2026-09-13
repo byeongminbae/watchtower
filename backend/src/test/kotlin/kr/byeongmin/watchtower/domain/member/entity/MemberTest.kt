@@ -1,6 +1,6 @@
 package kr.byeongmin.watchtower.domain.member.entity
 
-import kr.byeongmin.watchtower.domain.auth.dto.NaverProfileResponseExternalDto
+import kr.byeongmin.watchtower.external.naver.dto.NaverProfileResponseDto
 import kr.byeongmin.watchtower.domain.member.enums.MemberRole
 import org.junit.jupiter.api.Test
 import java.time.LocalDateTime
@@ -10,10 +10,10 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class MemberTest {
-    private val naverProfile = NaverProfileResponseExternalDto(
+    private val naverProfile = NaverProfileResponseDto(
         resultCode = "00",
         message = "성공",
-        response = NaverProfileResponseExternalDto.NaverProfileDetailDto(
+        response = NaverProfileResponseDto.NaverProfileDetailDto(
             providerId = "네이버-고객-고유-아이디",
             email = "네이버-고객-이메일",
             nickname = "네이버-고객-닉네임",

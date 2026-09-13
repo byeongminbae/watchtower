@@ -1,8 +1,8 @@
-package kr.byeongmin.watchtower.domain.auth.dto
+package kr.byeongmin.watchtower.external.naver.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
 
-data class NaverProfileResponseExternalDto(
+data class NaverProfileResponseDto(
     @JsonProperty("resultcode")
     val resultCode: String,
     val message: String,

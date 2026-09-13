@@ -5,7 +5,7 @@
 
 ## Overview
 
-- `Member` is the cross-domain aggregate anchor (referenced from `auth`, `payment`, `subscription`, `watch`). Created only via `Member.from(NaverProfileResponseExternalDto)` — no public constructor, no separate signup flow outside `auth`.
+- `Member` is the cross-domain aggregate anchor (referenced from `auth`, `payment`, `subscription`, `watch`). Created only via `Member.from(NaverProfileResponseDto)` — no public constructor, no separate signup flow outside `auth`.
 - `MemberService.getMember` is the only implemented member endpoint (`GET /api/v1/member/{memberId}`, `@OwnerOnly`); the rest of `MemberController` (payments, watches, profile update, delete, subscription get/cancel) are contract stubs returning empty responses.
 - `MemberTokenIssuer` (not `AuthService`) owns Watchtower JWT creation and the member-side token bookkeeping (`completeSignIn` on sign-in, `rotateRefreshToken` on renew) — see also `auth/AGENTS.md`.
 - `MemberRole` is a two-value enum (`NORMAL`, `ADMIN`); a `TODO` flags it should move to a table if role requirements grow.

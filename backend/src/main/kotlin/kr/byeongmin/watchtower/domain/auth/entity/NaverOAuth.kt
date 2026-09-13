@@ -3,9 +3,9 @@ package kr.byeongmin.watchtower.domain.auth.entity
 import jakarta.persistence.DiscriminatorValue
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
-import kr.byeongmin.watchtower.domain.auth.dto.NaverProfileResponseExternalDto
-import kr.byeongmin.watchtower.domain.auth.dto.NaverTokenResponseExternalDto
 import kr.byeongmin.watchtower.domain.member.entity.Member
+import kr.byeongmin.watchtower.external.naver.dto.NaverProfileResponseDto
+import kr.byeongmin.watchtower.external.naver.dto.NaverTokenResponseDto
 
 @Entity
 @DiscriminatorValue("NAVER")
@@ -20,15 +20,15 @@ class NaverOAuth private constructor(
     companion object {
         fun from(
             member: Member,
-            naverMemberProfile: NaverProfileResponseExternalDto,
-            naverMemberToken: NaverTokenResponseExternalDto
+            naverProfileResponseDto: NaverProfileResponseDto,
+            naverTokenResponseDto: NaverTokenResponseDto
         ): NaverOAuth {
             return NaverOAuth(
                 member = member,
-                providerId = naverMemberProfile.response.providerId,
-                accessToken = naverMemberToken.accessToken,
-                refreshToken = naverMemberToken.refreshToken,
-                expiredAt = naverMemberToken.expiresIn
+                providerId = naverProfileResponseDto.response.providerId,
+                accessToken = naverTokenResponseDto.accessToken,
+                refreshToken = naverTokenResponseDto.refreshToken,
+                expiredAt = naverTokenResponseDto.expiresIn
             )
         }
     }
