@@ -349,6 +349,8 @@ class TowerServiceTest {
     @Test
     fun `회원은 자신의 타워에 키워드 감지 조건을 추가할 수 있음`() {
         /** given */
+        whenever(towerAccessor.getOwnedTowerForUpdate(towerId, ownerId))
+            .thenReturn(tower)
         whenever(towerConditionAccessor.countByTower(tower))
             .thenReturn(2L)
 
@@ -362,7 +364,11 @@ class TowerServiceTest {
 
         /** then */
         val savedCondition = argumentCaptor<KeywordCondition>()
-        verify(towerConditionAccessor).save(savedCondition.capture())
+        inOrder(towerAccessor, towerConditionAccessor) {
+            verify(towerAccessor).getOwnedTowerForUpdate(towerId, ownerId)
+            verify(towerConditionAccessor).countByTower(tower)
+            verify(towerConditionAccessor).save(savedCondition.capture())
+        }
         assertEquals("재고 있음", savedCondition.firstValue.keyword)
         assertEquals(true, savedCondition.firstValue.isSatisfiedAtAppearance)
     }
@@ -371,6 +377,8 @@ class TowerServiceTest {
     @ValueSource(longs = [3, 4])
     fun `감지 조건이 플랜 한도에 도달하면 조건을 더 추가할 수 없음(경계값 테스트)`(conditionCount: Long) {
         /** given */
+        whenever(towerAccessor.getOwnedTowerForUpdate(towerId, ownerId))
+            .thenReturn(tower)
         whenever(towerConditionAccessor.countByTower(tower))
             .thenReturn(conditionCount)
 
@@ -386,11 +394,21 @@ class TowerServiceTest {
 
         /** then */
         assertEquals(TowerError.CONDITION_QUOTA_EXCEEDED, exception.error)
+        inOrder(towerAccessor, towerConditionAccessor) {
+            verify(towerAccessor).getOwnedTowerForUpdate(towerId, ownerId)
+            verify(towerConditionAccessor).countByTower(tower)
+        }
         verify(towerConditionAccessor, never()).save(any<KeywordCondition>())
     }
 
     @Test
     fun `감지 조건 생성에 실패하면 조건을 저장하지 않음`() {
+        /** given */
+        whenever(towerAccessor.getOwnedTowerForUpdate(towerId, ownerId))
+            .thenReturn(tower)
+        whenever(towerConditionAccessor.countByTower(tower))
+            .thenReturn(2L)
+
         /** when */
         val exception = assertFailsWith<BusinessException> {
             towerService.createTowerCondition(

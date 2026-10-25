@@ -168,7 +168,7 @@ class TowerService(
         towerId: Long,
         towerConditionCreateRequestDto: TowerConditionCreateRequestDto
     ): SuccessResponse {
-        val existTower = towerAccessor.getOwnedTower(towerId = towerId, memberId = memberId)
+        val existTower = towerAccessor.getOwnedTowerForUpdate(towerId = towerId, memberId = memberId)
 
         val conditionCount = towerConditionAccessor.countByTower(existTower)
         if (!existTower.isConditionAddable(currentQuantity = conditionCount, additionalQuantity = 1)) {
