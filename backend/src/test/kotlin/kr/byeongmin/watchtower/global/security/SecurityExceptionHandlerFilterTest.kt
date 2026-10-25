@@ -29,7 +29,7 @@ class SecurityExceptionHandlerFilterTest {
         val chain = mock<FilterChain>()
         doThrow(
             BusinessException(
-                AuthError.EXPIRED_TOKEN,
+                AuthError.UNAUTHORIZED,
                 LocalDateTime.of(2026, 8, 2, 12, 34, 56)
             )
         ).`when`(chain).doFilter(request, response)
@@ -42,7 +42,7 @@ class SecurityExceptionHandlerFilterTest {
         assertEquals("application/json;charset=UTF-8", response.contentType)
         val body = objectMapper.readTree(response.contentAsString)
         assertEquals(false, assertNotNull(body["isSuccess"], response.contentAsString).booleanValue())
-        assertEquals(AuthError.EXPIRED_TOKEN.statusCode, body["statusCode"].stringValue())
+        assertEquals(AuthError.UNAUTHORIZED.statusCode, body["statusCode"].stringValue())
     }
 
     @Test

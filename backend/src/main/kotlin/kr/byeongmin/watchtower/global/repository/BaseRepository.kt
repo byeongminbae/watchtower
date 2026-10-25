@@ -15,23 +15,15 @@ interface BaseRepository<T : Base, ID : Any> : JpaRepository<T, ID> {
     @Query("select e from #{#entityName} e where e.id = :id and e.deletedAt is null")
     fun find(@Param("id") id: ID): T?
 
-    fun get(id: ID, func: () -> Nothing): T {
-        return find(id) ?: func()
-    }
-
     fun get(id: ID): T {
-        return get(id) { throw BusinessException(CommonError.RESOURCE_NOT_FOUND) }
+        return find(id) ?: throw BusinessException(CommonError.RESOURCE_NOT_FOUND)
     }
 
     fun findAny(id: ID): T? {
         return findById(id).getOrNull()
     }
 
-    fun getAny(id: ID, func: () -> Nothing): T {
-        return findAny(id) ?: func()
-    }
-
     fun getAny(id: ID): T {
-        return getAny(id) { throw BusinessException(CommonError.RESOURCE_NOT_FOUND) }
+        return findAny(id) ?: throw BusinessException(CommonError.RESOURCE_NOT_FOUND)
     }
 }

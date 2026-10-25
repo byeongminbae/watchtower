@@ -262,7 +262,7 @@ class MemberServiceTest {
     }
 
     @Test
-    fun `회원 탈퇴 시 소유 리소스 정리를 요청한 뒤 탈퇴하고 로그아웃 처리함`() {
+    fun `회원 탈퇴 시 소유 리소스 정리를 요청한 뒤 탈퇴 처리함`() {
         /** given */
         val memberId = 21L
         whenever(memberAccessor.getMember(memberId)).thenReturn(member)
@@ -275,7 +275,6 @@ class MemberServiceTest {
             verify(towerAccessor).deleteAllRelatedByMemberId(memberId, now)
             verify(notificationChannelAccessor).deleteByMemberId(memberId, now)
             verify(member).delete()
-            verify(member).signOut()
         }
     }
 
@@ -302,7 +301,6 @@ class MemberServiceTest {
         /** given */
         val memberId = 21L
         whenever(memberAccessor.getMember(memberId)).thenReturn(member)
-        member.completeSignIn("refresh-token", now)
         whenever(notificationChannelAccessor.deleteByMemberId(memberId, now))
             .thenThrow(IllegalStateException("channel update failed"))
 
@@ -313,7 +311,6 @@ class MemberServiceTest {
 
         /** then */
         assertNull(member.deletedAt)
-        assertEquals("refresh-token", member.refreshToken)
         verify(towerAccessor).deleteAllRelatedByMemberId(memberId, now)
     }
 

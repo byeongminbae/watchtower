@@ -5,11 +5,13 @@ import kr.byeongmin.watchtower.domain.member.enums.MemberRole
 import kr.byeongmin.watchtower.domain.subscription.entity.Plan
 import kr.byeongmin.watchtower.external.naver.dto.NaverProfileResponseDto
 import kr.byeongmin.watchtower.global.entity.Base
+import kr.byeongmin.watchtower.global.error.AuthError
+import kr.byeongmin.watchtower.global.exception.BusinessException
+import kr.byeongmin.watchtower.global.utils.isNotNull
 import java.time.LocalDateTime
 
 /**
  * @property [lastSignInAt] 가입하거나 로그인할 때 갱신됨
- * @property [refreshToken] 로그아웃 시 null 처리
  */
 @Entity
 class Member private constructor(
@@ -52,23 +54,17 @@ class Member private constructor(
     var plan: Plan = plan
         protected set
 
-    var refreshToken: String? = null
-        protected set
-
-    /** 리프레시 토큰을 재발급할때 사용 */
-    fun rotateRefreshToken(refreshToken: String, now: LocalDateTime) {
-        this.refreshToken = refreshToken
-        this.lastSignInAt = now
+    fun ensureSignInAllowed() {
+        if (isDeleted()) {
+            throw BusinessException(AuthError.ALREADY_DELETED_ACCOUNT)
+        }
+        if (bannedAt.isNotNull()) {
+            throw BusinessException(AuthError.BANNED_ACCOUNT)
+        }
     }
 
-    /** 로그인 완료(토큰 발급) 후 호출 */
-    fun completeSignIn(refreshToken: String, now: LocalDateTime) {
-        this.refreshToken = refreshToken
+    fun completeSignIn(now: LocalDateTime) {
         this.lastSignInAt = now
-    }
-
-    fun signOut() {
-        this.refreshToken = null
     }
 
     fun updateProfile(nickname: String, profileImageUrl: String) {

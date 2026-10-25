@@ -11,8 +11,11 @@ enum class AuthError(
 ) : Error {
     UNAUTHORIZED("AUT_001", "인증이 필요합니다."),
     ACCESS_DENIED("AUT_002", "권한이 부족합니다."),
-    INVALID_TOKEN("AUT_003", "유효하지 않은 토큰입니다."),
-    EXPIRED_TOKEN("AUT_004", "만료된 토큰입니다.");
+    INVALID_OAUTH_STATE("AUT_005", "유효하지 않은 로그인 요청입니다."),
+    ALREADY_DELETED_ACCOUNT("AUT_006", "이미 탈퇴한 계정입니다."),
+    BANNED_ACCOUNT("AUT_007", "정지된 계정입니다."),
+    ACCOUNT_NOT_FOUND("AUT_008", "계정을 찾을 수 없습니다")
+    ;
 
     override fun toString(): String {
         return "AuthError(statusCode='$statusCode', message='$message')"

@@ -1,11 +1,12 @@
 package kr.byeongmin.watchtower.domain.auth.service
 
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
 import kr.byeongmin.watchtower.domain.auth.accessor.NaverOAuthAccessor
-import kr.byeongmin.watchtower.domain.auth.dto.MemberTokenResponseDto
 import kr.byeongmin.watchtower.domain.auth.entity.NaverOAuth
 import kr.byeongmin.watchtower.domain.member.accessor.MemberAccessor
 import kr.byeongmin.watchtower.domain.member.entity.Member
-import kr.byeongmin.watchtower.domain.member.service.MemberTokenIssuer
+import kr.byeongmin.watchtower.domain.member.enums.MemberRole
 import kr.byeongmin.watchtower.domain.subscription.accessor.PlanAccessor
 import kr.byeongmin.watchtower.domain.subscription.entity.Plan
 import kr.byeongmin.watchtower.domain.subscription.enums.PlanType
@@ -16,28 +17,45 @@ import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.error.AuthError
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
-import kr.byeongmin.watchtower.global.security.JwtProvider
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.*
+import org.springframework.security.core.Authentication
+import org.springframework.security.core.context.SecurityContext
+import org.springframework.security.core.context.SecurityContextHolder
+import org.springframework.security.oauth2.client.web.AuthorizationRequestRepository
+import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest
+import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy
+import org.springframework.security.web.context.SecurityContextRepository
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionStatus
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertTrue
+import kotlin.test.assertNull
+import kotlin.test.assertSame
 
 class AuthServiceTest {
     private val memberAccessor = mock<MemberAccessor>()
     private val naverOAuthAccessor = mock<NaverOAuthAccessor>()
     private val planAccessor = mock<PlanAccessor>()
-    private val memberTokenIssuer = mock<MemberTokenIssuer>()
-    private val jwtProvider = mock<JwtProvider>()
     private val now = LocalDateTime.of(2026, 10, 20, 12, 0)
     private val timeProvider = mock<TimeProvider> {
         on { now() } doReturn now
     }
-
     private val naverAuthClient = mock<NaverAuthClient>()
+    private val authorizationRequestRepository = mock<AuthorizationRequestRepository<OAuth2AuthorizationRequest>>()
+    private val sessionAuthenticationStrategy = mock<SessionAuthenticationStrategy>()
+    private val securityContextRepository = mock<SecurityContextRepository>()
+    private val transactionStatus = mock<TransactionStatus>()
+    private val transactionManager = mock<PlatformTransactionManager> {
+        on { getTransaction(any()) } doReturn transactionStatus
+    }
+    private val request = mock<HttpServletRequest>()
+    private val response = mock<HttpServletResponse>()
     private val freePlan = mock<Plan> {
         on { type } doReturn PlanType.FREE
     }
@@ -46,23 +64,35 @@ class AuthServiceTest {
         memberAccessor = memberAccessor,
         naverOAuthAccessor = naverOAuthAccessor,
         planAccessor = planAccessor,
-        memberTokenIssuer = memberTokenIssuer,
-        jwtProvider = jwtProvider,
-        timeProvider = timeProvider
+        timeProvider = timeProvider,
+        authorizationRequestRepository = authorizationRequestRepository,
+        sessionAuthenticationStrategy = sessionAuthenticationStrategy,
+        securityContextRepository = securityContextRepository,
+        transactionTemplate = TransactionTemplate(transactionManager)
     )
 
+    @AfterEach
+    fun clearSecurityContext() {
+        SecurityContextHolder.clearContext()
+    }
+
     @Test
-    fun `네이버 로그인에 사용할 인증 URL을 받을 수 있음`() {
+    fun `네이버 로그인 URL을 조회하면 로그인 요청을 세션에 저장하고 인증 URL을 반환함`() {
         /** given */
         val state = "state"
-        val signInUrl = "네이버-인증-클라이언트가-생성한-로그인-URL"
-        whenever(naverAuthClient.buildSignInUrl(state)).thenReturn(signInUrl)
+        val authorizationRequest = OAuth2AuthorizationRequest.authorizationCode()
+            .authorizationUri("https://nid.naver.com/oauth2.0/authorize")
+            .clientId("naver-client-id")
+            .state(state)
+            .build()
+        whenever(naverAuthClient.getAuthorizationRequest(state)).thenReturn(authorizationRequest)
 
         /** when */
-        val response = authService.getNaverSignInUrl(state)
+        val result = authService.getNaverSignInUrl(state, request, response)
 
         /** then */
-        assertEquals(signInUrl, response.data)
+        assertEquals(authorizationRequest.authorizationRequestUri, result.data)
+        verify(authorizationRequestRepository).saveAuthorizationRequest(authorizationRequest, request, response)
     }
 
     @Nested
@@ -83,41 +113,55 @@ class AuthServiceTest {
                 profileImage = "https://naver.com/user/123/profile.png"
             )
         )
-
-        private val member = mock<Member>()
+        private val member = mock<Member> {
+            on { id } doReturn 31L
+            on { role } doReturn MemberRole.NORMAL
+        }
         private val providerId = profileResponse.response.providerId
-        private val watchtowerMemberToken = MemberTokenResponseDto(
-            accessToken = "access",
-            refreshToken = "refresh",
-            accessTokenExpiresIn = 3600L,
-            refreshTokenExpiresIn = 10000L
-        )
         private val code = "code"
         private val state = "state"
 
         @BeforeEach
         fun setUpNaverApiStubs() {
+            whenever(authorizationRequestRepository.removeAuthorizationRequest(request, response)).thenReturn(mock())
             whenever(naverAuthClient.fetchToken(code, state)).thenReturn(tokenResponse)
-
             whenever(naverAuthClient.fetchProfile(tokenResponse.accessToken)).thenReturn(profileResponse)
         }
 
         @Test
-        fun `이미 가입한 네이버 회원은 다시 가입하지 않고 로그인할 수 있음`() {
+        fun `이미 가입한 네이버 회원은 로그인 시각을 저장한 뒤 세션 인증을 저장함`() {
             /** given */
-            val naverOAuth = NaverOAuth.from(
-                member = member,
-                naverProfileResponseDto = profileResponse,
-                naverTokenResponseDto = tokenResponse
-            )
+            val naverOAuth = NaverOAuth.from(member, profileResponse, tokenResponse)
             whenever(naverOAuthAccessor.findByProviderId(providerId)).thenReturn(naverOAuth)
-            whenever(memberTokenIssuer.signIn(member)).thenReturn(watchtowerMemberToken)
 
             /** when */
-            val response = authService.signInWithNaverCallback(code, state)
+            val result = authService.signInWithNaverCallback(code, state, request, response)
 
             /** then */
-            assertEquals(expected = watchtowerMemberToken, actual = response.data)
+            assertEquals(31L, result.data.memberId)
+            assertEquals(MemberRole.NORMAL.name, result.data.role)
+            val authentication = argumentCaptor<Authentication>()
+            val context = argumentCaptor<SecurityContext>()
+            inOrder(
+                authorizationRequestRepository,
+                member,
+                transactionManager,
+                sessionAuthenticationStrategy,
+                securityContextRepository
+            ) {
+                verify(authorizationRequestRepository).removeAuthorizationRequest(request, response)
+                verify(member).ensureSignInAllowed()
+                verify(member).completeSignIn(now)
+                verify(transactionManager).commit(transactionStatus)
+                verify(sessionAuthenticationStrategy).onAuthentication(
+                    authentication.capture(),
+                    eq(request),
+                    eq(response)
+                )
+                verify(securityContextRepository).saveContext(context.capture(), eq(request), eq(response))
+            }
+            assertSame(authentication.firstValue, context.firstValue.authentication)
+            assertSame(SecurityContextHolder.getContext(), context.firstValue)
             verify(memberAccessor, never()).save(any<Member>())
         }
 
@@ -127,10 +171,9 @@ class AuthServiceTest {
             whenever(naverOAuthAccessor.findByProviderId(providerId)).thenReturn(null)
             whenever(planAccessor.findByType(PlanType.FREE)).thenReturn(freePlan)
             whenever(memberAccessor.save(any<Member>())).thenReturn(member)
-            whenever(memberTokenIssuer.signIn(member)).thenReturn(watchtowerMemberToken)
 
             /** when */
-            val response = authService.signInWithNaverCallback(code, state)
+            val result = authService.signInWithNaverCallback(code, state, request, response)
 
             /** then */
             val oauthCaptor = argumentCaptor<NaverOAuth>()
@@ -139,13 +182,33 @@ class AuthServiceTest {
             assertEquals(member, oauthCaptor.firstValue.member)
             assertEquals(tokenResponse.accessToken, oauthCaptor.firstValue.accessToken)
             assertEquals(tokenResponse.refreshToken, oauthCaptor.firstValue.refreshToken)
-            assertEquals(watchtowerMemberToken, response.data)
-            verify(naverOAuthAccessor).findByProviderId(providerId)
+            assertEquals(31L, result.data.memberId)
+            assertEquals(MemberRole.NORMAL.name, result.data.role)
             val savedMember = argumentCaptor<Member>()
             verify(memberAccessor).save(savedMember.capture())
             assertEquals(profileResponse.response.email, savedMember.firstValue.email)
             assertEquals(now, savedMember.firstValue.lastSignInAt)
             assertEquals(PlanType.FREE, savedMember.firstValue.plan.type)
+            verify(member).ensureSignInAllowed()
+            verify(member).completeSignIn(now)
+        }
+
+        @Test
+        fun `로그인할 수 없는 회원은 로그인 시각을 갱신하지 않음`() {
+            /** given */
+            whenever(naverOAuthAccessor.findByProviderId(providerId))
+                .thenReturn(NaverOAuth.from(member, profileResponse, tokenResponse))
+            doThrow(BusinessException(AuthError.BANNED_ACCOUNT)).whenever(member).ensureSignInAllowed()
+
+            /** when */
+            val exception = assertFailsWith<BusinessException> {
+                authService.signInWithNaverCallback(code, state, request, response)
+            }
+
+            /** then */
+            assertEquals(AuthError.BANNED_ACCOUNT, exception.error)
+            verify(member, never()).completeSignIn(any())
+            verify(memberAccessor, never()).save(any<Member>())
         }
 
         @Test
@@ -156,12 +219,12 @@ class AuthServiceTest {
 
             /** when */
             val exception = assertFailsWith<BusinessException> {
-                authService.signInWithNaverCallback(code, state)
+                authService.signInWithNaverCallback(code, state, request, response)
             }
 
             /** then */
             assertEquals(CommonError.INTERNAL_SERVER_ERROR, exception.error)
-            verifyNoInteractions(memberAccessor, memberTokenIssuer)
+            verifyNoInteractions(memberAccessor)
             verify(naverOAuthAccessor, never()).save(any<NaverOAuth>())
         }
 
@@ -173,103 +236,51 @@ class AuthServiceTest {
 
             /** when */
             val exception = assertFailsWith<BusinessException> {
-                authService.signInWithNaverCallback(code, state)
+                authService.signInWithNaverCallback(code, state, request, response)
             }
 
             /** then */
             assertEquals(CommonError.EXTERNAL_API_ERROR, exception.error)
+            verifyNoInteractions(naverOAuthAccessor, memberAccessor)
+        }
+
+        @Test
+        fun `세션에 일치하는 로그인 요청이 없으면 네이버 인증을 진행하지 않음`() {
+            /** given */
+            whenever(authorizationRequestRepository.removeAuthorizationRequest(request, response)).thenReturn(null)
+
+            /** when */
+            val exception = assertFailsWith<BusinessException> {
+                authService.signInWithNaverCallback(code, state, request, response)
+            }
+
+            /** then */
+            assertEquals(AuthError.INVALID_OAUTH_STATE, exception.error)
             verifyNoInteractions(
-                naverOAuthAccessor,
-                memberAccessor,
-                memberTokenIssuer
+                naverAuthClient,
+                transactionManager,
+                sessionAuthenticationStrategy,
+                securityContextRepository
             )
         }
-    }
 
-    @Test
-    fun `리프레시 토큰으로 회원의 토큰을 새로 발급받을 수 있음`() {
-        /** given */
-        val memberId = 31L
-        val member = mock<Member>()
-        val newMemberTokenResponse = MemberTokenResponseDto(
-            accessToken = "new-access",
-            refreshToken = "new-refresh",
-            accessTokenExpiresIn = 3600L,
-            refreshTokenExpiresIn = 10000L
-        )
-        whenever(jwtProvider.getMemberId("refresh")).thenReturn(memberId)
-        whenever(memberAccessor.getMember(memberId)).thenReturn(member)
-        whenever(memberTokenIssuer.rotate(member)).thenReturn(newMemberTokenResponse)
+        @Test
+        fun `로그인 변경 사항을 저장하지 못하면 세션 인증을 저장하지 않음`() {
+            /** given */
+            whenever(naverOAuthAccessor.findByProviderId(providerId))
+                .thenReturn(NaverOAuth.from(member, profileResponse, tokenResponse))
+            val commitException = IllegalStateException("transaction commit failed")
+            doThrow(commitException).whenever(transactionManager).commit(transactionStatus)
 
-        /** when */
-        val response = authService.renewToken("refresh")
+            /** when */
+            val exception = assertFailsWith<IllegalStateException> {
+                authService.signInWithNaverCallback(code, state, request, response)
+            }
 
-        /** then */
-        assertEquals(newMemberTokenResponse, response.data)
-    }
-
-    @Test
-    fun `존재하지 않는 회원에게 토큰을 다시 발급할 수 없음`() {
-        /** given */
-        val memberId = 31L
-        whenever(jwtProvider.getMemberId("deleted-member-refresh")).thenReturn(memberId)
-        whenever(memberAccessor.getMember(memberId))
-            .thenThrow(BusinessException(CommonError.RESOURCE_NOT_FOUND))
-
-        /** when */
-        val exception = assertFailsWith<BusinessException> {
-            authService.renewToken("deleted-member-refresh")
+            /** then */
+            assertSame(commitException, exception)
+            assertNull(SecurityContextHolder.getContext().authentication)
+            verifyNoInteractions(sessionAuthenticationStrategy, securityContextRepository)
         }
-
-        /** then */
-        assertEquals(CommonError.RESOURCE_NOT_FOUND, exception.error)
-        verifyNoInteractions(memberTokenIssuer)
-    }
-
-    @Test
-    fun `로그아웃을 요청하면 조회한 회원에게 로그아웃을 반영함`() {
-        /** given */
-        val memberId = 31L
-        val member = mock<Member>()
-        whenever(memberAccessor.getMember(memberId)).thenReturn(member)
-
-        /** when */
-        val response = authService.logout(memberId)
-
-        /** then */
-        assertTrue(response.isSuccess)
-        verify(member).signOut()
-    }
-
-    @Test
-    fun `존재하지 않는 회원은 로그아웃할 수 없음`() {
-        /** given */
-        val memberId = 31L
-        whenever(memberAccessor.getMember(memberId))
-            .thenThrow(BusinessException(CommonError.RESOURCE_NOT_FOUND))
-
-        /** when */
-        val exception = assertFailsWith<BusinessException> {
-            authService.logout(memberId)
-        }
-
-        /** then */
-        assertEquals(CommonError.RESOURCE_NOT_FOUND, exception.error)
-    }
-
-    @Test
-    fun `유효하지 않은 리프레시 토큰으로는 새 토큰을 발급하지 않음`() {
-        /** given */
-        whenever(jwtProvider.getMemberId("만료된-토큰"))
-            .thenThrow(BusinessException(AuthError.EXPIRED_TOKEN))
-
-        /** when */
-        val exception = assertFailsWith<BusinessException> {
-            authService.renewToken("만료된-토큰")
-        }
-
-        /** then */
-        assertEquals(AuthError.EXPIRED_TOKEN, exception.error)
-        verifyNoInteractions(memberAccessor, memberTokenIssuer)
     }
 }

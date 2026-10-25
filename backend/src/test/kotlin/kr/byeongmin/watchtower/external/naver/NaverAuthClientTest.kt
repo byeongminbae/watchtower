@@ -3,6 +3,7 @@ package kr.byeongmin.watchtower.external.naver
 import kr.byeongmin.watchtower.external.naver.client.NaverAuthClient
 import kr.byeongmin.watchtower.external.naver.dto.NaverProfileResponseDto
 import kr.byeongmin.watchtower.external.naver.dto.NaverTokenResponseDto
+import kr.byeongmin.watchtower.global.error.AuthError
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.junit.jupiter.api.Test
@@ -16,7 +17,9 @@ import org.springframework.test.web.client.match.MockRestRequestMatchers.*
 import org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess
 import org.springframework.web.client.RestClient
 import org.springframework.web.util.UriComponentsBuilder
+import org.springframework.web.util.UriUtils
 import tools.jackson.module.kotlin.jacksonObjectMapper
+import java.nio.charset.StandardCharsets
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
@@ -95,10 +98,10 @@ class NaverAuthClientTest {
         val naverAuthClient = createNaverAuthClient()
 
         /** when */
-        val signInUrl = naverAuthClient.buildSignInUrl(state)
+        val authorizationRequest = naverAuthClient.getAuthorizationRequest(state)
 
         /** then */
-        val url = UriComponentsBuilder.fromUriString(signInUrl).build()
+        val url = UriComponentsBuilder.fromUriString(authorizationRequest.authorizationRequestUri).build()
         assertEquals("https", url.scheme)
         assertEquals("nid.naver.com", url.host)
         assertEquals("/oauth2.0/authorize", url.path)
@@ -109,8 +112,24 @@ class NaverAuthClientTest {
                 "redirect_uri" to listOf(callbackUrl),
                 "state" to listOf(state)
             ),
-            url.queryParams
+            url.queryParams.mapValues { (_, values) ->
+                values.map { UriUtils.decode(it, StandardCharsets.UTF_8) }
+            }
         )
+    }
+
+    @Test
+    fun `state가 비어 있으면 네이버 인증 요청을 만들 수 없음`() {
+        /** given */
+        val naverAuthClient = createNaverAuthClient()
+
+        /** when */
+        val exception = assertFailsWith<BusinessException> {
+            naverAuthClient.getAuthorizationRequest("")
+        }
+
+        /** then */
+        assertEquals(AuthError.INVALID_OAUTH_STATE, exception.error)
     }
 
     @Test

@@ -85,7 +85,6 @@ class MemberService(
         notificationChannelAccessor.deleteByMemberId(memberId, deletedAt)
 
         member.delete()
-        member.signOut()
 
         return SuccessResponse()
     }

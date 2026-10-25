@@ -19,7 +19,7 @@ class BaseRepositoryTest {
     private val repository = mock<BaseRepository<TestEntity, Long>>(defaultAnswer = CALLS_REAL_METHODS)
 
     @Test
-    fun `엔티티를 찾으면 기본 오류 처리 없이 반환함`() {
+    fun `엔티티를 찾으면 반환함`() {
         /** given */
         val entity = TestEntity()
         whenever(repository.find(1L)).thenReturn(entity)
@@ -32,37 +32,19 @@ class BaseRepositoryTest {
     }
 
     @Test
-    fun `데이터를 찾을 수 없으면 기본 오류나 지정한 오류로 처리할 수 있음`() {
+    fun `엔티티를 찾을 수 없으면 find는 null을 반환하고 get은 조회 실패로 처리함`() {
         /** given */
         whenever(repository.find(1L)).thenReturn(null)
-        val expected = IllegalStateException("조회 실패")
 
         /** when */
         val found = repository.find(1L)
         val exception = assertFailsWith<BusinessException> {
             repository.get(1L)
         }
-        val customException = assertFailsWith<IllegalStateException> {
-            repository.get(1L) { throw expected }
-        }
 
         /** then */
         assertNull(found)
         assertEquals(CommonError.RESOURCE_NOT_FOUND, exception.error)
-        assertSame(expected, customException)
-    }
-
-    @Test
-    fun `엔티티를 찾으면 지정한 조회 실패 처리를 실행하지 않음`() {
-        /** given */
-        val entity = TestEntity()
-        whenever(repository.find(1L)).thenReturn(entity)
-
-        /** when */
-        val found = repository.get(1L) { error("호출되면 안 됨") }
-
-        /** then */
-        assertSame(entity, found)
     }
 
     @Test
@@ -71,28 +53,28 @@ class BaseRepositoryTest {
         val entity = TestEntity().apply { delete() }
         whenever(repository.findById(1L)).thenReturn(Optional.of(entity))
 
-        /** when, then */
-        assertSame(entity, repository.findAny(1L))
-        assertSame(entity, repository.getAny(1L))
-        assertSame(entity, repository.getAny(1L) { error("호출되면 안 됨") })
+        /** when */
+        val found = repository.findAny(1L)
+        val required = repository.getAny(1L)
+
+        /** then */
+        assertSame(entity, found)
+        assertSame(entity, required)
     }
 
     @Test
-    fun `삭제 포함 조회에서도 엔티티가 없으면 요청한 방식으로 조회 실패를 처리함`() {
+    fun `삭제 포함 조회에서도 엔티티가 없으면 findAny는 null을 반환하고 getAny는 조회 실패로 처리함`() {
         /** given */
         whenever(repository.findById(1L)).thenReturn(Optional.empty())
-        val expected = IllegalStateException("조회 실패")
 
-        /** when, then */
-        assertNull(repository.findAny(1L))
+        /** when */
+        val found = repository.findAny(1L)
         val exception = assertFailsWith<BusinessException> {
             repository.getAny(1L)
         }
-        val customException = assertFailsWith<IllegalStateException> {
-            repository.getAny(1L) { throw expected }
-        }
 
+        /** then */
+        assertNull(found)
         assertEquals(CommonError.RESOURCE_NOT_FOUND, exception.error)
-        assertSame(expected, customException)
     }
 }
