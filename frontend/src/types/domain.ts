@@ -2,6 +2,7 @@
 // domain: member, watch, subscription, payment 구조를 그대로 따름.
 
 export type MemberRole = "NORMAL" | "ADMIN";
+export type MemberStatus = "ACTIVE" | "BANNED";
 
 export interface Member {
   id: number;
@@ -9,8 +10,8 @@ export interface Member {
   email: string;
   profileImageUrl: string;
   role?: MemberRole;
+  status?: MemberStatus;
   lastSignInAt: string;
-  isBanned?: boolean;
 }
 
 export type WatchStatus = "RUNNING" | "PAUSED" | "PAYMENT_REQUIRED" | "ILLEGAL_SUSPENDED";
@@ -30,7 +31,7 @@ export interface Watch {
   url: string;
   faviconUrl?: string;
   status: WatchStatus;
-  intervalSeconds: number;
+  fetchIntervalSeconds: number;
   includeInStat: boolean;
   lastFetchedAt?: string;
   lastNotifiedAt?: string;
@@ -56,14 +57,14 @@ export interface HotUrl {
   statDate: string;
 }
 
-export type PlanTier = "FREE" | "BASIC" | "PRO";
+export type PlanType = "FREE" | "BASIC" | "PRO";
 
 export interface Plan {
   id: number;
   name: string;
   price: number;
   durationDays: number;
-  planTier: PlanTier;
+  planType: PlanType;
   maxWatchCount: number;
 }
 
@@ -80,7 +81,7 @@ export interface PaymentHistory {
   planName: string;
   planPrice: number;
   planDurationDays: number;
-  planTier: PlanTier;
+  planType: PlanType;
   createdAt: string;
 }
 

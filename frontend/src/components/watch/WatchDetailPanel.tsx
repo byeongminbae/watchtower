@@ -236,7 +236,7 @@ export default function WatchDetailPanel({
           ))}
         </Stack>
         <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
-          조건은 최대 3개까지 등록할 수 있습니다. (확인 주기 {watch.intervalSeconds / 60}분)
+          조건은 최대 3개까지 등록할 수 있습니다. (확인 주기 {watch.fetchIntervalSeconds / 60}분)
         </Typography>
       </Box>
 

@@ -5,7 +5,7 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import kr.byeongmin.watchtower.global.error.AuthError
 import kr.byeongmin.watchtower.global.exception.BusinessException
-import kr.byeongmin.watchtower.global.response.ErrorResponse
+import kr.byeongmin.watchtower.global.dto.ErrorResponse
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.security.core.AuthenticationException
@@ -16,12 +16,13 @@ import tools.jackson.databind.ObjectMapper
 import java.nio.charset.StandardCharsets
 
 class SecurityExceptionHandlerFilter(
-    private val objectMapper: ObjectMapper,
+    private val objectMapper: ObjectMapper
 ) : OncePerRequestFilter(), AuthenticationEntryPoint, AccessDeniedHandler {
+    /** 후속 필터에서 전파된 BusinessException을 오류 응답으로 변환 */
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
-        filterChain: FilterChain,
+        filterChain: FilterChain
     ) {
         try {
             filterChain.doFilter(request, response)
@@ -33,7 +34,7 @@ class SecurityExceptionHandlerFilter(
     override fun commence(
         request: HttpServletRequest,
         response: HttpServletResponse,
-        authException: AuthenticationException,
+        authException: AuthenticationException
     ) {
         writeErrorResponse(response, BusinessException(AuthError.UNAUTHORIZED))
     }
@@ -41,14 +42,14 @@ class SecurityExceptionHandlerFilter(
     override fun handle(
         request: HttpServletRequest,
         response: HttpServletResponse,
-        accessDeniedException: org.springframework.security.access.AccessDeniedException,
+        accessDeniedException: org.springframework.security.access.AccessDeniedException
     ) {
         writeErrorResponse(response, BusinessException(AuthError.ACCESS_DENIED))
     }
 
     private fun writeErrorResponse(
         response: HttpServletResponse,
-        exception: BusinessException,
+        exception: BusinessException
     ) {
         with(response) {
             status = HttpStatus.OK.value()

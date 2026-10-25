@@ -2,28 +2,43 @@ package kr.byeongmin.watchtower.global.exception
 
 import kr.byeongmin.watchtower.global.error.CommonError
 import org.junit.jupiter.api.Test
-import org.springframework.mock.web.MockHttpServletRequest
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import org.springframework.test.web.servlet.setup.MockMvcBuilders
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.RestController
 import java.time.LocalDateTime
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 
 class GlobalExceptionHandlerTest {
-    @Test
-    fun `비즈니스 예외가 주어진 상황에서 전역 예외 핸들러가 처리하면 예외 정보를 담은 오류 응답을 반환한다`() {
-        // Given
-        val timestamp = LocalDateTime.of(2026, 7, 31, 13, 0)
-        val exception = BusinessException(CommonError.INVALID_INPUT_VALUE, timestamp)
-        val request = MockHttpServletRequest("GET", "/api/v1/example").apply {
-            addParameter("검색어", "첫째", "둘째")
+    @RestController
+    private class FailingController(private val exception: BusinessException) {
+        @GetMapping("/test/business-error")
+        fun fail(): Nothing {
+            throw exception
         }
+    }
 
-        // When
-        val response = GlobalExceptionHandler().handleBusinessException(exception, request)
+    @Test
+    fun `비즈니스 오류는 HTTP 200 응답으로 나가고 실패 상태와 오류 정보로 구분함`() {
+        /** given */
+        val timestamp = LocalDateTime.of(2026, 10, 20, 12, 0)
+        val mvc = MockMvcBuilders.standaloneSetup(
+            FailingController(BusinessException(CommonError.RESOURCE_NOT_FOUND, timestamp))
+        )
+            .setControllerAdvice(GlobalExceptionHandler())
+            .build()
 
-        // Then
-        assertFalse(response.success)
-        assertEquals(CommonError.INVALID_INPUT_VALUE.statusCode, response.statusCode)
-        assertEquals(CommonError.INVALID_INPUT_VALUE.message, response.message)
-        assertEquals(timestamp, response.timestamp)
+        /** when */
+        val result = mvc
+            .perform(get("/test/business-error"))
+
+        /** then */
+        result
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.isSuccess").value(false))
+            .andExpect(jsonPath("$.statusCode").value(CommonError.RESOURCE_NOT_FOUND.statusCode))
+            .andExpect(jsonPath("$.message").value(CommonError.RESOURCE_NOT_FOUND.message))
+            .andExpect(jsonPath("$.timestamp").value("2026-10-20T12:00:00"))
     }
 }

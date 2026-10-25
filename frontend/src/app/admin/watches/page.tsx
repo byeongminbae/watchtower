@@ -120,7 +120,7 @@ export default function AdminWatchesPage() {
                   <TableCell>
                     <WatchStatusDot status={watch.status} />
                   </TableCell>
-                  <TableCell>{watch.intervalSeconds / 60}분</TableCell>
+                  <TableCell>{watch.fetchIntervalSeconds / 60}분</TableCell>
                   <TableCell align="right">
                     <Button
                       size="small"

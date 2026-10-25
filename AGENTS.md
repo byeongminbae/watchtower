@@ -1,146 +1,68 @@
-<!-- Generated: 2026-07-25 | Updated: 2026-09-12 -->
+# 작업 기준
 
-# PROJECT KNOWLEDGE BASE
+- 절대 사용자의 의견에 무조건 동의하지 말 것 (언제나 의심할것). 만약 변경해서 얻는 이점보다 오작동, 보안 문제, 데이터 손실등의 위험이 크면 이유와 함께 다른 방법을 제안
+- 한국식 존댓말과 예의차리기 절대 금지. 토큰 사용량을 우선시하여 최저 비용으로 텍스트를 생성할것
+- 트러블슈팅을 하더라도 데이터베이스에는 절대 직접 접근 금지
+- 설명과 사용자에게 보이는 문구는 한국어로 작성함. 코드 이름, 파일명, 명령어는 영어로 작성
+- 코드 리펙토링을 요청받으면 동적 분석을 통해 코드의 핵심적인 존재 이유부터 파악할것 (무턱대고 작업 금지)
+- 사용자의 요청을 수행하기 전, 스스로 이해한 사용자의 요청을 요약해서 출력
+- 요청한 일은 끝까지 처리함. 어떤 결정에 있어서 필요한 정보가 부족하거나 그 외 사용자의 개입이 필요할 경우에만 작업을 일시중단하고 질문함
+- 기존 구조를 유지하려다 코드가 복잡해지면, 그 구조를 꼭 유지해야 하는지 먼저 확인할 것. 사용자가 요구하지 않은 호환성이나 제약을 임의로 만들지 말 것
+- 필요한 값이 없어서 재조회, 조인, 변환을 추가하려면 요청이나 응답에 그 값을 담는 방식과 먼저 비교할 것. 형식 변경이 기존 사용처에 미치는 영향도 함께 확인함
+- 중복을 줄였더라도 호출하는 쪽에서 이해해야 할 인자와 숨겨진 동작이 늘어나면 공통화가 나아진 게 아님
+- 구현 전에 가장 단순한 방법과 그 방법으로 충족하지 못하는 요구사항을 설명할 것. 더 복잡한 방법은 그 요구사항이 실제로 있을 때만 선택함
+- 별도 요청 없이는 코드 주석이나 문서 주석을 추가하지 않고, `README.md`, `AGENTS.md` 는 임의로 수정 금지.
+- 사용자의 말에 반박하려면 알맞은 예시와 납득할 수 있는 근거를 제시
+- 설명과 주석에서는 표준 용어를 먼저 명시하고 필요한 설명을 덧붙일 것. 예를 들어 여러 필드를 기준으로 정렬하는 동작은 ‘다중 정렬’이라고 명확하게 표현함
+- U+00B7 문자 사용 금지
 
-**Generated:** 2026-07-25 (Asia/Seoul)
-**Updated:** 2026-09-12 (Asia/Seoul) — deep hierarchical AGENTS.md pass; several facts below refreshed, see NOTES.
-**Commit:** 1ba1a42 (content below); tree refreshed at 4646bd5
-**Branch:** feature/39-agentsmd-문서-트리-추가
+## 백엔드 작업
 
-## OVERVIEW
+- 컴파일타임 검사가 안되는 `JPQL`, `@Query` 방식은 되도록 사용하지 않음
+- `repository` 계층을 `service` 계층에서 사용하려면 반드시 추상 계층인 `accessor` 를 거쳐야함. `accessor` 클래스의 하나의 메서드는 여러 `repository` 를 가질 수 있음
+- 추상 계층인 `accessor` 는 `repository` 와는 다르게 메서드명을 너무 로우 레벨에 치우치게 작성하지 말고 어느정도 비즈니스적으로 어떤 의미를 갖는지 알아볼 수 있도록 작성. 예를 들어
+  `towerRepository.findByIdAndCreatedBy_IdAndDeletedAtIsNull()` 이 메서드는 `accessor` 에 의해 `getOwnedTower()` 로 래핑됨
+- 어드민 조회에서는 삭제된 리소스도 조회 가능하니 모든 조회에 같은 삭제 필터를 걸지 말 것
+- 직접 만드는 논리 삭제 메서드는 `delete...`, 물리 삭제 메서드는 `hardDelete...`로 네이밍
+- `null` 또는 `Collection` 과 그 구현 클래스를 반환하는 메서드는 `find...` 접두사 사용, 찾고 없으면 예외를 던지는 메서드는 `get...` 접두사 사용. 논리 삭제된 것도 포함하면
+  `findAny...` 와 `getAny...` 로 네이밍
+- `HistoryBase`를 상속한 이력 데이터는 논리 삭제하지 않음. 별도 요청 없이 삭제 기능을 추가하지 말 것
+- 엔티티 ID 생성 (SequenceGenerator)은 각 구현체에서 해결. 시퀀스 이름과 할당 개수도 임의 변경 금지
+- 객체의 상태 판단과 그에 따른 동작은 해당 객체가 책임짐. 호출부에서 내부 값을 꺼내 판단하거나 구현체별로 분기 금지
+- 객체를 다른 객체로 바꾸는 메서드 이름은 되도록 `of`, `from`, `to`만 사용함
+- 여러 줄로 나눠도 마지막 인자 뒤에 쉼표를 붙이지 않음. 함수는 코틀린의 `=` 표현식 대신 `{ }` 과 `return` 을 강제
+- flyway `V1`~`V4` 마이그레이션은 개발, 프로덕션 서버에 이미 반영했으므로 절대 수정 금지
 
-Watchtower is a two-application web service: a Kotlin/Spring Boot API and a
-Next.js/React client. Deployment targets AWS ECR/ECS through a manually
-dispatched GitHub Actions workflow.
+## 테스트 작성
 
-## STRUCTURE
+- 테스트 메서드명은 "어떠한 상황일때 어떻게 될 것이다" 라는 것을 잘 드러낼 수 있는 이름으로 작성. 예를 들어 `정지되거나 탈퇴한 회원도 관리자는 조회할 수 있음`처럼 작성
+- 각 레이어에 대한 테스트를 작성할 때 절대 각 레이어의 책임 범위를 넘어가는 테스트는 금지 (예를 들어 controller 테스트에서 pagination 테스트까지 작성한다던지)
+- 빈 이름을 허용하는지, JSON을 어떻게 주고받는지, 값을 생략하면 무엇이 들어가는지는 요청/응답 객체 테스트에서 확인함
+- 컨트롤러가 외부에서 받지 않는 값을 `RequestParam`인 것처럼 테스트에 포함 금지 (예시 fun logout (@MemberId memberId: Long))
+- 기본값을 확인하려는 테스트가 아니라면 기본값이 바뀌어도 깨지지 않게 작성
+- JSON 본문은 객체를 `objectMapper.writeValueAsBytes(...)`에 넘겨 만듦. 테스트 어노테이션의 `value`에 들어가는 JSON 문자열은 예외
+- 직렬화할 때만 한 번 쓰는 객체는 미리 변수로 만들지 않고 `writeValueAsBytes(...)` 안에서 바로 생성함
+- `ObjectMapper`는 필드에서 직접 생성함. 이를 위해 생성자 주입, 별도 스프링 설정, 상속용 기본 클래스 추가 금지
+- 응답의 열거형 값을 문자열과 비교할 때는 문자열을 직접 적지 말고 해당 열거형 상수의 `name`을 사용
+- `standaloneSetup`으로 만든 컨트롤러 테스트에는 메서드 보안이 자동 적용되지 않음. 이 테스트만으로 접근 권한 검사까지 확인했다고 보고 금지
+- null safety 인자에 null이 들어가면 실패한다는 의미 없는 테스트를 API마다 반복해서 추가 금지
 
-```text
-watchtower/
-├── backend/    # Spring Boot API, persistence model, Docker image
-├── frontend/   # Next App Router UI and typed API client
-├── ecs/        # ECS task definitions for ports 8080 and 3000
-├── .github/    # Manual service/environment deployment workflow
-└── README.md   # Project/Wiki links only
-```
+## 프론트 작업 (이쪽은 잘 몰라서 추후 보강 필요)
 
-Each directory above (and several nested ones) carries its own `AGENTS.md` with
-a `<!-- Parent: ... -->` comment pointing back up the tree — start at the
-nearest one to where you're editing rather than re-deriving context from here.
-Notably: `backend/.../domain/{admin,auth,member,payment,subscription,watch}/AGENTS.md`,
-`backend/.../global/AGENTS.md`, `frontend/src/app/AGENTS.md` (+ `app/bff/AGENTS.md`
-for the Next BFF proxy layer), `frontend/src/components/AGENTS.md`,
-`frontend/src/lib/AGENTS.md`, and `frontend/tests/AGENTS.md`.
+- `Next.js`의 API나 동작을 바꿀 때는 설치된 `frontend/node_modules/next/dist/docs/`에서 해당 내용을 먼저 확인
+- 화면은 기존 `MUI` 구성 요소와 `sx`를 사용
+- 데이터 조회는 `useApiData`, 로그인 상태 관리는 기존 세션 함수를 사용함. 수정이나 삭제가 성공하면 화면에 필요한 자료를 다시 조회
+- 브라우저 요청은 `/bff/` 경로를 사용해서만 수행
+- 기능을 연결할 때는 백엔드가 실제로 받는 값과 돌려주는 값부터 확인
+- 화면에서 관리자 메뉴를 숨기거나 로그인 화면으로 보내는 것만으로 접근 권한이 보장되지 않음. 프론트 서버에서도 권한을 검사해야 함
 
-## WHERE TO LOOK
+## 배포 작업
 
-| Task | Location | Notes |
-|------|----------|-------|
-| Start the API | `backend/.../WatchtowerApplication.kt` | Enables JPA auditing |
-| Add an HTTP endpoint | `backend/.../domain/*/controller/` | Existing handlers are contract stubs |
-| Change persistence | `backend/.../domain/*/entity/` | Shared bases live under `global/entity` |
-| Change global API envelopes/errors | `backend/.../global/{response,error,exception}/` | Frontend error shape currently differs |
-| Add/change a page | `frontend/src/app/` | App Router; protected areas use nested layouts |
-| Change auth/session behavior | `frontend/src/lib/AuthContext.tsx`, `frontend/src/lib/api/client.ts` | Cookie/JWT contract is provisional |
-| Change frontend API contracts | `frontend/src/lib/api/`, `frontend/src/types/domain.ts` | Compare with backend controller signatures |
-| Change deployment | `.github/workflows/watchtower-deploy.yml`, `ecs/` | Workflow chooses one service and environment |
+- 컨테이너가 정상 실행되는지 확인하는 검사와 테스트 실행은 별개임. 배포에 성공했다고 백엔드나 화면 테스트도 통과했다고 보고하지 말 것
+- 개발 주소와 운영 주소를 하나의 `Caddy` 서비스에서 처리.
 
-## CODE MAP
+## 검증과 지침 관리
 
-CodeGraph is indexed; TypeScript and Kotlin LSP servers are configured but not
-installed. Reference counts below come from CodeGraph/source relationships.
-
-| Symbol | Type | Location | Refs | Role |
-|--------|------|----------|------|------|
-| `main` | Function | `backend/.../WatchtowerApplication.kt` | Framework entry | Launches Spring component scan |
-| `SuccessResponse<T>` | Class | `backend/.../global/response/SuccessResponse.kt` | 6 controllers | Shared success envelope |
-| `Base` | Mapped superclass | `backend/.../global/entity/Base.kt` | 9 entities | Audit fields and soft delete |
-| `Member` | Entity | `backend/.../domain/member/entity/Member.kt` | 6 domain files | Cross-domain aggregate anchor |
-| `RootLayout` | Component | `frontend/src/app/layout.tsx` | Framework entry | Composes theme, auth, header, routes |
-| `AuthProvider` | Component | `frontend/src/lib/AuthContext.tsx` | Root layout | Cookie-to-member session state |
-| `apiClient` | Object | `frontend/src/lib/api/client.ts` | ~41 call sites | Fetch, bearer auth, renewal, retry |
-| `useApiData` | Hook | `frontend/src/lib/useApiData.ts` | ~23 refs | Shared fetch lifecycle/refetch pattern |
-| `domain.ts` | Contract module | `frontend/src/types/domain.ts` | ~16 importers | 13 shared domain exports |
-
-## CONVENTIONS
-
-- There is no root build system; run Gradle and npm from their package roots.
-- Backend routes use `/api/v1/*`; frontend domain API objects mirror those
-  route groups through one transport client.
-- Backend code is package-by-domain plus a small `global` infrastructure tree.
-- Frontend pages call API objects directly and manually `refetch()` after
-  mutations; no query/cache library is present.
-- User-facing strings and many explanatory comments are Korean.
-- `NEXT_PUBLIC_API_BASE_URL` is a frontend build-time value, not an ECS
-  runtime-only setting.
-
-## ANTI-PATTERNS (THIS PROJECT)
-
-- Do not treat frontend request/response types as implemented backend
-  contracts. Controllers currently accept little input and return empty
-  `SuccessResponse<String>` placeholders.
-- Do not rely on current auth as enforcement: backend security permits every
-  request, while the frontend assumes a readable `watchtower_jwt` cookie,
-  specific claims, renewal-by-cookie, and credentialed CORS.
-- Do not assume CI covers tests. Backend deployment builds the image with
-  `-x test`; frontend now has vitest unit tests (co-located `*.test.ts(x)`)
-  and a Playwright e2e suite (`frontend/tests/e2e/`), but the deploy workflow
-  itself does not run either suite — it only gates on a Docker `HEALTHCHECK`
-  poll after building the image.
-
-## USER-GOVERNED POLICY
-
-- `README.md` (and other documentation Markdown files) must **not** be edited
-  unless the user explicitly approves it in the current request.
-## UNIQUE STYLES
-
-- Authenticated client areas are guarded at route-layout level:
-  `watches`/`mypage` use `RequireAuth`; `admin` uses `RequireAdmin`.
-- Backend domain controllers and entities exist before service/repository
-  layers; preserve that distinction when judging what is real behavior.
-- ECS task definitions use EC2 bridge networking with dynamic host ports and
-  separate backend/frontend container names.
-
-## COMMANDS
-
-```bash
-# Backend: Java 25 required; wrapper is currently not executable
-cd backend
-chmod +x ./gradlew
-./gradlew clean build
-./gradlew test
-./gradlew bootRun --args='--spring.profiles.active=local'
-
-# Frontend: CI uses Node 20
-cd frontend
-npm ci
-npm run lint
-npm run build
-npm run dev
-
-# Backend image
-docker build --build-arg SPRING_PROFILE=dev \
-  -t watchtower-backend-dev:tag backend
-```
-
-## NOTES
-
-- Dev/local Spring profiles import AWS Parameter Store and use PostgreSQL with
-  `ddl-auto=create`; the default profile uses `validate`.
-- `application-prod.yaml` exists and only imports AWS Parameter Store
-  (`aws-parameterstore:/watchtower/backend/prod/`) — all other prod settings
-  live in Parameter Store, not in the repo.
-- Flyway migrations exist at `backend/src/main/resources/db/migration/`
-  (`V1__initial_schema.sql` through `V4__update_member_sign_in_fields.sql`) —
-  earlier notes claiming this directory was absent are outdated.
-- Backend has both the context-load smoke test and real unit/service tests
-  under `backend/src/test/`; frontend has vitest unit tests co-located with
-  source and a Playwright e2e suite under `frontend/tests/e2e/`. Earlier notes
-  claiming "no tests" on either side are outdated.
-- `HtmlCondition`/`RegexCondition`/`KeywordCondition` each now use their own
-  distinct `@DiscriminatorValue` (`HTML`/`REGEX`/`KEYWORD`) — the previously
-  noted defect where `HtmlCondition` and `RegexCondition` shared the `REGEX`
-  discriminator has been fixed; this note is now stale/historical.
-- Backend success and frontend success envelopes align around `data`, but
-  backend errors expose `statusCode/message` while the frontend expects nested
-  `error.code/message`.
+- 바꾼 기능이 제대로 동작하는지 확인하려면 테스트를 실행. 문서만 수정했다면 내용과 경로를 확인하고, 전체 빌드나 테스트를 돌리지 않음
+- 이 문서에는 코드만 읽어서는 놓치기 쉬운 주의사항을 적음. 폴더 구조, 기술 버전, 함수 설명, 테스트 목록등은 작성하지 않음
+- 만약 현재 문서와 코드의 불일치가 파악되면 사용자에게 문서를 업데이트 하도록 반드시 알릴것 

@@ -15,13 +15,13 @@ export default function AdminDashboardPage() {
     loading,
     error,
   } = useApiData(async () => {
-    const [watchStats, userStats, paymentStats, authStats] = await Promise.all([
+    const [watchStats, memberStats, paymentStats, authStats] = await Promise.all([
       adminApi.getWatchStats().then((r) => r.data),
-      adminApi.getUserStats().then((r) => r.data),
+      adminApi.getMemberStats().then((r) => r.data),
       adminApi.getPaymentStats().then((r) => r.data),
       adminApi.getAuthStats().then((r) => r.data),
     ]);
-    return { watchStats, userStats, paymentStats, authStats };
+    return { watchStats, memberStats, paymentStats, authStats };
   }, []);
 
   if (loading) {
@@ -42,8 +42,8 @@ export default function AdminDashboardPage() {
 
   const statCards = [
     {
-      label: "총 유저 수",
-      value: data.userStats.totalUsers.toLocaleString(),
+      label: "총 회원 수",
+      value: data.memberStats.totalMembers.toLocaleString(),
       icon: <GroupOutlinedIcon />,
       color: "var(--wt-status-info)",
     },

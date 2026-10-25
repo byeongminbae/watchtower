@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test
 import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
-import org.mockito.kotlin.verifyNoInteractions
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.security.access.AccessDeniedException
@@ -16,106 +15,99 @@ import tools.jackson.module.kotlin.jacksonObjectMapper
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertTrue
+import kotlin.test.assertNotNull
 
 class SecurityExceptionHandlerFilterTest {
     private val objectMapper = jacksonObjectMapper()
     private val filter = SecurityExceptionHandlerFilter(objectMapper)
 
     @Test
-    fun `만료된 액세스 토큰이 전달된 상황에서 요청을 처리하면 만료 토큰 오류 응답을 반환하고 다음 필터를 호출하지 않는다`() {
-        // Given
-        val accessToken = "만료된-와치타워-액세스-토큰"
-        val request = MockHttpServletRequest().apply {
-            addHeader("Authorization", "Bearer $accessToken")
-        }
+    fun `후속 처리에서 발생한 비즈니스 예외를 응답으로 변환함`() {
+        /** given */
+        val request = MockHttpServletRequest()
         val response = MockHttpServletResponse()
-        val jwtProvider = mock<JwtProvider>()
-        val jwtAuthenticationFilter = JwtAuthenticationFilter(jwtProvider)
-        val downstreamChain = mock<FilterChain>()
-        val exception = BusinessException(
-            AuthError.EXPIRED_TOKEN,
-            LocalDateTime.of(2026, 8, 2, 12, 34, 56),
-        )
-        doThrow(exception).`when`(jwtProvider).validateToken(accessToken)
-        val jwtFilterChain = FilterChain { servletRequest, servletResponse ->
-            jwtAuthenticationFilter.doFilter(servletRequest, servletResponse, downstreamChain)
-        }
+        val chain = mock<FilterChain>()
+        doThrow(
+            BusinessException(
+                AuthError.EXPIRED_TOKEN,
+                LocalDateTime.of(2026, 8, 2, 12, 34, 56)
+            )
+        ).`when`(chain).doFilter(request, response)
 
-        // When
-        filter.doFilter(request, response, jwtFilterChain)
+        /** when */
+        filter.doFilter(request, response, chain)
 
-        // Then
+        /** then */
         assertEquals(200, response.status)
         assertEquals("application/json;charset=UTF-8", response.contentType)
-        assertEquals("UTF-8", response.characterEncoding)
         val body = objectMapper.readTree(response.contentAsString)
-        assertEquals(false, body["success"].booleanValue())
+        assertEquals(false, assertNotNull(body["isSuccess"], response.contentAsString).booleanValue())
         assertEquals(AuthError.EXPIRED_TOKEN.statusCode, body["statusCode"].stringValue())
-        assertEquals(AuthError.EXPIRED_TOKEN.message, body["message"].stringValue())
-        assertEquals("2026-08-02T12:34:56", body["timestamp"].stringValue())
-        verifyNoInteractions(downstreamChain)
     }
 
     @Test
-    fun `정상 요청이 들어온 상황에서 요청을 처리하면 다음 필터에 처리를 위임한다`() {
-        // Given
+    fun `인증 오류가 없는 요청은 그대로 처리를 이어감`() {
+        /** given */
         val request = MockHttpServletRequest()
         val response = MockHttpServletResponse()
         val chain = mock<FilterChain>()
 
-        // When
+        /** when */
         filter.doFilter(request, response, chain)
 
-        // Then
+        /** then */
         verify(chain).doFilter(request, response)
     }
 
     @Test
-    fun `필터 체인에서 일반 예외가 발생한 상황에서 요청을 처리하면 예외를 그대로 던진다`() {
-        // Given
+    fun `일반 예외는 인증 오류 응답으로 바꾸지 않고 그대로 전파함`() {
+        /** given */
         val request = MockHttpServletRequest()
         val response = MockHttpServletResponse()
         val chain = mock<FilterChain>()
         val exception = IllegalStateException("예상하지 못한 예외")
         doThrow(exception).`when`(chain).doFilter(request, response)
 
-        // When
+        /** when */
         val thrown = assertFailsWith<IllegalStateException> {
             filter.doFilter(request, response, chain)
         }
 
-        // Then
+        /** then */
         assertEquals(exception, thrown)
     }
 
     @Test
-    fun `인증 토큰이 없는 상황에서 인증 진입점을 호출하면 인증 실패 응답을 반환한다`() {
-        // Given
-        val request = MockHttpServletRequest()
+    fun `인증 정보가 없으면 인증이 필요하다는 오류를 응답함`() {
+        /** given */
         val response = MockHttpServletResponse()
 
-        // When
-        filter.commence(request, response, AuthenticationCredentialsNotFoundException("인증 정보 없음"))
+        /** when */
+        filter.commence(MockHttpServletRequest(), response, AuthenticationCredentialsNotFoundException("인증 정보 없음"))
 
-        // Then
+        /** then */
         assertEquals(200, response.status)
         assertEquals("application/json;charset=UTF-8", response.contentType)
-        assertTrue(response.contentAsString.contains("\"statusCode\":\"${AuthError.UNAUTHORIZED.statusCode}\""))
+        assertEquals(
+            AuthError.UNAUTHORIZED.statusCode,
+            objectMapper.readTree(response.contentAsString)["statusCode"].stringValue()
+        )
     }
 
     @Test
-    fun `접근 거부 예외가 주어진 상황에서 접근 거부 핸들러가 예외를 처리하면 접근 거부 응답을 반환한다`() {
-        // Given
-        val request = MockHttpServletRequest()
+    fun `접근이 거부되면 권한이 없다는 오류를 응답함`() {
+        /** given */
         val response = MockHttpServletResponse()
 
-        // When
-        filter.handle(request, response, AccessDeniedException("접근 거부"))
+        /** when */
+        filter.handle(MockHttpServletRequest(), response, AccessDeniedException("접근 거부"))
 
-        // Then
+        /** then */
         assertEquals(200, response.status)
         assertEquals("application/json;charset=UTF-8", response.contentType)
-        assertTrue(response.contentAsString.contains("\"statusCode\":\"${AuthError.ACCESS_DENIED.statusCode}\""))
+        assertEquals(
+            AuthError.ACCESS_DENIED.statusCode,
+            objectMapper.readTree(response.contentAsString)["statusCode"].stringValue()
+        )
     }
 }

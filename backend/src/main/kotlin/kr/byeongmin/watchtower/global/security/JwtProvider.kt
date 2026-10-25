@@ -11,6 +11,10 @@ import org.springframework.stereotype.Component
 import java.nio.charset.StandardCharsets
 import java.util.*
 
+/**
+ * @property accessTokenExpiry 액세스 토큰 유효 기간(밀리초).
+ * @property refreshTokenExpiry 리프레시 토큰 유효 기간(밀리초).
+ */
 @Component
 class JwtProvider(
     @Value("\${watchtower.jwt.secret}") private val secret: String,
@@ -44,23 +48,26 @@ class JwtProvider(
             .compact()
     }
 
+    /** @return 토큰이 만료되었거나 파싱할 수 없으면 false */
     fun isValidToken(token: String): Boolean {
         return runCatching {
             Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token)
         }.isSuccess
     }
 
+    /** 토큰이 만료되었거나 파싱할 수 없으면 알맞은 예외로 래핑 */
     fun validateToken(token: String) {
         try {
             Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token)
-        } catch (e: ExpiredJwtException) {
+        } catch (_: ExpiredJwtException) {
             throw BusinessException(AuthError.EXPIRED_TOKEN)
-        } catch (e: Exception) { // 보안 관점에서 뭉뚱그려 응답하면 공격이 피곤해짐
+        } catch (_: Exception) {
             throw BusinessException(AuthError.INVALID_TOKEN)
         }
     }
 
     private fun getClaims(token: String): Claims {
+        validateToken(token)
         return Jwts.parser()
             .verifyWith(secretKey)
             .build()

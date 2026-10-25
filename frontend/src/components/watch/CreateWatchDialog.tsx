@@ -72,7 +72,7 @@ export default function CreateWatchDialog({
       await onSubmit({
         name,
         url,
-        intervalSeconds: interval * 60,
+        fetchIntervalSeconds: interval * 60,
         includeInStat,
         conditions: [
           conditionType === "KEYWORD" ? { type: "KEYWORD", keyword } : { type: conditionType },

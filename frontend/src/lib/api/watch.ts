@@ -5,14 +5,14 @@ import type { HotUrl, Watch, WatchCondition, WatchSnapshot } from "@/types/domai
 export interface CreateWatchRequest {
   name: string;
   url: string;
-  intervalSeconds: number;
+  fetchIntervalSeconds: number;
   includeInStat: boolean;
   conditions: Array<Pick<WatchCondition, "type" | "keyword" | "regex">>;
 }
 
 export interface UpdateWatchRequest {
   name?: string;
-  intervalSeconds?: number;
+  fetchIntervalSeconds?: number;
   includeInStat?: boolean;
   status?: "RUNNING" | "PAUSED";
 }

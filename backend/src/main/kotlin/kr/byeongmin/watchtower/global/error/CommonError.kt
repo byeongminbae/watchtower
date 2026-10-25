@@ -1,5 +1,10 @@
 package kr.byeongmin.watchtower.global.error
 
+/**
+ * 여러 도메인에서 공통으로 사용하는 오류
+ *
+ * 추상적인 표현만 가능해서 오류가 더 구체적인 표현이 필요하다면 해당 레이어에 [Error] 를 상속받아 규격에 맞춰 만들면 됨
+ * */
 enum class CommonError(
     override val statusCode: String,
     override val message: String
@@ -11,6 +16,8 @@ enum class CommonError(
 
     RESOURCE_NOT_FOUND("RES_001", "리소스를 찾을 수 없습니다."),
     RESOURCE_CONFLICT("RES_002", "이미 존재하는 리소스입니다."),
+    RESOURCE_QUOTA_EXCEEDED("RES_003", "한도가 초과되었습니다."),
+    RESOURCE_ALREADY_DELETED("RES_004", "이미 삭제된 엔티티 입니다."),
 
     EXTERNAL_API_ERROR("EXT_000", "외부 API에서 오류가 발생 했습니다."),
 

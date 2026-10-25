@@ -153,7 +153,7 @@ export default function SubscriptionPage() {
         })}
       </Box>
 
-      {subscription.currentPlan.planTier !== "FREE" && (
+      {subscription.currentPlan.planType !== "FREE" && (
         <Box sx={{ mt: 4, textAlign: "center" }}>
           <Button color="error" variant="text" onClick={() => setCancelDialogOpen(true)}>
             구독 해지 (환불 요청)

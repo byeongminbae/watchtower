@@ -2,10 +2,15 @@ package kr.byeongmin.watchtower.global.exception
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.servlet.http.HttpServletRequest
-import kr.byeongmin.watchtower.global.response.ErrorResponse
+import kr.byeongmin.watchtower.global.dto.ErrorResponse
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 
+/**
+ * 서블릿 이후에 발생한 예외 처리기
+ *
+ * 프로젝트 컨벤션상 응답 코드는 무조건 200 이고 봉투패턴을 사용해 응답함
+ * */
 @RestControllerAdvice
 class GlobalExceptionHandler {
     private val logger = KotlinLogging.logger {}

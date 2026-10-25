@@ -10,20 +10,20 @@ import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
 
+/**
+ * Authorization 헤더의 Bearer 토큰을 검증하고 회원 식별자와 단일 권한을 인증 컨텍스트에 설정하는 필터
+ *
+ * [kr.byeongmin.watchtower.domain.member.entity.Member] 의 role 이 여러개로 늘어나면 이 클래스도 바뀌어야함
+ * */
 @Component
 class JwtAuthenticationFilter(
-    private val jwtProvider: JwtProvider,
+    private val jwtProvider: JwtProvider
 ) : OncePerRequestFilter() {
-    private fun getAuthorizationToken(request: HttpServletRequest): String? {
-        return request.getHeader(HttpHeaders.AUTHORIZATION)
-            ?.takeIf { it.startsWith("Bearer ") }
-            ?.removePrefix("Bearer ")
-    }
-
+    /** 토큰이 없으면 그대로 진행하고, 검증 실패는 다음 필터로 전달하며, 클레임 추출 실패는 인증 설정을 생략한다. */
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
-        filterChain: FilterChain,
+        filterChain: FilterChain
     ) {
         val token = getAuthorizationToken(request)
 
@@ -38,6 +38,12 @@ class JwtAuthenticationFilter(
         filterChain.doFilter(request, response)
     }
 
+    private fun getAuthorizationToken(request: HttpServletRequest): String? {
+        return request.getHeader(HttpHeaders.AUTHORIZATION)
+            ?.takeIf { it.startsWith("Bearer ") }
+            ?.removePrefix("Bearer ")
+    }
+
     private fun createUsernamePasswordAuthenticationToken(token: String): UsernamePasswordAuthenticationToken? {
         return runCatching {
             val memberId = jwtProvider.getMemberId(token)
@@ -49,8 +55,7 @@ class JwtAuthenticationFilter(
                     role = role
                 ),
                 null,
-                // TODO: 인당 권한 여러개 들어가면 수정해야함
-                listOf(SimpleGrantedAuthority("ROLE_$role")),
+                listOf(SimpleGrantedAuthority("ROLE_$role"))
             )
         }.getOrNull()
     }

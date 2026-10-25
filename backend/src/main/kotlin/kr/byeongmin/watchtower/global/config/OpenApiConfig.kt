@@ -7,6 +7,11 @@ import io.swagger.v3.oas.models.security.SecurityScheme
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
+/**
+ * 스웨거 설정 클래스
+ *
+ * JWT Bearer 인증 스키마와 전역 보안 요구 사항을 등록함
+ * */
 @Configuration
 class OpenApiConfig {
     @Bean
