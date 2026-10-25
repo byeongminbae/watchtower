@@ -5,6 +5,8 @@ import kr.byeongmin.watchtower.domain.admin.controller.StatsController
 import kr.byeongmin.watchtower.domain.admin.service.AdminService
 import kr.byeongmin.watchtower.domain.admin.service.StatsService
 import kr.byeongmin.watchtower.domain.auth.controller.AuthController
+import kr.byeongmin.watchtower.domain.auth.dto.MemberSessionResponseDto
+import kr.byeongmin.watchtower.global.dto.SuccessDataResponse
 import kr.byeongmin.watchtower.domain.auth.service.AuthService
 import kr.byeongmin.watchtower.domain.member.controller.MemberController
 import kr.byeongmin.watchtower.domain.member.service.MemberService
@@ -22,7 +24,10 @@ import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoInteractions
+import org.mockito.kotlin.whenever
 import org.springframework.aop.framework.ProxyFactory
+import org.springframework.mock.web.MockHttpServletRequest
+import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
@@ -39,6 +44,8 @@ class EndpointAuthorizationTest {
     private val towerService = mock<TowerService>()
     private val hotTowerService = mock<HotTowerService>()
     private val authService = mock<AuthService>()
+    private val request = MockHttpServletRequest()
+    private val response = MockHttpServletResponse()
     private val adminController = secure(AdminController(adminService))
     private val statsController = secure(StatsController(statsService))
     private val memberController = secure(MemberController(memberService))
@@ -117,6 +124,7 @@ class EndpointAuthorizationTest {
         /** given */
         authenticate(role)
 
+        /** when */
         assertFailsWith<AccessDeniedException> { memberController.getMember(99L) }
 
         /** then */
@@ -136,16 +144,18 @@ class EndpointAuthorizationTest {
     }
 
     @Test
-    fun `로그인한 회원은 알림 채널과 타워를 조회하고 로그아웃할 수 있음`() {
+    fun `로그인한 회원은 알림 채널과 타워 및 세션을 조회할 수 있음`() {
+        /** given */
         authenticate("NORMAL")
 
+        /** when */
         notificationChannelController.getChannel(21L, 1L)
         towerController.getTower(21L, 7L)
-        authController.logout(21L)
+        authController.getSession(MemberPrinciple(21L, "NORMAL"))
 
+        /** then */
         verify(channelService).getChannel(21L, 1L)
         verify(towerService).getTower(21L, 7L)
-        verify(authService).logout(21L)
     }
 
     @Test
@@ -153,40 +163,35 @@ class EndpointAuthorizationTest {
         /** given */
         SecurityContextHolder.clearContext()
 
+        /** when */
         assertFailsWith<AuthenticationCredentialsNotFoundException> { memberController.getMember(21L) }
         assertFailsWith<AuthenticationCredentialsNotFoundException> { notificationChannelController.getChannel(21L, 1L) }
         assertFailsWith<AuthenticationCredentialsNotFoundException> { towerController.getTower(21L, 7L) }
-        assertFailsWith<AuthenticationCredentialsNotFoundException> { authController.logout(21L) }
+        assertFailsWith<AuthenticationCredentialsNotFoundException> {
+            authController.getSession(MemberPrinciple(21L, "NORMAL"))
+        }
 
         /** then */
         verifyNoInteractions(memberService, channelService, towerService, authService)
     }
 
     @Test
-    fun `액세스 토큰이 없어도 리프레시 토큰으로 갱신을 요청할 수 있음`() {
-        /** given */
-        SecurityContextHolder.clearContext()
-
-        /** when */
-        authController.renewToken("refresh")
-
-        /** then */
-        verify(authService).renewToken("refresh")
-    }
-
-    @Test
     fun `인기 타워 조회와 네이버 로그인은 로그인하지 않아도 사용할 수 있음`() {
         /** given */
         SecurityContextHolder.clearContext()
+        whenever(authService.getNaverSignInUrl("state", request, response))
+            .thenReturn(SuccessDataResponse("https://nid.naver.com/oauth2.0/authorize"))
+        whenever(authService.signInWithNaverCallback("code", "state", request, response))
+            .thenReturn(SuccessDataResponse(MemberSessionResponseDto(21L, "NORMAL")))
 
         /** when */
         towerController.getTrendingTowers()
-        authController.getNaverSignInUrl("state")
-        authController.signInWithNaverCallback("code", "state")
+        authController.getNaverSignInUrl("state", request, response)
+        authController.signInWithNaverCallback("code", "state", request, response)
 
         /** then */
         verify(hotTowerService).getTrendingTowers()
-        verify(authService).getNaverSignInUrl("state")
-        verify(authService).signInWithNaverCallback("code", "state")
+        verify(authService).getNaverSignInUrl("state", request, response)
+        verify(authService).signInWithNaverCallback("code", "state", request, response)
     }
 }

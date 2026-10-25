@@ -2,14 +2,15 @@ package kr.byeongmin.watchtower.external.naver.client
 
 import kr.byeongmin.watchtower.external.naver.dto.NaverProfileResponseDto
 import kr.byeongmin.watchtower.external.naver.dto.NaverTokenResponseDto
+import kr.byeongmin.watchtower.global.error.AuthError
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders.AUTHORIZATION
+import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
-import org.springframework.web.util.UriComponentsBuilder
 
 @Component
 class NaverAuthClient(
@@ -18,16 +19,16 @@ class NaverAuthClient(
     @Value("\${watchtower.auth.naver.client-secret}") private val clientSecret: String,
     @Value("\${watchtower.auth.naver.callback-url}") private val callbackUrl: String
 ) {
-    fun buildSignInUrl(state: String): String {
-        return UriComponentsBuilder.newInstance()
-            .scheme("https")
-            .host("nid.naver.com")
-            .path("/oauth2.0/authorize")
-            .queryParam("response_type", "code")
-            .queryParam("client_id", clientId)
-            .queryParam("redirect_uri", callbackUrl)
-            .queryParam("state", state)
-            .build().toUriString()
+    fun getAuthorizationRequest(state: String): OAuth2AuthorizationRequest {
+        if (state.isBlank()) {
+            throw BusinessException(AuthError.INVALID_OAUTH_STATE)
+        }
+        return OAuth2AuthorizationRequest.authorizationCode()
+            .authorizationUri("https://nid.naver.com/oauth2.0/authorize")
+            .clientId(clientId)
+            .redirectUri(callbackUrl)
+            .state(state)
+            .build()
     }
 
     fun fetchToken(code: String, state: String): NaverTokenResponseDto {

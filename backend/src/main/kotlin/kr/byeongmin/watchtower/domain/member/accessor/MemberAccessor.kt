@@ -14,8 +14,12 @@ import java.time.LocalDateTime
 class MemberAccessor(
     private val memberRepository: MemberRepository
 ) {
-    fun getMember(memberId: Long): Member {
+    fun findMember(memberId: Long): Member? {
         return memberRepository.findByIdAndDeletedAtIsNull(memberId)
+    }
+
+    fun getMember(memberId: Long): Member {
+        return findMember(memberId)
             ?: throw BusinessException(CommonError.RESOURCE_NOT_FOUND)
     }
 

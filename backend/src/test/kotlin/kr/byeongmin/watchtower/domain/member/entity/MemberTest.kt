@@ -3,6 +3,8 @@ package kr.byeongmin.watchtower.domain.member.entity
 import kr.byeongmin.watchtower.domain.member.enums.MemberRole
 import kr.byeongmin.watchtower.domain.subscription.entity.Plan
 import kr.byeongmin.watchtower.external.naver.dto.NaverProfileResponseDto
+import kr.byeongmin.watchtower.global.error.AuthError
+import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -10,7 +12,7 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
+import kotlin.test.assertFailsWith
 
 class MemberTest {
     private val plan = mock<Plan>()
@@ -29,58 +31,62 @@ class MemberTest {
 
     @Test
     fun `네이버로 가입한 회원은 네이버에서 내려온 정보를 사용하고 일반 회원 권한을 가짐`() {
+        /** given */
+        val signUpAt = LocalDateTime.of(2026, 10, 20, 12, 0)
+
         /** when */
-        val member = Member.from(naverProfile, now, plan)
+        val member = Member.from(naverProfile, signUpAt, plan)
 
         /** then */
         assertEquals(naverProfile.response.email, member.email)
         assertEquals(naverProfile.response.nickname, member.nickname)
         assertEquals(naverProfile.response.profileImage, member.profileImageUrl)
         assertEquals(MemberRole.NORMAL, member.role)
-        assertNull(member.refreshToken)
-        assertEquals(now, member.lastSignInAt)
+        assertEquals(signUpAt, member.lastSignInAt)
     }
 
     @Test
-    fun `로그인하면 새 리프레시 토큰과 로그인한 시각이 기록됨`() {
+    fun `로그인하면 마지막 로그인 시각이 갱신됨`() {
         /** given */
         val previousSignInAt = LocalDateTime.of(2000, 1, 1, 0, 0)
         val member = Member.from(naverProfile, previousSignInAt, plan)
-        member.completeSignIn("기존-토큰", previousSignInAt)
 
         /** when */
-        member.completeSignIn("new-refresh", now)
+        member.ensureSignInAllowed()
+        member.completeSignIn(now)
 
         /** then */
-        assertEquals("new-refresh", member.refreshToken)
         assertEquals(now, member.lastSignInAt)
     }
 
     @Test
-    fun `토큰을 다시 발급받아도 최근 로그인 시각이 갱신됨`() {
+    fun `정지된 회원은 로그인할 수 없음`() {
         /** given */
-        val member = Member.from(naverProfile, now.minusDays(30), plan)
-        val rotatedAt = now
+        val member = Member.from(naverProfile, now, plan)
+        member.ban(now)
 
         /** when */
-        member.rotateRefreshToken("refresh", rotatedAt)
+        val exception = assertFailsWith<BusinessException> {
+            member.ensureSignInAllowed()
+        }
 
         /** then */
-        assertEquals("refresh", member.refreshToken)
-        assertEquals(rotatedAt, member.lastSignInAt)
+        assertEquals(AuthError.BANNED_ACCOUNT, exception.error)
     }
 
     @Test
-    fun `로그아웃하면 기존 리프레시 토큰이 제거됨`() {
+    fun `탈퇴한 회원은 로그인할 수 없음`() {
         /** given */
         val member = Member.from(naverProfile, now, plan)
-        member.rotateRefreshToken("refresh", now)
+        member.delete()
 
         /** when */
-        member.signOut()
+        val exception = assertFailsWith<BusinessException> {
+            member.ensureSignInAllowed()
+        }
 
         /** then */
-        assertNull(member.refreshToken)
+        assertEquals(AuthError.ALREADY_DELETED_ACCOUNT, exception.error)
     }
 
     @ParameterizedTest
