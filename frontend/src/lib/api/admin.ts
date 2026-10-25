@@ -1,14 +1,14 @@
 import { rejectUnavailable } from "./availability";
 import type { ApiEnvelope } from "./types";
-import type { Member, MemberRole, PaymentHistory, Watch, WatchStatus } from "@/types/domain";
+import type { Member, MemberRole, MemberStatus, PaymentHistory, Watch, WatchStatus } from "@/types/domain";
 
 export interface WatchStatsResult {
   totalActiveWatches: number;
   dailyTrend: Array<{ date: string; count: number }>;
 }
 
-export interface UserStatsResult {
-  totalUsers: number;
+export interface MemberStatsResult {
+  totalMembers: number;
   todayLogins: number;
   totalWithdrawals: number;
 }
@@ -49,30 +49,30 @@ export const adminApi = {
     );
   },
 
-  getUsers: (query?: string) => {
+  getMembers: (query?: string) => {
     void query;
-    return rejectUnavailable<ApiEnvelope<Member[]>>("admin.getUsers");
+    return rejectUnavailable<ApiEnvelope<Member[]>>("admin.getMembers");
   },
 
-  updateUserRole: (userId: number, role: MemberRole) => {
-    void userId;
+  updateMemberRole: (memberId: number, role: MemberRole) => {
+    void memberId;
     void role;
-    return rejectUnavailable<ApiEnvelope<Member>>("admin.updateUserRole");
+    return rejectUnavailable<ApiEnvelope<Member>>("admin.updateMemberRole");
   },
 
-  updateUserStatus: (userId: number, banned: boolean) => {
-    void userId;
-    void banned;
+  updateMemberStatus: (memberId: number, status: MemberStatus) => {
+    void memberId;
+    void status;
     return rejectUnavailable<ApiEnvelope<Member>>(
-      "admin.updateUserStatus",
+      "admin.updateMemberStatus",
     );
   },
 
   getWatchStats: () =>
     rejectUnavailable<ApiEnvelope<WatchStatsResult>>("admin.getWatchStats"),
 
-  getUserStats: () =>
-    rejectUnavailable<ApiEnvelope<UserStatsResult>>("admin.getUserStats"),
+  getMemberStats: () =>
+    rejectUnavailable<ApiEnvelope<MemberStatsResult>>("admin.getMemberStats"),
 
   getPaymentStats: () =>
     rejectUnavailable<ApiEnvelope<PaymentStatsResult>>(

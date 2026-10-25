@@ -7,16 +7,19 @@ import kr.byeongmin.watchtower.domain.member.entity.Member
 import kr.byeongmin.watchtower.external.naver.dto.NaverProfileResponseDto
 import kr.byeongmin.watchtower.external.naver.dto.NaverTokenResponseDto
 
+/**
+ * @property [expiresIn] 초 단위
+ */
 @Entity
 @DiscriminatorValue("NAVER")
 @Table(name = "naver_oauth")
 class NaverOAuth private constructor(
     member: Member,
     providerId: String,
-    val accessToken: String,
+    accessToken: String,
     val refreshToken: String,
-    val expiredAt: Long
-) : OAuth(member, providerId) {
+    val expiresIn: Long
+) : OAuth(member, providerId, accessToken) {
     companion object {
         fun from(
             member: Member,
@@ -28,7 +31,7 @@ class NaverOAuth private constructor(
                 providerId = naverProfileResponseDto.response.providerId,
                 accessToken = naverTokenResponseDto.accessToken,
                 refreshToken = naverTokenResponseDto.refreshToken,
-                expiredAt = naverTokenResponseDto.expiresIn
+                expiresIn = naverTokenResponseDto.expiresIn
             )
         }
     }

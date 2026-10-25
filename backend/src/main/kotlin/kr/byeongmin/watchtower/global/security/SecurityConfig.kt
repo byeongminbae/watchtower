@@ -19,6 +19,11 @@ import tools.jackson.databind.ObjectMapper
 class SecurityConfig(
     private val objectMapper: ObjectMapper
 ) {
+    private companion object {
+        const val PREFLIGHT_CACHE_SECONDS = 3600L
+    }
+
+    /** JWT 검증보다 앞에 오류 처리 필터를 배치 */
     @Bean
     fun securityFilterChain(
         http: HttpSecurity,
@@ -38,13 +43,13 @@ class SecurityConfig(
                 it.accessDeniedHandler(securityExceptionHandlerFilter)
             }
             .authorizeHttpRequests { it.anyRequest().permitAll() }
-            // formLogin이 disable이라 2번째 인자는 기준점으로만 사용됨
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
             .addFilterBefore(securityExceptionHandlerFilter, JwtAuthenticationFilter::class.java)
 
         return http.build()
     }
 
+    /** 프론트엔드 출처의 CORS 요청을 허용 */
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
         val configuration = CorsConfiguration().apply {
@@ -53,12 +58,12 @@ class SecurityConfig(
                     "http://localhost:3000",
                     "http://127.0.0.1:3000",
                     "https://front-dev.watchtower.boo",
-                    "https://watchtower.boo",
+                    "https://watchtower.boo"
                 )
             allowedMethods = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
             allowedHeaders = listOf("Authorization", "Content-Type")
             allowCredentials = true
-            maxAge = 3600
+            maxAge = PREFLIGHT_CACHE_SECONDS
         }
 
         return UrlBasedCorsConfigurationSource().apply {

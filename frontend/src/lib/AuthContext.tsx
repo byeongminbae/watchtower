@@ -74,7 +74,7 @@ function isMember(value: unknown): value is Member {
     typeof value.profileImageUrl === "string" &&
     (!("role" in value) || value.role === "NORMAL" || value.role === "ADMIN") &&
     typeof value.lastSignInAt === "string" &&
-    (!("isBanned" in value) || typeof value.isBanned === "boolean")
+    (!("status" in value) || value.status === "ACTIVE" || value.status === "BANNED")
   );
 }
 

@@ -29,3 +29,6 @@ replay_pid*
 # ai
 .omo/
 .omc/
+
+# ide
+.idea/

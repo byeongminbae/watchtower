@@ -1,5 +1,10 @@
 package kr.byeongmin.watchtower.global.error
 
+/**
+ * 인증 오류
+ *
+ * 글로벌에서 참조하고 있기 때문에 domain 패키지로 못옮김(global -> domain 참조 금지 컨벤션)
+ */
 enum class AuthError(
     override val statusCode: String,
     override val message: String

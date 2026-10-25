@@ -8,7 +8,7 @@ const PAYMENT = {
   planName: "BASIC",
   planPrice: 1000,
   planDurationDays: 30,
-  planTier: "BASIC",
+  planType: "BASIC",
   createdAt: "2026-07-29T10:00:00",
 } as const;
 

@@ -1,66 +1,75 @@
 package kr.byeongmin.watchtower.domain.auth.service
 
-import jakarta.transaction.Transactional
+import kr.byeongmin.watchtower.domain.auth.accessor.NaverOAuthAccessor
 import kr.byeongmin.watchtower.domain.auth.dto.MemberTokenResponseDto
 import kr.byeongmin.watchtower.domain.auth.entity.NaverOAuth
-import kr.byeongmin.watchtower.domain.auth.repository.NaverOAuthRepository
+import kr.byeongmin.watchtower.domain.member.accessor.MemberAccessor
 import kr.byeongmin.watchtower.domain.member.entity.Member
-import kr.byeongmin.watchtower.domain.member.repository.MemberRepository
 import kr.byeongmin.watchtower.domain.member.service.MemberTokenIssuer
+import kr.byeongmin.watchtower.domain.subscription.accessor.PlanAccessor
+import kr.byeongmin.watchtower.domain.subscription.enums.PlanType
 import kr.byeongmin.watchtower.external.naver.client.NaverAuthClient
 import kr.byeongmin.watchtower.external.naver.dto.NaverProfileResponseDto
 import kr.byeongmin.watchtower.external.naver.dto.NaverTokenResponseDto
+import kr.byeongmin.watchtower.global.config.TimeProvider
+import kr.byeongmin.watchtower.global.dto.SuccessDataResponse
+import kr.byeongmin.watchtower.global.dto.SuccessResponse
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
-import kr.byeongmin.watchtower.global.response.SuccessDataResponse
-import kr.byeongmin.watchtower.global.response.SuccessResponse
 import kr.byeongmin.watchtower.global.security.JwtProvider
+import kr.byeongmin.watchtower.global.utils.isNotNull
 import org.springframework.stereotype.Service
-import kotlin.jvm.optionals.getOrNull
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class AuthService(
     private val naverAuthClient: NaverAuthClient,
-    private val memberRepository: MemberRepository,
-    private val naverOAuthRepository: NaverOAuthRepository,
+    private val memberAccessor: MemberAccessor,
+    private val naverOAuthAccessor: NaverOAuthAccessor,
+    private val planAccessor: PlanAccessor,
     private val memberTokenIssuer: MemberTokenIssuer,
     private val jwtProvider: JwtProvider,
+    private val timeProvider: TimeProvider
 ) {
     fun getNaverSignInUrl(state: String): SuccessDataResponse<String> {
-        return SuccessDataResponse(naverAuthClient.buildSignInUrl(state))
+        val naverSignInUrl = naverAuthClient.buildSignInUrl(state)
+        return SuccessDataResponse(naverSignInUrl)
     }
 
     @Transactional
     fun signInWithNaverCallback(code: String, state: String): SuccessDataResponse<MemberTokenResponseDto> {
-        val naverTokenResponse = naverAuthClient.fetchToken(code, state)
-        val naverProfileResponse = naverAuthClient.fetchProfile(naverTokenResponse.accessToken)
-        val providerId = naverProfileResponse.response.providerId
+        val naverTokenResponseDto = naverAuthClient.fetchToken(code, state)
+        val naverProfileResponseDto = naverAuthClient.fetchProfile(naverTokenResponseDto.accessToken)
+        val providerId = naverProfileResponseDto.response.providerId
 
-        return if (naverOAuthRepository.existsByProviderId(providerId)) {
-            naverSignIn(naverProfileResponse)
+        val naverOAuth = naverOAuthAccessor.findByProviderId(providerId)
+
+        return if (naverOAuth.isNotNull()) {
+            val memberTokenResponseDto = memberTokenIssuer.signIn(naverOAuth.member)
+            SuccessDataResponse(memberTokenResponseDto)
         } else {
             naverSignUpThenSignIn(
-                naverProfileResponseDto = naverProfileResponse,
-                naverTokenResponseDto = naverTokenResponse
+                naverProfileResponseDto = naverProfileResponseDto,
+                naverTokenResponseDto = naverTokenResponseDto
             )
         }
-    }
-
-    private fun naverSignIn(
-        naverProfileResponseDto: NaverProfileResponseDto
-    ): SuccessDataResponse<MemberTokenResponseDto> {
-        val naverOAuth = naverOAuthRepository.findByProviderId(naverProfileResponseDto.response.providerId)
-        val memberTokenResponseDto = memberTokenIssuer.signIn(naverOAuth.member)
-
-        return SuccessDataResponse(memberTokenResponseDto)
     }
 
     private fun naverSignUpThenSignIn(
         naverProfileResponseDto: NaverProfileResponseDto,
         naverTokenResponseDto: NaverTokenResponseDto
     ): SuccessDataResponse<MemberTokenResponseDto> {
-        val member = memberRepository.save(Member.from(naverProfileResponseDto))
-        naverOAuthRepository.save(
+        val freePlan = planAccessor.findByType(PlanType.FREE)
+            ?: throw BusinessException(CommonError.INTERNAL_SERVER_ERROR)
+
+        val member = memberAccessor.save(
+            Member.from(
+                naverProfileResponseDto = naverProfileResponseDto,
+                now = timeProvider.now(),
+                plan = freePlan
+            )
+        )
+        naverOAuthAccessor.save(
             NaverOAuth.from(
                 member = member,
                 naverProfileResponseDto = naverProfileResponseDto,
@@ -75,16 +84,16 @@ class AuthService(
     @Transactional
     fun renewToken(refreshToken: String): SuccessDataResponse<MemberTokenResponseDto> {
         val memberId = jwtProvider.getMemberId(refreshToken)
-        val member = memberRepository.findById(memberId).getOrNull()
-            ?: throw BusinessException(CommonError.RESOURCE_NOT_FOUND)
+        val member = memberAccessor.getMember(memberId)
+        // TODO: 어차피 세션으로 갈거고 토큰 인증은 없앨 코드라서 동시 로그인 기능이랑 refresh token 재사용 검증코드 안넣음
 
-        return SuccessDataResponse(memberTokenIssuer.rotate(member))
+        val memberTokenResponseDto = memberTokenIssuer.rotate(member)
+        return SuccessDataResponse(memberTokenResponseDto)
     }
 
     @Transactional
     fun logout(memberId: Long): SuccessResponse {
-        val member = memberRepository.findById(memberId).getOrNull()
-            ?: throw BusinessException(CommonError.RESOURCE_NOT_FOUND)
+        val member = memberAccessor.getMember(memberId)
 
         member.signOut()
 

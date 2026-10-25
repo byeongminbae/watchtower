@@ -155,12 +155,12 @@ export default function Header() {
                         결제 내역 관리
                       </MenuItem>,
                       <MenuItem
-                        key="admin-users"
+                        key="admin-members"
                         component={Link}
-                        href="/admin/users"
+                        href="/admin/members"
                         onClick={() => setAnchorEl(null)}
                       >
-                        유저 관리
+                        회원 관리
                       </MenuItem>,
                     ]
                   : [
