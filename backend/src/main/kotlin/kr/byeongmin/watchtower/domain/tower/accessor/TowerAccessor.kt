@@ -33,6 +33,11 @@ class TowerAccessor(
             ?: throw BusinessException(CommonError.RESOURCE_NOT_FOUND)
     }
 
+    fun getOwnedTowerForUpdate(towerId: Long, memberId: Long): Tower {
+        return towerRepository.findTowerForUpdateByIdAndCreatedBy_IdAndDeletedAtIsNull(towerId, memberId)
+            ?: throw BusinessException(CommonError.RESOURCE_NOT_FOUND)
+    }
+
     fun findTowers(offsetPaginationRequestDto: OffsetPaginationRequestDto, sortField: BaseSortField): Page<Tower> {
         return towerRepository.findByNameStartingWith(
             offsetPaginationRequestDto.query,

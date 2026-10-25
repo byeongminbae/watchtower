@@ -78,6 +78,22 @@ class TowerAccessorTest {
     }
 
     @Test
+    fun `잠글 수 있는 소유 타워를 찾을 수 없으면 조회에 실패함`() {
+        /** given */
+        whenever(towerRepository.findTowerForUpdateByIdAndCreatedBy_IdAndDeletedAtIsNull(7L, 21L))
+            .thenReturn(null)
+
+        /** when */
+        val exception = assertFailsWith<BusinessException> {
+            accessor.getOwnedTowerForUpdate(towerId = 7L, memberId = 21L)
+        }
+
+        /** then */
+        assertEquals(CommonError.RESOURCE_NOT_FOUND, exception.error)
+        verify(towerRepository).findTowerForUpdateByIdAndCreatedBy_IdAndDeletedAtIsNull(7L, 21L)
+    }
+
+    @Test
     fun `회원의 타워를 정리할 때 모두 같은 시각으로 삭제 처리함`() {
         /** given */
         val deletedAt = LocalDateTime.of(2026, 10, 22, 12, 0)
