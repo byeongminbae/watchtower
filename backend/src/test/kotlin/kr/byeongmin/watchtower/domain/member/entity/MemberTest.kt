@@ -63,7 +63,7 @@ class MemberTest {
     fun `정지된 회원은 로그인할 수 없음`() {
         /** given */
         val member = Member.from(naverProfile, now, plan)
-        member.ban(now)
+        member.ban(now, "반복적인 정책 위반")
 
         /** when */
         val exception = assertFailsWith<BusinessException> {

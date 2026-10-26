@@ -216,38 +216,43 @@ class AdminServiceTest {
     }
 
     @Test
-    fun `관리자가 회원을 정지하면 정지한 시각이 기록됨`() {
+    fun `관리자가 회원을 정지하면 정지한 시각과 사유가 기록됨`() {
         /** given */
+        val banReason = "반복적인 정책 위반"
         whenever(memberAccessor.getMember(memberId)).thenReturn(member)
         whenever(timeProvider.now()).thenReturn(now)
 
         /** when */
         val response = adminService.updateMemberStatus(
             memberId,
-            MemberStatusUpdateRequestDto(banned = true)
+            MemberStatusUpdateRequestDto(banned = true, banReason = banReason)
         )
 
         /** then */
         assertEquals(now, response.data.bannedAt)
+        assertEquals(banReason, response.data.banReason)
         assertEquals(now, member.bannedAt)
+        assertEquals(banReason, member.banReason)
     }
 
     @Test
-    fun `관리자가 회원의 정지를 해제하면 정지 시각도 지워짐`() {
+    fun `관리자가 회원의 정지를 해제하면 정지 시각과 사유가 지워짐`() {
         /** given */
-        member.ban(now.minusDays(1))
+        member.ban(now.minusDays(1), "반복적인 정책 위반")
         whenever(memberAccessor.getMember(memberId)).thenReturn(member)
         whenever(timeProvider.now()).thenReturn(now)
 
         /** when */
         val response = adminService.updateMemberStatus(
             memberId,
-            MemberStatusUpdateRequestDto(banned = false)
+            MemberStatusUpdateRequestDto(banned = false, banReason = "")
         )
 
         /** then */
         assertNull(response.data.bannedAt)
+        assertNull(response.data.banReason)
         assertNull(member.bannedAt)
+        assertNull(member.banReason)
     }
 
     @Test
@@ -260,7 +265,7 @@ class AdminServiceTest {
         val exception = assertFailsWith<BusinessException> {
             adminService.updateMemberStatus(
                 memberId,
-                MemberStatusUpdateRequestDto(banned = true)
+                MemberStatusUpdateRequestDto(banned = true, banReason = "반복적인 정책 위반")
             )
         }
 

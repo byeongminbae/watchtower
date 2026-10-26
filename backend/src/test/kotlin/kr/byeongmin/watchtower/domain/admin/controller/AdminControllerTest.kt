@@ -40,6 +40,7 @@ class AdminControllerTest {
         profileImageUrl = "https://example.com/profile",
         role = MemberRole.NORMAL,
         bannedAt = null,
+        banReason = null,
         lastSignInAt = LocalDateTime.of(2026, 10, 20, 12, 0),
         deletedAt = null
     )
@@ -243,15 +244,16 @@ class AdminControllerTest {
 
     @ParameterizedTest
     @ValueSource(booleans = [true, false])
-    fun `회원 정지와 해제 결과에는 현재 정지 시각이 반영됨`(banned: Boolean) {
+    fun `회원 정지와 해제 결과에는 현재 정지 시각과 사유가 반영됨`(banned: Boolean) {
         /** given */
         val bannedAt = if (banned)
             LocalDateTime.of(2026, 10, 20, 12, 34, 56)
         else
             null
+        val banReason = if (banned) "반복적인 정책 위반" else null
 
         whenever(adminService.updateMemberStatus(eq(21L), any()))
-            .thenReturn(SuccessDataResponse(memberResponseDto.copy(bannedAt = bannedAt)))
+            .thenReturn(SuccessDataResponse(memberResponseDto.copy(bannedAt = bannedAt, banReason = banReason)))
 
         /** when */
         val result = mockMvc
@@ -260,7 +262,7 @@ class AdminControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         objectMapper.writeValueAsBytes(
-                            MemberStatusUpdateRequestDto(banned = banned)
+                            MemberStatusUpdateRequestDto(banned = banned, banReason = banReason.orEmpty())
                         )
                     )
             )
@@ -269,10 +271,11 @@ class AdminControllerTest {
         result
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.bannedAt").value(bannedAt?.toString()))
+            .andExpect(jsonPath("$.data.banReason").value(banReason))
 
         verify(adminService).updateMemberStatus(
             memberId = 21L,
-            memberStatusUpdateRequestDto = MemberStatusUpdateRequestDto(banned = banned)
+            memberStatusUpdateRequestDto = MemberStatusUpdateRequestDto(banned = banned, banReason = banReason.orEmpty())
         )
     }
 }

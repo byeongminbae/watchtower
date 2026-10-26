@@ -88,7 +88,7 @@ class AdminService(
         val member = memberAccessor.getMember(memberId)
 
         if (memberStatusUpdateRequestDto.banned) {
-            member.ban(timeProvider.now())
+            member.ban(timeProvider.now(), memberStatusUpdateRequestDto.banReason)
         } else {
             member.unban()
         }

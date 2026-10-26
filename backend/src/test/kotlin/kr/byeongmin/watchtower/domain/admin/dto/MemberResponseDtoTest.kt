@@ -10,9 +10,10 @@ import kotlin.test.assertEquals
 
 class MemberResponseDtoTest {
     @Test
-    fun `관리자용 회원 응답에는 정지 시각과 탈퇴 시각도 담김`() {
+    fun `관리자용 회원 응답에는 정지 시각과 사유 및 탈퇴 시각도 담김`() {
         /** given */
         val bannedAt = LocalDateTime.of(2026, 10, 1, 12, 0)
+        val banReason = "반복적인 정책 위반"
         val deletedAt = bannedAt.plusDays(1)
         val lastSignInAt = bannedAt.minusDays(1)
         val member = mock<Member> {
@@ -22,6 +23,7 @@ class MemberResponseDtoTest {
             on { profileImageUrl } doReturn "https://example.com/profile.png"
             on { role } doReturn MemberRole.NORMAL
             on { this.bannedAt } doReturn bannedAt
+            on { this.banReason } doReturn banReason
             on { this.deletedAt } doReturn deletedAt
             on { this.lastSignInAt } doReturn lastSignInAt
         }
@@ -31,6 +33,7 @@ class MemberResponseDtoTest {
 
         /** then */
         assertEquals(bannedAt, response.bannedAt)
+        assertEquals(banReason, response.banReason)
         assertEquals(deletedAt, response.deletedAt)
         assertEquals(lastSignInAt, response.lastSignInAt)
     }
