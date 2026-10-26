@@ -1,11 +1,8 @@
-import type {NextConfig} from "next";
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-    output: "standalone",
+  output: "standalone",
+  allowedDevOrigins: ["127.0.0.1"],
 };
 
 export default nextConfig;
-
-module.exports = {
-    allowedDevOrigins: ['127.0.0.1'],
-}
