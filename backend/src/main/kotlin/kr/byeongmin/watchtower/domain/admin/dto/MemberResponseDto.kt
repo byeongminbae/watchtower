@@ -18,6 +18,7 @@ data class MemberResponseDto(
     val profileImageUrl: String,
     val role: MemberRole,
     val bannedAt: LocalDateTime?,
+    val banReason: String?,
     val lastSignInAt: LocalDateTime,
     val deletedAt: LocalDateTime?
 ) {
@@ -30,6 +31,7 @@ data class MemberResponseDto(
                 profileImageUrl = member.profileImageUrl,
                 role = member.role,
                 bannedAt = member.bannedAt,
+                banReason = member.banReason,
                 lastSignInAt = member.lastSignInAt,
                 deletedAt = member.deletedAt
             )

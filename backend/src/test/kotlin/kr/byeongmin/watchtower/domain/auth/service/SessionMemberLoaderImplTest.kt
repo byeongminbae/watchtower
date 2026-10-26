@@ -49,7 +49,7 @@ class SessionMemberLoaderImplTest {
     @Test
     fun `세션의 회원이 정지되면 정지된 계정 오류로 처리함`() {
         /** given */
-        member.ban(now)
+        member.ban(now, "반복적인 정책 위반")
         whenever(memberAccessor.findMember(21L)).thenReturn(member)
 
         /** when */

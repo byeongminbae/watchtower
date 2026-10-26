@@ -47,6 +47,9 @@ class Member private constructor(
     var bannedAt: LocalDateTime? = null
         protected set
 
+    var banReason: String? = null
+        protected set
+
     var lastSignInAt: LocalDateTime = lastSignInAt
         protected set
 
@@ -80,12 +83,14 @@ class Member private constructor(
         return currentTowerQuantity < plan.maxTowerQuantity
     }
 
-    fun ban(now: LocalDateTime) {
+    fun ban(now: LocalDateTime, banReason: String) {
         bannedAt = now
+        this.banReason = banReason
     }
 
     fun unban() {
         bannedAt = null
+        banReason = null
     }
 
     companion object {
