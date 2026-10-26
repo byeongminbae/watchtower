@@ -1,65 +1,20 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearSession, subscribeToSessionChanges } from "@/lib/session";
+import { beforeEach, expect, it } from "vitest";
+import { clearSession, commitSession, readSession } from "./session";
 
-const NOW_SECONDS = 2_000_000_000;
-
-function createJwt(payload: object): string {
-  const encode = (value: object): string =>
-    btoa(JSON.stringify(value))
-      .replaceAll("+", "-")
-      .replaceAll("/", "_")
-      .replaceAll("=", "");
-
-  return `${encode({ alg: "none", typ: "JWT" })}.${encode(payload)}.fixture`;
-}
-
-describe("session lifecycle subscription", () => {
-  beforeEach(() => {
-    vi.setSystemTime(NOW_SECONDS * 1_000);
-    clearSession();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-    clearSession();
-  });
-
-  it("Given cookies changed while a document was frozen, when browser history restores it, then notifies the subscriber", () => {
-    // Given
-    const listener = vi.fn();
-    const unsubscribe = subscribeToSessionChanges(listener);
-    const accessToken = createJwt({
-      sub: "7",
-      role: "NORMAL",
-      iat: NOW_SECONDS,
-      exp: NOW_SECONDS + 60,
-    });
-    const refreshToken = createJwt({
-      sub: "7",
-      iat: NOW_SECONDS,
-      exp: NOW_SECONDS + 600,
-    });
-    document.cookie = `watchtower_jwt=${accessToken}; Path=/`;
-    document.cookie = `watchtower_refresh=${refreshToken}; Path=/`;
-
-    // When
-    window.dispatchEvent(new Event("pageshow"));
-
-    // Then
-    expect(listener).toHaveBeenCalledOnce();
-    unsubscribe();
-  });
-
-  it("Given cookies did not change while a document was frozen, when browser history restores it, then preserves the subscriber state", () => {
-    // Given
-    const listener = vi.fn();
-    const unsubscribe = subscribeToSessionChanges(listener);
-
-    // When
-    window.dispatchEvent(new Event("pageshow"));
-
-    // Then
-    expect(listener).not.toHaveBeenCalled();
-    unsubscribe();
-  });
+beforeEach(clearSession);
+it("새 세션 정보를 받으면 이전 권한을 대체할 것이다", () => {
+  // given
+  commitSession({ memberId: 7, role: "ADMIN" });
+  // when
+  commitSession({ memberId: 7, role: "NORMAL" });
+  // then
+  expect(readSession()).toEqual({ memberId: 7, role: "NORMAL" });
+});
+it("서버 세션을 받아도 브라우저에서 세션 쿠키를 작성하지 않을 것이다", () => {
+  // given
+  const before = document.cookie;
+  // when
+  commitSession({ memberId: 7, role: "NORMAL" });
+  // then
+  expect(document.cookie).toBe(before);
 });

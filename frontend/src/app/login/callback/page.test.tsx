@@ -46,16 +46,15 @@ describe("OAuthCallbackPage", () => {
     vi.restoreAllMocks();
   });
 
-  it("Given a matching transaction and valid tokens, when mounted in StrictMode, then cleans the query, exchanges once, accepts, and returns", async () => {
+  it("Given a matching transaction and a valid session, when mounted in StrictMode, then cleans the query, exchanges once, accepts, and returns", async () => {
     // Given
     prepareTransaction("/watches?tab=mine");
     visit("?code=fixture-code&state=fixture-state");
     mocks.exchange.mockResolvedValue({
-      success: true,
+      isSuccess: true,
       data: {
-        accessToken: "access.jwt.fixture",
-        refreshToken: "refresh.jwt.fixture",
-        accessTokenExpiry: 2_000_000_000,
+        memberId: 7,
+        role: "NORMAL",
       },
       timestamp: "2026-07-29T10:00:00",
     });
@@ -144,16 +143,15 @@ describe("OAuthCallbackPage", () => {
     },
   );
 
-  it("Given malformed JWT tokens, when session acceptance fails, then leaves the user in a retry state", async () => {
+  it("Given an invalid session, when session acceptance fails, then leaves the user in a retry state", async () => {
     // Given
     prepareTransaction();
     visit("?code=fixture-code&state=fixture-state");
     mocks.exchange.mockResolvedValue({
-      success: true,
+      isSuccess: true,
       data: {
-        accessToken: "malformed-access",
-        refreshToken: "malformed-refresh",
-        accessTokenExpiry: 2_000_000_000,
+        memberId: 7,
+        role: "NORMAL",
       },
       timestamp: "2026-07-29T10:00:00",
     });
@@ -199,11 +197,10 @@ describe("OAuthCallbackPage", () => {
       new Promise((resolve) => {
         resolveExchange = () =>
           resolve({
-            success: true,
+            isSuccess: true,
             data: {
-              accessToken: "access.jwt.fixture",
-              refreshToken: "refresh.jwt.fixture",
-              accessTokenExpiry: 2_000_000_000,
+              memberId: 7,
+        role: "NORMAL",
             },
             timestamp: "2026-07-29T10:00:00",
           });

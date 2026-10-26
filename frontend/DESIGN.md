@@ -1,200 +1,61 @@
-# Watchtower Design System
+# Watchtower 기본 shadcn 테마
 
-## 1. Atmosphere & Identity
+## 기준
 
-Watchtower feels like a sunlit observation deck: calm, precise, and reassuring rather than nocturnal or ominous. Its signature is the **daylight beam**—a warm lighthouse glow travelling across cool sea-blue surfaces, with cursor-aware ambient light that adds depth without competing with content. The existing lighthouse blue and signal yellow remain recognizable, recomposed on an airy cloud-white canvas with Stripe-inspired chromatic depth.
+- 참고: https://www.shadcnblocks.com/theme/default
+- 색상은 참고 페이지의 기본 shadcn 흑백 토큰을 사용한다.
+- 글꼴은 로컬 패키지로 제공하는 Inter를 사용하고 한국어는 시스템 글꼴로 대체한다.
+- UI 소스는 shadcn CLI의 `base-nova` 기본 컴포넌트를 사용한다.
+- 커스텀 브랜드 색상, 전용 테마 CSS 선택자, 컴포넌트 스타일 덮어쓰기는 사용하지 않는다.
+- 전역 CSS에는 가져오기, 기본 테마 변수, Tailwind 매핑, shadcn 기본 초기화만 둔다.
 
-## 2. Color
+## 기본 토큰
 
-### Palette
+| 역할 | 값 |
+|---|---|
+| 배경과 카드 | `oklch(1 0 0)` |
+| 본문 | `oklch(0.145 0 0)` |
+| 주 동작 | `oklch(0.205 0 0)` |
+| 주 동작 위 글자 | `oklch(0.985 0 0)` |
+| 보조 표면 | `oklch(0.97 0 0)` |
+| 보조 글자 | `oklch(0.556 0 0)` |
+| 구분선과 입력 테두리 | `oklch(0.922 0 0)` |
+| 포커스 링 | `oklch(0.708 0 0)` |
+| 기본 반경 | `0.5rem` |
 
-| Role | Token | Value | Usage |
+## 구성
+
+- 기존 기능과 라우트는 유지하고 배치에 필요한 Tailwind 유틸리티만 사용한다.
+- 버튼, 입력, 카드, 메뉴는 기본 variant와 크기를 사용한다. 기본 버튼은 높이 32px, 글자 굵기 500이다.
+- 랜딩은 제목과 시작 동작, 사용 예시, 기본 Card로 만든 기능 소개와 시작 단계 순서로 구성한다.
+- `LandingStory`는 Card, Badge, Separator를 조합하며 전용 CSS 클래스에 의존하지 않는다.
+- 로그인은 기본 Card 안에 네이버 로그인 동작과 안내를 표시한다.
+- 타워의 파비콘, 재생 제어, 시각적 활동 정보, 검색과 정렬 메뉴를 유지한다.
+- 페이지 크기는 고정하고 프로필은 닉네임만 편집한다. 로그인 제공자의 사진은 유지한다.
+- 기본 소스의 한국어 접근성 라벨, 긴 대화상자의 높이 제한과 스크롤은 기능 요구사항으로 유지한다.
+
+## 기능 계약
+
+### 현재 기능 화면 계약
+
+| 화면 | 주 동작 | 정보 우선순위 | 필수 내용 |
 |---|---|---|---|
-| Surface/canvas | `--wt-surface-canvas` | `#F6FAFE` | Page background |
-| Surface/primary | `--wt-surface-primary` | `#FFFFFF` | Cards, dialogs, menus |
-| Surface/soft | `--wt-surface-soft` | `#EDF6FC` | Secondary panels, disabled fields |
-| Surface/tint | `--wt-surface-tint` | `#E2F1FB` | Selected and highlighted surfaces |
-| Text/primary | `--wt-text-primary` | `#102A43` | Headings and body |
-| Text/secondary | `--wt-text-secondary` | `#526D82` | Supporting copy and metadata |
-| Text/tertiary | `--wt-text-tertiary` | `#7D94A6` | Disabled and low-emphasis text |
-| Border/default | `--wt-border-default` | `#D7E5EF` | Controls and card edges |
-| Border/luminous | `--wt-border-luminous` | `rgba(255, 255, 255, 0.78)` | Lit surface rim |
-| Accent/primary | `--wt-accent-primary` | `#246B9E` | Links, controls, focus |
-| Accent/hover | `--wt-accent-hover` | `#18547F` | Primary hover |
-| Signal/primary | `--wt-signal-primary` | `#F4B83A` | Main CTA and lighthouse signal |
-| Signal/hover | `--wt-signal-hover` | `#E6A622` | Signal hover |
-| Signal/soft | `--wt-signal-soft` | `#FFF2C7` | Warm illumination |
-| Status/success | `--wt-status-success` | `#16845B` | Success |
-| Status/warning | `--wt-status-warning` | `#B86E10` | Warning |
-| Status/error | `--wt-status-error` | `#C54444` | Errors and destructive actions |
-| Status/info | `--wt-status-info` | `#2477B3` | Informational state |
+| 타워 목록 | 타워 등록 | 이름과 상태, URL, 최근 요약 | 서버 검색과 정렬, 커서 페이지 이동, 로딩, 오류와 재시도, 빈 목록 |
+| 타워 생성 | 등록 | 이름과 URL, 감지 조건, 알림 연결 | ISO 8601 주기, 통계 포함 여부, HTML/KEYWORD/REGEX, 등장과 소멸 방향, 알림 채널 선택 |
+| 타워 상세 | 타워 수정 | 이름과 상태, 조건, 스냅샷 | 전체 필드 수정, 조건 추가와 수정과 삭제, 타워 삭제 확인, 실제 스냅샷 링크 |
+| 프로필 | 닉네임 수정 및 저장 | 닉네임, 이메일, 제공자 프로필 사진 | 사진 URL 유지, 최근 로그인, 저장 후 재조회, 탈퇴 확인 |
+| 알림 채널 | 채널 등록 | 이름, 종류, 관리 동작 | Discord/Telegram, HTTPS Webhook URL, 종류 변경 차단, 커서 페이지 이동 |
+| 관리자 회원 | 검색 | 회원, 정지 사유와 탈퇴 여부, 관리 동작 | 권한 변경, 정지와 해제, 사유 입력, 서버 검색과 정렬, 오프셋 페이지 이동 |
+| 관리자 타워 | 검색 | 이름과 URL, 상태, 주기 | 상태 변경, 서버 검색과 정렬, 오프셋 페이지 이동 |
+| 관리자 통계 | 새로고침 | 상태별 타워, 상태별 회원, 가입과 로그인 | 실제 전체 수치, 최근 7일과 30일 비교, 항목별 조회 오류 |
 
-### Rules
+제외한 내용: 삭제된 결제와 구독 조작, JWT 갱신, 실제 발송이 없는 테스트 알림, 응답에 없는 플랜별 이용량, 고정된 조건 개수 제한, 스냅샷을 대신하는 장식용 이미지.
 
-- Cool daylight neutrals establish hierarchy; pure white is reserved for foreground surfaces.
-- Yellow is the signal color for primary calls to action, not a general decoration.
-- Blue carries navigation, focus, and data. Status colors retain their semantic roles.
-- Raw colors are not introduced outside this contract; translucent lighting derives from these tokens.
+상태: 입력은 기본, 포커스, 비활성, 저장 중, 서버 오류를 구분한다. 목록은 최초 로딩 중에 빈 결과를 표시하지 않는다. 삭제는 확인 단계를 거치며 Enter 기본 동작으로 지정하지 않는다.
 
-## 3. Typography
+## 검증
 
-### Scale
-
-| Level | Size | Weight | Line Height | Tracking | Usage |
-|---|---|---|---|---|---|
-| Display | `clamp(2.25rem, 6vw, 4rem)` | 760 | 1.08 | `-0.035em` | Home hero |
-| H1 | `2.25rem` | 720 | 1.18 | `-0.025em` | Major title |
-| H2 | `1.75rem` | 700 | 1.25 | `-0.02em` | Section heading |
-| H3 | `1.375rem` | 680 | 1.35 | `-0.01em` | Card title |
-| Body/lg | `1.125rem` | 400 | 1.7 | `0` | Lead copy |
-| Body | `1rem` | 400 | 1.65 | `0` | Default text |
-| Body/sm | `0.875rem` | 400 | 1.55 | `0` | Supporting text |
-| Caption | `0.75rem` | 520 | 1.45 | `0.01em` | Metadata |
-
-### Font Stack
-
-- Primary: `"Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
-- Mono: `"SFMono-Regular", Consolas, "Liberation Mono", monospace`
-
-### Rules
-
-- Korean display text uses balanced wrapping and body text uses pretty wrapping.
-- Body text is never below 14px. Numeric dashboards use tabular numerals.
-- Existing copy and semantic heading order stay unchanged during the redesign.
-
-## 4. Spacing & Layout
-
-### Base Unit
-
-All spacing intent derives from 4px.
-
-| Token | Value | Usage |
-|---|---|---|
-| `--wt-space-1` | `4px` | Optical adjustments |
-| `--wt-space-2` | `8px` | Inline clusters |
-| `--wt-space-3` | `12px` | Compact controls |
-| `--wt-space-4` | `16px` | Default gaps |
-| `--wt-space-5` | `20px` | Comfortable groups |
-| `--wt-space-6` | `24px` | Card padding |
-| `--wt-space-8` | `32px` | Card groups |
-| `--wt-space-10` | `40px` | Page rhythm |
-| `--wt-space-12` | `48px` | Major separation |
-| `--wt-space-16` | `64px` | Section rhythm |
-| `--wt-space-20` | `80px` | Hero rhythm |
-| `--wt-space-24` | `96px` | Maximum section gap |
-
-### Grid
-
-- Max content width: MUI `lg` container, approximately 1200px.
-- Mobile margin: 16px; tablet and desktop gutters follow the existing MUI container.
-- Validation breakpoints: 375px mobile, 768px tablet, 1280px desktop.
-- Existing responsive grid behavior and document scrolling remain unchanged.
-
-## 5. Components
-
-### Daylight Canvas
-
-- **Structure**: root body canvas plus a fixed, pointer-inert ambient-light layer.
-- **Variants**: resting daylight; cursor-lit on fine pointers; frozen with reduced motion.
-- **States**: ambient position follows pointer without receiving input.
-- **Accessibility**: no semantic content, no contrast dependency, hidden from assistive technology.
-- **Motion**: CSS custom-property updates only; the rendered light uses opacity and filter.
-- **Layout**: viewport atmosphere behind the document scroll owner.
-
-### Navigation Bar
-
-- **Structure**: sticky app bar, brand cluster, route cluster, CTA, account trigger and menu.
-- **Variants**: guest, member, admin.
-- **Spacing**: `--wt-space-2`, `--wt-space-4`, `--wt-space-6`.
-- **States**: translucent rest, brighter hover, visible blue focus, pressed feedback, disabled.
-- **Accessibility**: current labels, keyboard path, ARIA names and menu behavior remain intact.
-- **Motion**: 150ms color/opacity tint and 120ms press transform.
-- **Layout**: cluster within the existing container; sticky document navigation.
-
-### Lit Surface
-
-- **Structure**: MUI Paper/Card/Dialog/Menu foreground material.
-- **Variants**: default, outlined, elevated, interactive, disabled.
-- **Spacing**: existing component spacing, aligned to the spacing scale.
-- **States**: resting rim and chromatic shadow; interactive hover lifts 2px; focus receives a blue ring.
-- **Accessibility**: foreground/background contrast remains WCAG AA; motion is not required to perceive state.
-- **Motion**: 180ms transform, opacity, shadow tint; reduced motion removes lift.
-- **Layout**: stack/grid children use existing route structures.
-
-### Signal Action
-
-- **Structure**: existing MUI Button content and icons.
-- **Variants**: signal contained, blue contained, outlined, text, destructive.
-- **States**: default, hover, active, focus-visible, disabled, loading.
-- **Accessibility**: minimum 40px visual height where route layout permits, clear 2px focus ring.
-- **Motion**: beui.dev `button` mechanism adapted to CSS—interruptible 120ms press scale and short tint transition; async labels remain existing behavior.
-
-### Form Control
-
-- **Structure**: existing MUI input, label, helper/error content.
-- **Variants**: enabled, disabled, read-only, error.
-- **States**: default, hover, focus, disabled, error.
-- **Accessibility**: existing labels and disabled semantics remain unchanged; focus is visible without color alone.
-- **Motion**: 150ms border/background tint only.
-
-### Data Display
-
-- **Structure**: existing tables, charts, list rows, chips and status indicators.
-- **Variants**: loading, populated, empty, error.
-- **States**: route behavior remains unchanged; rows expose hover only when already interactive.
-- **Accessibility**: tabular numerals, readable status contrast, no meaning conveyed by glow alone.
-- **Motion**: no decorative motion; existing status transitions only.
-
-## 6. Motion & Interaction
-
-| Token | Duration | Easing | Usage |
-|---|---|---|---|
-| `--wt-motion-press` | `120ms` | `ease-out` | Button press transform |
-| `--wt-motion-micro` | `150ms` | `ease-out` | Focus, border and tint |
-| `--wt-motion-surface` | `220ms` | `cubic-bezier(0.16, 1, 0.3, 1)` | Interactive surface lift |
-| `--wt-motion-emphasis` | `480ms` | `cubic-bezier(0.16, 1, 0.3, 1)` | Existing hero entrance if used |
-
-- Dynamic lighting follows beui.dev `shader-background` mechanics at a lower-cost CSS level: pointer coordinates control a composited radial-light layer; no canvas dependency is added.
-- Button feedback follows the beui.dev `button` spring-press idea using interruptible CSS transform feedback.
-- Motion signals interactivity or spatial lighting response only. Non-interactive cards do not animate on hover.
-- Only `transform`, `opacity`, and `filter` animate. `prefers-reduced-motion: reduce` freezes ambient response and removes transforms.
-
-## 7. Depth & Surface
-
-### Strategy
-
-Mixed tonal shift and Stripe-inspired chromatic shadows, with one consistent upper-left daylight source.
-
-| Level | Value | Usage |
-|---|---|---|
-| Rim | `inset 0 1px 0 rgba(255,255,255,0.82)` | All foreground surfaces |
-| Subtle | `0 1px 2px rgba(23,74,111,0.06)` | Controls and quiet panels |
-| Default | `0 18px 45px -30px rgba(30,92,135,0.32), 0 8px 22px -18px rgba(16,42,67,0.18)` | Cards and menus |
-| Prominent | `0 34px 70px -34px rgba(30,92,135,0.38), 0 18px 36px -24px rgba(16,42,67,0.22)` | Dialogs and major focal surfaces |
-
-- Surfaces use a luminous white rim and blue-tinted far shadow, never a generic black shadow.
-- Warm signal glows originate only near primary CTAs and lighthouse light.
-- Radius hierarchy: 10px controls, 14px cards, 18px major focal surfaces.
-
-## 8. Accessibility Constraints & Accepted Debt
-
-### Constraints
-
-- WCAG 2.2 AA: 4.5:1 body contrast and 3:1 large text/UI contrast.
-- Every interactive element keeps visible keyboard focus and full keyboard reachability.
-- Touch targets do not shrink from existing behavior.
-- `prefers-reduced-motion` freezes ambient lighting and disables transform feedback.
-- Dynamic lighting is decorative and may never carry information.
-- Existing copy, routes, states, callbacks, API calls, and authorization behavior are immutable for this visual-only task.
-
-### Personas
-
-- A mobile member checks watches one-handed in bright daylight and needs strong hierarchy with no horizontal overflow.
-- An administrator scans dense numeric information and needs stable alignment and tabular numerals.
-- A motion-sensitive keyboard user needs a complete, visible path with the atmosphere frozen.
-
-### Accepted Debt
-
-| Item | Location | Why accepted | Owner / Exit |
-|---|---|---|---|
-| None | — | No new design or accessibility debt is accepted for this redesign. | — |
+- 375px, 768px, 1440px에서 가로 넘침과 브라우저 오류를 검사한다.
+- 기본 테마의 토큰과 버튼 높이, 굵기, 글꼴을 브라우저에서 확인한다.
+- 검색, 정렬, 타워와 채널 CRUD, 프로필 저장, 인증과 권한 검사를 mock backend로 검증한다.
+- 데이터베이스에 직접 접근하지 않는다.

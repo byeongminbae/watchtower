@@ -1,7 +1,7 @@
-"use client";
-
+import { requireServerSession } from "@/lib/server/session";
 import RequireAdmin from "@/components/common/RequireAdmin";
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({ children }: { readonly children: React.ReactNode }) {
+  await requireServerSession(true);
   return <RequireAdmin>{children}</RequireAdmin>;
 }

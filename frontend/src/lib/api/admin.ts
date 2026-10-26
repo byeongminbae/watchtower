@@ -1,84 +1,22 @@
-import { rejectUnavailable } from "./availability";
-import type { ApiEnvelope } from "./types";
-import type { Member, MemberRole, MemberStatus, PaymentHistory, Watch, WatchStatus } from "@/types/domain";
+import { apiClient } from "./client";
+import { isAdminMember, isAuthStats, isMemberStats, isTowerStats, isWatch, offsetOf } from "./guards";
+import type { MemberRole } from "@/types/domain";
+import type { WatchStatus } from "@/types/tower";
+import type { SearchCriteria } from "@/types/pagination";
 
-export interface WatchStatsResult {
-  totalActiveWatches: number;
-  dailyTrend: Array<{ date: string; count: number }>;
+function params(options?: SearchCriteria & { readonly page: number }): string {
+  return new URLSearchParams(options === undefined ? {} : {
+    query: options.query, page: String(options.page), size: String(options.size),
+    sortField: options.sortField, sortDirection: options.sortDirection
+  }).toString();
 }
-
-export interface MemberStatsResult {
-  totalMembers: number;
-  todayLogins: number;
-  totalWithdrawals: number;
-}
-
-export interface PaymentStatsResult {
-  thisMonthRevenue: number;
-  thisMonthPaymentCount: number;
-}
-
-export interface AuthStatsResult {
-  todaySignups: number;
-  todayLogins: number;
-}
-
 export const adminApi = {
-  getWatches: (query?: string) => {
-    void query;
-    return rejectUnavailable<ApiEnvelope<Watch[]>>("admin.getWatches");
-  },
-
-  updateWatchStatus: (watchId: number, status: WatchStatus) => {
-    void watchId;
-    void status;
-    return rejectUnavailable<ApiEnvelope<Watch>>(
-      "admin.updateWatchStatus",
-    );
-  },
-
-  cancelPayment: (paymentId: number) => {
-    void paymentId;
-    return rejectUnavailable<ApiEnvelope<string>>("admin.cancelPayment");
-  },
-
-  getPayments: (query?: string) => {
-    void query;
-    return rejectUnavailable<ApiEnvelope<PaymentHistory[]>>(
-      "admin.getPayments",
-    );
-  },
-
-  getMembers: (query?: string) => {
-    void query;
-    return rejectUnavailable<ApiEnvelope<Member[]>>("admin.getMembers");
-  },
-
-  updateMemberRole: (memberId: number, role: MemberRole) => {
-    void memberId;
-    void role;
-    return rejectUnavailable<ApiEnvelope<Member>>("admin.updateMemberRole");
-  },
-
-  updateMemberStatus: (memberId: number, status: MemberStatus) => {
-    void memberId;
-    void status;
-    return rejectUnavailable<ApiEnvelope<Member>>(
-      "admin.updateMemberStatus",
-    );
-  },
-
-  getWatchStats: () =>
-    rejectUnavailable<ApiEnvelope<WatchStatsResult>>("admin.getWatchStats"),
-
-  getMemberStats: () =>
-    rejectUnavailable<ApiEnvelope<MemberStatsResult>>("admin.getMemberStats"),
-
-  getPaymentStats: () =>
-    rejectUnavailable<ApiEnvelope<PaymentStatsResult>>(
-      "admin.getPaymentStats",
-    ),
-
-  getAuthStats: () =>
-    rejectUnavailable<ApiEnvelope<AuthStatsResult>>("admin.getAuthStats"),
+  getWatches: (options?: SearchCriteria & { readonly page: number }) => apiClient.get(`/bff/admin/towers?${params(options)}`, offsetOf(isWatch)),
+  updateWatchStatus: (id: number, status: WatchStatus) => apiClient.put(`/bff/admin/towers/${id}`, { status }, isWatch),
+  getMembers: (options?: SearchCriteria & { readonly page: number }) => apiClient.get(`/bff/admin/members?${params(options)}`, offsetOf(isAdminMember)),
+  updateMemberRole: (id: number, role: MemberRole) => apiClient.put(`/bff/admin/members/${id}/roles`, { role }, isAdminMember),
+  updateMemberStatus: (id: number, body: { readonly banned: boolean; readonly banReason: string }) => apiClient.put(`/bff/admin/members/${id}/status`, body, isAdminMember),
+  getWatchStats: () => apiClient.get("/bff/admin/stats/towers", isTowerStats),
+  getMemberStats: () => apiClient.get("/bff/admin/stats/members", isMemberStats),
+  getAuthStats: () => apiClient.get("/bff/admin/stats/auth", isAuthStats)
 };

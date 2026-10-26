@@ -1,110 +1,49 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { memberApi } from "@/lib/api";
-import type { Member } from "@/types/domain";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import MyPage from "./page";
-
-const authentication = vi.hoisted(
-  (): {
-    principal: { readonly memberId: number; readonly role: "NORMAL" };
-    member: Member | null;
-    memberStatus: "ready";
-    renewSession: ReturnType<typeof vi.fn>;
-  } => ({
-    principal: { memberId: 7, role: "NORMAL" },
-    member: null,
-    memberStatus: "ready",
-    renewSession: vi.fn(),
-  }),
-);
-
-vi.mock("@/lib/AuthContext", () => ({
-  useAuth: () => ({
-    principal: authentication.principal,
-    member: authentication.member,
-    memberStatus: authentication.memberStatus,
-    refreshMember: async (): Promise<void> => undefined,
-    renewSession: authentication.renewSession,
-    logout: async (): Promise<void> => undefined,
-  }),
-}));
-
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
-}));
-
-describe("MyPage member profile", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-    authentication.member = null;
-    authentication.renewSession.mockReset();
-  });
-
-  it("Given a loaded member profile, when MyPage opens, then shows current information without requesting subscription data", () => {
-    // Given
-    const getMemberSubscription = vi.spyOn(memberApi, "getMemberSubscription");
-    authentication.member = {
-      id: 7,
-      nickname: "감시자",
-      email: "watcher@example.com",
-      profileImageUrl: "https://example.com/profile.png",
-      role: "NORMAL",
-      lastSignInAt: "2026-07-29T00:00:00Z",
-    };
-
-    // When
-    render(<MyPage />);
-
-    // Then
-    expect(screen.getByRole("heading", { name: "마이페이지" })).toBeVisible();
-    expect(screen.getAllByDisplayValue("감시자")).not.toHaveLength(0);
-    expect(screen.getAllByDisplayValue("watcher@example.com")).not.toHaveLength(0);
-    expect(
-      screen.getByRole("img", { name: "감시자 프로필 사진" }),
-    ).toHaveAttribute("src", "https://example.com/profile.png");
-    expect(screen.getByRole("button", { name: "수정" })).toBeVisible();
-    expect(getMemberSubscription).not.toHaveBeenCalled();
-  });
-
-  it("Given current member information, when the edit button is clicked, then enables nickname editing with save and cancel actions", () => {
-    // Given
-    authentication.member = {
-      id: 7,
-      nickname: "감시자",
-      email: "watcher@example.com",
-      profileImageUrl: "",
-      role: "NORMAL",
-      lastSignInAt: "2026-07-29T00:00:00Z",
-    };
-    render(<MyPage />);
-
-    // When
-    fireEvent.click(screen.getByRole("button", { name: "수정" }));
-
-    // Then
-    expect(screen.getByRole("textbox", { name: "닉네임" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "저장" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "취소" })).toBeVisible();
-  });
-
-  it("Given an active session, when session renewal is selected, then renews and shows success", async () => {
-    // Given
-    authentication.member = {
-      id: 7,
-      nickname: "감시자",
-      email: "watcher@example.com",
-      profileImageUrl: "",
-      role: "NORMAL",
-      lastSignInAt: "2026-07-29T00:00:00Z",
-    };
-    authentication.renewSession.mockResolvedValue(true);
-    render(<MyPage />);
-
-    // When
-    fireEvent.click(screen.getByRole("button", { name: "세션 갱신" }));
-
-    // Then
-    expect(await screen.findByText("세션이 갱신되었습니다.")).toBeVisible();
-    expect(authentication.renewSession).toHaveBeenCalledTimes(1);
-  });
+const mocks = vi.hoisted(() => ({ update: vi.fn(), remove: vi.fn(), refresh: vi.fn(), replace: vi.fn() }));
+vi.mock("@/lib/api", () => ({ memberApi: { updateMember: mocks.update, deleteMember: mocks.remove } }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: mocks.replace }) }));
+vi.mock("@/lib/AuthContext", () => ({ useAuth: () => ({
+  member: { id: 7, nickname: "감시자", email: "member@example.com", profileImageUrl: "https://example.com/provider-avatar.png", lastSignInAt: "2026-10-26T12:00:00" },
+  memberStatus: "ready", refreshMember: mocks.refresh
+}) }));
+beforeEach(() => { vi.resetAllMocks(); mocks.update.mockResolvedValue({}); mocks.refresh.mockResolvedValue(undefined); mocks.remove.mockResolvedValue({}); vi.stubGlobal("location", { replace: mocks.replace }); });
+afterEach(() => vi.unstubAllGlobals());
+it("닉네임을 수정하면 제공받은 프로필 사진을 유지하고 다시 조회할 것이다", async () => {
+  // given
+  render(<MyPage />);
+  fireEvent.click(screen.getByRole("button", { name: "프로필 수정" }));
+  // when
+  fireEvent.change(screen.getByLabelText("닉네임"), { target: { value: "새 감시자" } });
+  fireEvent.click(screen.getByRole("button", { name: "저장" }));
+  // then
+  await screen.findByText("프로필을 저장했어요.");
+  expect(mocks.update).toHaveBeenCalledWith(7, { nickname: "새 감시자", profileImageUrl: "https://example.com/provider-avatar.png" });
+  expect(mocks.refresh).toHaveBeenCalledOnce();
+  expect(screen.queryByLabelText("프로필 사진 URL")).not.toBeInTheDocument();
+  expect(screen.queryByText("변화를 받을 곳")).not.toBeInTheDocument();
+  expect(screen.queryByText("Watchtower와 함께 지켜보고 있어요.")).not.toBeInTheDocument();
+});
+it("회원 탈퇴를 확인하면 계정을 삭제하고 홈으로 이동할 것이다", async () => {
+  // given
+  render(<MyPage />);
+  fireEvent.click(screen.getByRole("button", { name: "회원 탈퇴" }));
+  // when
+  fireEvent.click(screen.getByRole("button", { name: /^탈퇴$/ }));
+  // then
+  await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/"));
+  expect(mocks.remove).toHaveBeenCalledWith(7);
+});
+it("프로필 저장이 실패하면 오류를 표시하고 수정 상태를 유지할 것이다", async () => {
+  // given
+  mocks.update.mockRejectedValue(new Error("저장 실패"));
+  render(<MyPage />);
+  fireEvent.click(screen.getByRole("button", { name: "프로필 수정" }));
+  // when
+  fireEvent.click(screen.getByRole("button", { name: "저장" }));
+  // then
+  await screen.findByText("저장 실패");
+  expect(screen.getByLabelText("닉네임")).toBeEnabled();
+  expect(mocks.refresh).not.toHaveBeenCalled();
 });

@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { Box, CircularProgress } from "@mui/material";
+import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/lib/AuthContext";
 
 // 로그인이 필요한 페이지를 감싸는 가드.
@@ -20,9 +20,9 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
 
   if (isInitializing || !isLoggedIn) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", py: 20 }}>
-        <CircularProgress color="secondary" size={28} />
-      </Box>
+      <div className="flex justify-center py-20">
+        <Spinner role="progressbar" aria-label="로그인 상태를 확인하고 있어요" />
+      </div>
     );
   }
 

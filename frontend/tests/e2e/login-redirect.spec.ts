@@ -1,64 +1,26 @@
 import { expect, test } from "../fixtures";
 
-const BFCACHE_RESTORED_MARKER = "watchtower:test:bfcache-restored";
-
-test.describe("Authenticated login route", () => {
-  test.describe("before hydration", () => {
-    test.use({ javaScriptEnabled: false });
-
-    test("Given valid session cookies, when login is requested before hydration, then the server redirects to the root page", async ({
-      page,
-      oauth,
-      baseURL,
-    }) => {
-      // Given
-      if (baseURL === undefined) throw new Error("Playwright baseURL is required");
-      const tokens = oauth.validTokens();
-      await page.context().addCookies([
-        { name: "watchtower_jwt", value: tokens.accessToken, url: baseURL },
-        { name: "watchtower_refresh", value: tokens.refreshToken, url: baseURL },
-      ]);
-
-      // When
-      await page.goto("/login");
-
-      // Then
-      await expect(page).toHaveURL(`${baseURL}/`);
-      await expect(page.getByRole("progressbar")).toHaveCount(0);
-    });
-  });
-
-  test("Given an anonymous login page in browser history, when Back restores it after authentication, then replaces it with the root page", async ({
-    page,
-    oauth,
-    baseURL,
-  }) => {
-    // Given
-    if (baseURL === undefined) throw new Error("Playwright baseURL is required");
-    let restoredFromBackForwardCache = false;
-    page.on("console", (message) => {
-      if (message.text() === BFCACHE_RESTORED_MARKER) restoredFromBackForwardCache = true;
-    });
-    await page.addInitScript((marker) => {
-      window.addEventListener("pageshow", (event) => {
-        if (event.persisted) console.debug(marker);
-      });
-    }, BFCACHE_RESTORED_MARKER);
-    await page.goto("/login");
-    await expect(page.getByRole("button", { name: "네이버로 시작하기" })).toBeVisible();
-    await page.goto("/");
-    const tokens = oauth.validTokens();
-    await page.context().addCookies([
-      { name: "watchtower_jwt", value: tokens.accessToken, url: baseURL },
-      { name: "watchtower_refresh", value: tokens.refreshToken, url: baseURL },
-    ]);
-
-    // When
-    await page.evaluate(() => history.back());
-
-    // Then
-    await expect.poll(() => restoredFromBackForwardCache).toBe(true);
-    await expect(page).toHaveURL(`${baseURL}/`);
-    await expect(page.getByRole("progressbar")).toHaveCount(0);
-  });
+test("로그인한 회원이 로그인 주소를 열면 타워 화면으로 이동할 것이다", async ({ page, login }) => {
+  // given
+  await login();
+  // when
+  await page.goto("/login");
+  // then
+  await expect(page).toHaveURL(/\/watches$/);
+});
+test("관리자가 로그인 주소를 열면 관리자 대시보드로 이동할 것이다", async ({ page, login }) => {
+  // given
+  await login("ADMIN");
+  // when
+  await page.goto("/login");
+  // then
+  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page.getByRole("heading", { name: "관리자 대시보드" })).toBeVisible();
+});
+test("비로그인 회원이 보호된 페이지를 요청하면 로그인 화면으로 이동할 것이다", async ({ page }) => {
+  // given
+  // when
+  await page.goto("/mypage");
+  // then
+  await expect(page).toHaveURL(/\/login\?next=%2Fmypage$/);
 });

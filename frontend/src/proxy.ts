@@ -1,29 +1,16 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import {
-  ACCESS_COOKIE_NAME,
-  parseSessionPrincipal,
-  REFRESH_COOKIE_NAME,
-} from "@/lib/session";
+import { readBackendSession } from "@/lib/server/session";
 
-export function proxy(request: NextRequest): NextResponse {
-  const { pathname } = request.nextUrl;
-
-  if (pathname !== "/login") return NextResponse.next();
-
-  const accessToken = request.cookies.get(ACCESS_COOKIE_NAME)?.value;
-  const refreshToken = request.cookies.get(REFRESH_COOKIE_NAME)?.value;
-  if (
-    accessToken === undefined ||
-    refreshToken === undefined ||
-    parseSessionPrincipal(accessToken, refreshToken) === null
-  ) {
-    return NextResponse.next();
+export async function proxy(request: NextRequest): Promise<NextResponse> {
+  if (request.nextUrl.pathname !== "/login") {
+    const headers = new Headers(request.headers);
+    headers.set("x-watchtower-return-path", request.nextUrl.pathname + request.nextUrl.search);
+    return NextResponse.next({ request: { headers } });
   }
-
-  return NextResponse.redirect(new URL("/", request.url));
+  if (!request.cookies.has("JSESSIONID")) return NextResponse.next();
+  const result = await readBackendSession(request.headers.get("cookie") ?? "");
+  if (result.kind !== "authenticated") return NextResponse.next();
+  return NextResponse.redirect(new URL(result.principal.role === "ADMIN" ? "/admin" : "/watches", request.url));
 }
-
-export const config = {
-  matcher: ["/login"],
-};
+export const config = { matcher: ["/login", "/watches/:path*", "/mypage/:path*", "/admin/:path*"] };

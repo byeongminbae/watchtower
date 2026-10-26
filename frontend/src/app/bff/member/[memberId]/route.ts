@@ -18,6 +18,8 @@ export async function GET(
   }
 
   return forwardBackendRequest(request, `/api/v1/member/${memberId}`, {
-    method: "GET",
+    method: request.method === "PUT" ? "PUT" : request.method === "DELETE" ? "DELETE" : "GET",
   });
 }
+
+export { GET as PUT, GET as DELETE };

@@ -10,6 +10,9 @@ const SENSITIVE_KEYS = new Set([
   "setcookie",
   "accesstoken",
   "refreshtoken",
+  "xcsrftoken",
+  "token",
+  "webhookurl",
 ]);
 
 interface RequestLogInput {

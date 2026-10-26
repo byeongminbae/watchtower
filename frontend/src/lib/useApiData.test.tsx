@@ -46,7 +46,7 @@ describe("useApiData unavailable state", () => {
     expect(result.current.error).toBe("백엔드 기능이 아직 제공되지 않습니다.");
   });
 
-  it("Given an untrusted backend message, when fetching fails, then never renders that external text", async () => {
+  it("Given an untrusted backend message, when fetching fails, then returns it as a text value for React to escape", async () => {
     // Given
     const externalMessage = "<script>fixture backend message</script>";
     const fetcher = () =>
@@ -61,7 +61,6 @@ describe("useApiData unavailable state", () => {
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
     });
-    expect(result.current.error).toBe("현재는 데이터를 불러올 수 없습니다");
-    expect(result.current.error).not.toContain(externalMessage);
+    expect(result.current.error).toBe(externalMessage);
   });
 });

@@ -1,68 +1,23 @@
 "use client";
 
-import { Avatar, Box, ListItemButton, Stack, Typography } from "@mui/material";
-import LanguageIcon from "@mui/icons-material/Language";
-import { Watch } from "@/types/domain";
+import { Globe } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import type { Watch } from "@/types/domain";
 import WatchStatusDot from "./WatchStatusDot";
 
-export default function WatchListItem({
-  watch,
-  selected,
-  onClick,
-}: {
-  watch: Watch;
-  selected: boolean;
-  onClick: () => void;
+export default function WatchListItem({ watch, selected, onClick }: {
+  readonly watch: Watch;
+  readonly selected: boolean;
+  readonly onClick: () => void;
 }) {
-  return (
-    <ListItemButton
-      selected={selected}
-      onClick={onClick}
-      sx={{
-        borderRadius: 2,
-        mb: 0.5,
-        alignItems: "flex-start",
-        py: 1.2,
-        "&.Mui-selected": {
-          backgroundColor: "rgba(59,130,196,0.14)",
-          borderLeft: "3px solid",
-          borderColor: "primary.main",
-        },
-      }}
-    >
-      <Avatar
-        variant="rounded"
-        src={watch.faviconUrl || undefined}
-        sx={{ width: 32, height: 32, mr: 1.5, bgcolor: "background.default" }}
-      >
-        <LanguageIcon fontSize="small" />
-      </Avatar>
-      <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <WatchStatusDot status={watch.status} showLabel={false} />
-          <Typography variant="body2" sx={{fontWeight: 600}}>
-            {watch.name}
-          </Typography>
-        </Stack>
-        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block" }}>
-          {watch.url}
-        </Typography>
-        {watch.latestAiSummary && (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{
-              display: "-webkit-box",
-              WebkitLineClamp: 1,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-              mt: 0.3,
-            }}
-          >
-            {watch.latestAiSummary}
-          </Typography>
-        )}
-      </Box>
-    </ListItemButton>
-  );
+  return <Button variant={selected ? "secondary" : "ghost"} aria-pressed={selected} onClick={onClick}
+    className="h-auto w-full items-start justify-start gap-3 px-3 py-4 whitespace-normal">
+    <Avatar size="lg"><AvatarImage src={watch.faviconUrl || undefined} alt="" /><AvatarFallback><Globe aria-hidden="true" /></AvatarFallback></Avatar>
+    <span className="flex min-w-0 flex-1 flex-col gap-1 text-left">
+      <span className="flex items-center gap-2"><WatchStatusDot status={watch.status} showLabel={false} /><span className="min-w-0 wrap-anywhere">{watch.name}</span></span>
+      <span className="truncate text-xs text-muted-foreground">{watch.url}</span>
+      {watch.latestAiSummary && <span className="mt-1 line-clamp-2 text-xs leading-relaxed font-normal text-muted-foreground">{watch.latestAiSummary}</span>}
+    </span>
+  </Button>;
 }

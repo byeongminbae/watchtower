@@ -1,193 +1,53 @@
-import { Box, Container, Grid, Stack, Typography } from "@mui/material";
-import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
-import ConfirmationNumberOutlinedIcon from "@mui/icons-material/ConfirmationNumberOutlined";
-import SchoolOutlinedIcon from "@mui/icons-material/SchoolOutlined";
-import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
-import NotificationsNoneOutlinedIcon from "@mui/icons-material/NotificationsNoneOutlined";
-import TravelExploreOutlinedIcon from "@mui/icons-material/TravelExploreOutlined";
+import {MousePointerClick, ScanLine, Sparkles} from "lucide-react";
+import {Badge} from "@/components/ui/badge";
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
+import {Separator} from "@/components/ui/separator";
 
-const COMMON_EXPERIENCES = [
-  {
-    icon: <CampaignOutlinedIcon />,
-    title: "신청 기간에 알림을 보내주지 않는 정부 지원사업",
-  },
-  {
-    icon: <SchoolOutlinedIcon />,
-    title: "새 공지를 확인하기 위해 반복하는 학사공지 새로고침",
-  },
-  {
-    icon: <ConfirmationNumberOutlinedIcon />,
-    title: "‘예매 시작’을 기다리며 반복하는 공연·행사 페이지 새로고침",
-  },
+const FEATURES = [
+    {icon: MousePointerClick, title: "반복하던 새로고침은 그만", description: "지원사업, 학사 공지, 공연 예매까지. 같은 페이지를 다시 여는 시간을 줄여보세요."},
+    {icon: ScanLine, title: "필요한 변화만 골라서", description: "페이지 전체의 변화부터 키워드의 등장과 사라짐까지. 나에게 필요한 조건을 설정해요."},
+    {icon: Sparkles, title: "달라진 내용은 AI 요약으로", description: "무엇이 바뀌었는지 일일이 비교하지 마세요. 중요한 변화를 짧은 요약으로 확인해요."}
 ] as const;
 
-const HOW_IT_WORKS = [
-  {
-    icon: <TravelExploreOutlinedIcon />,
-    number: "01",
-    title: "기다리는 페이지를 등록하세요",
-    description: "지원사업, 학사공지, 공연 예매처럼 놓치고 싶지 않은 URL 하나면 충분합니다.",
-  },
-  {
-    icon: <AutoAwesomeOutlinedIcon />,
-    number: "02",
-    title: "알고 싶은 변화를 말해 주세요",
-    description: "새 공지가 올라올 때, 특정 문구가 등장할 때처럼 필요한 변화만 골라 감지합니다.",
-  },
-  {
-    icon: <NotificationsNoneOutlinedIcon />,
-    number: "03",
-    title: "변화가 생긴 순간만 확인하세요",
-    description: "달라진 내용을 AI가 요약합니다. 이제 매일 페이지를 열 필요가 없습니다.",
-  },
+const STEPS = [
+    {number: "01", title: "관심 있는 페이지를 등록해보세요", description: "평소에 놓치고 싶지 않던 페이지가 있으신가요? 와치타워에 등록해보세요!"},
+    {number: "02", title: "어떤 변화에 반응할지 설정해요", description: "예매 가능 상태가 되면 알려드릴까요? 아니면 학사 공지가 새로 뜨면 알려드릴까요?"},
+    {number: "03", title: "변화가 생기면 알람을 보내드려요", description: "디스코드, 텔레그램 뭐든 좋아요. 앞으로 더 추가될 예정이에요"}
 ] as const;
 
 export default function LandingStory() {
-  return (
-    <>
-      <Box
-        component="section"
-        sx={{
-          bgcolor: "background.default",
-          "& .MuiTypography-root": { wordBreak: "keep-all", overflowWrap: "break-word" },
-        }}
-      >
-        <Container maxWidth="lg" sx={{ py: { xs: 9, md: 14 } }}>
-          <Grid container spacing={{ xs: 4, md: 12 }}>
-            <Grid size={{ xs: 12, md: 5 }} sx={{ order: { xs: 0, md: 2 } }}>
-              <Typography
-                variant="h4"
-                sx={{
-                  fontWeight: 850,
-                  fontSize: { xs: "1.7rem", sm: "2.125rem" },
-                  lineHeight: 1.24,
-                  letterSpacing: -1,
-                  textWrap: "balance",
-                }}
-              >
-                이런 경험,
-                <br />
-                한 번쯤 있지 않으셨나요?
-              </Typography>
-            </Grid>
-            <Grid size={{ xs: 12, md: 7 }} sx={{ order: { xs: 1, md: 1 } }}>
-              <Stack spacing={0}>
-                {COMMON_EXPERIENCES.map((experience) => (
-                  <Stack
-                    direction="row"
-                    spacing={{ xs: 2, sm: 2.5 }}
-                    alignItems="flex-start"
-                    key={experience.title}
-                    sx={{
-                      py: { xs: 2.75, sm: 3.5 },
-                      borderBottom: "1px solid",
-                      borderColor: "divider",
-                      "&:first-of-type": { pt: { xs: 0, md: 0.5 } },
-                    }}
-                  >
-                    <Box sx={{ color: "secondary.main", display: "flex", pt: 0.25, flexShrink: 0 }}>
-                      {experience.icon}
-                    </Box>
-                    <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.45, textWrap: "pretty" }}>
-                      {experience.title.includes("공연·행사") ? (
-                        <>
-                          {experience.title.slice(0, experience.title.indexOf("공연·행사"))}
-                          <Box component="span" sx={{ whiteSpace: "nowrap" }}>
-                            공연·행사
-                          </Box>
-                          {experience.title.slice(experience.title.indexOf("공연·행사") + "공연·행사".length)}
-                        </>
-                      ) : (
-                        experience.title
-                      )}
-                    </Typography>
-                  </Stack>
-                ))}
-              </Stack>
-            </Grid>
-          </Grid>
-        </Container>
-      </Box>
+    return <>
+        <section id="how-it-works" className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-16 md:py-24">
+            <div className="flex max-w-2xl flex-col gap-3">
+                <h2 className="text-3xl font-semibold tracking-tight break-keep">소식을 기다리며 새로고침만 하기엔, 우리 삶엔 할 일이 너무
+                    많으니까요</h2>
+                <p>2026년 서울시 청년지원금을 놓치고
+                    "누가 나 대신 사이트 좀 지켜봐 줬으면" 하는 마음이 들어 개발하게 되었습니다.
 
-      <Box
-        component="section"
-        sx={{
-          position: "relative",
-          overflow: "hidden",
-          bgcolor: "background.paper",
-          backgroundImage: "var(--wt-story-atmosphere)",
-          borderTop: "1px solid",
-          borderColor: "divider",
-          "& .MuiTypography-root": { wordBreak: "keep-all", overflowWrap: "break-word" },
-        }}
-      >
-        <Container maxWidth="lg" sx={{ py: { xs: 11, md: 17 } }}>
-          <Grid container spacing={{ xs: 7, md: 12 }}>
-            <Grid size={{ xs: 12, md: 5 }}>
-              <Typography color="secondary.main" sx={{ mb: 2, fontWeight: 700 }}>
-                새로고침은 Watchtower에게
-              </Typography>
-              <Typography
-                variant="h4"
-                sx={{
-                  mb: 3,
-                  fontWeight: 850,
-                  fontSize: { xs: "1.7rem", sm: "2.125rem" },
-                  lineHeight: 1.24,
-                  letterSpacing: -1,
-                  textWrap: "balance",
-                }}
-              >
-                변화는 대신 지켜보고,
-                <br />
-                필요한 내용만 알려드릴게요
-              </Typography>
-              <Typography color="text.secondary" sx={{ maxWidth: 460, lineHeight: 1.8, textWrap: "pretty" }}>
-                계속 확인하지 않아도 괜찮습니다.{" "}
-                <Box component="span" sx={{ whiteSpace: "nowrap" }}>
-                  Watchtower는 등록한
-                </Box>{" "}
-                페이지의 변화를 감지하고, 무엇이 달라졌는지 AI로 짧고 이해하기 쉽게 요약합니다.
-              </Typography>
-            </Grid>
-            <Grid size={{ xs: 12, md: 7 }}>
-              <Stack spacing={0}>
-                {HOW_IT_WORKS.map((step) => (
-                  <Stack
-                    direction="row"
-                    spacing={{ xs: 2, sm: 3 }}
-                    key={step.number}
-                    sx={{ py: 3.5, borderBottom: "1px solid", borderColor: "divider" }}
-                  >
-                    <Typography
-                      aria-hidden="true"
-                      sx={{
-                        color: "secondary.main",
-                        fontWeight: 800,
-                        fontVariantNumeric: "tabular-nums",
-                        pt: 0.4,
-                      }}
-                    >
-                      {step.number}
-                    </Typography>
-                    <Box sx={{ flexGrow: 1 }}>
-                      <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 1 }}>
-                        <Box sx={{ display: "flex", color: "secondary.main" }}>{step.icon}</Box>
-                        <Typography variant="h6" sx={{ fontWeight: 750 }}>
-                          {step.title}
-                        </Typography>
-                      </Stack>
-                      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.75, textWrap: "pretty" }}>
-                        {step.description}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                ))}
-              </Stack>
-            </Grid>
-          </Grid>
-        </Container>
-      </Box>
-    </>
-  );
+                    새로고침은 와치타워가 할 테니, 여러분은 일상에 집중하세요!</p>
+            </div>
+            <div className="grid gap-6 md:grid-cols-3">
+                {FEATURES.map(({icon: Icon, title, description}) => <Card key={title}>
+                    <CardHeader className="gap-4"><Icon className="size-5"
+                                                        aria-hidden="true"/><CardTitle>{title}</CardTitle></CardHeader>
+                    <CardContent><CardDescription>{description}</CardDescription></CardContent>
+                </Card>)}
+            </div>
+        </section>
+        <Separator/>
+        <section
+            className="mx-auto flex w-full max-w-6xl scroll-mt-20 flex-col gap-8 px-6 py-16 md:py-24">
+            <div className="flex max-w-2xl flex-col gap-3">
+                <h2 className="text-3xl font-semibold tracking-tight break-keep">추가하고 기다리면 돼요. 간단하죠?</h2>
+            </div>
+            <ol className="grid gap-6 md:grid-cols-3">
+                {STEPS.map(step => <li key={step.number}><Card className="h-full">
+                    <CardHeader className="gap-4"><Badge
+                        variant="secondary">{step.number}</Badge><CardTitle>{step.title}</CardTitle></CardHeader>
+                    <CardContent><CardDescription>{step.description}</CardDescription></CardContent>
+                </Card></li>)}
+            </ol>
+        </section>
+        <Separator/>
+    </>;
 }
