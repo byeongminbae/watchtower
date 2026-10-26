@@ -1,83 +1,25 @@
 import { expect, test } from "../fixtures";
 
-const CALLBACK_PATH = "/bff/auth/naver/callback";
-const TIMESTAMP = "2026-07-29T10:00:00";
-
-test("Given a mounted protected shell, when an in-flight callback returns 401, then header and guard log out without reload", async ({
-  page,
-  oauth,
-}, testInfo) => {
-  // Given
-  const pageErrors: string[] = [];
-  page.on("pageerror", (error) => pageErrors.push(error.message));
-  await oauth.storeTransaction(page, "bootstrap-state");
-  let releaseCallback = (): void => undefined;
-  const callbackGate = new Promise<void>((resolve) => {
-    releaseCallback = resolve;
-  });
-  await page.route(`**${CALLBACK_PATH}?**`, async (route) => {
-    const code = new URL(route.request().url()).searchParams.get("code");
-    if (code === "bootstrap-code") {
-      await route.fulfill({
-        contentType: "application/json",
-        body: JSON.stringify({
-          success: true,
-          data: oauth.validTokens(),
-          timestamp: TIMESTAMP,
-        }),
-      });
-      return;
-    }
-    await callbackGate;
-    await route.fulfill({
-      status: 401,
-      contentType: "application/json",
-      body: "not-json",
-    });
-  });
-  await page.goto(
-    "/login/callback?code=bootstrap-code&state=bootstrap-state",
-  );
-  await expect(page).toHaveURL(/\/watches$/u);
+test("서버에서 세션이 만료되면 새로고침할 때 로그인 화면으로 이동할 것이다", async ({ page, login, request }) => {
+  // given
+  const session = await login();
+  await page.goto("/watches");
+  await expect(page.getByRole("heading", { name: "채용 공고" })).toBeVisible();
+  // when
+  await request.post(`http://127.0.0.1:4100/__test/invalidate?session=${session}`);
   await page.reload();
-  await expect(page).toHaveURL(/\/watches$/u);
-  await expect(page.getByRole("button", { name: "회원 메뉴" })).toBeVisible();
-  await expect(
-    page.getByText("백엔드 기능이 아직 제공되지 않습니다."),
-  ).toBeVisible();
-  await page.evaluate(() => {
-    sessionStorage.setItem(
-      "watchtower_oauth_transaction",
-      JSON.stringify({
-        nonce: "fixture-state",
-        returnPath: "/watches",
-        createdAt: Date.now(),
-      }),
-    );
-  });
-  await page.goto(
-    "/login/callback?code=fixture-code&state=fixture-state",
-  );
-  await expect(page.getByRole("button", { name: "회원 메뉴" })).toBeVisible();
-  await page.getByRole("link", { name: "내 와치리스트" }).click();
-  await expect(page).toHaveURL(/\/watches$/u);
-  await expect(
-    page.getByText("백엔드 기능이 아직 제공되지 않습니다."),
-  ).toBeVisible();
-
-  // When
-  releaseCallback();
-
-  // Then
-  await expect(page.getByRole("link", { name: "로그인" })).toBeVisible();
-  await expect(page).toHaveURL(/\/login\?next=%2Fwatches$/u);
-  const sessionCookies = (await page.context().cookies()).filter((cookie) =>
-    cookie.name.startsWith("watchtower_"),
-  );
-  expect(sessionCookies).toEqual([]);
-  expect(pageErrors).toEqual([]);
-  await page.screenshot({
-    path: testInfo.outputPath("unauthorized-immediate-logout.png"),
-    fullPage: true,
-  });
+  // then
+  await expect(page).toHaveURL(/\/login\?next=%2Fwatches$/);
+  await expect(page.getByRole("button", { name: "네이버로 시작하기" })).toBeVisible();
+});
+test("로그아웃하면 서버 세션 쿠키를 제거하고 홈으로 이동할 것이다", async ({ page, login, context }) => {
+  // given
+  await login();
+  await page.goto("/watches");
+  await page.getByRole("button", { name: "테스트 회원 메뉴" }).click();
+  // when
+  await page.getByRole("menuitem", { name: "로그아웃" }).click();
+  // then
+  await expect(page).toHaveURL("http://127.0.0.1:3000/");
+  expect((await context.cookies()).some(cookie => cookie.name === "JSESSIONID")).toBe(false);
 });

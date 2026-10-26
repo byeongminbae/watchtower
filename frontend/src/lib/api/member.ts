@@ -1,7 +1,5 @@
-import { rejectUnavailable } from "./availability";
 import { apiClient } from "./client";
-import type { ApiEnvelope } from "./types";
-import type { Member, PaymentHistory, Subscription, Watch } from "@/types/domain";
+import type { Member } from "@/types/domain";
 
 function isMember(value: unknown): value is Member {
   return (
@@ -29,43 +27,9 @@ export const memberApi = {
 
   updateMember: (
     memberId: number,
-    body: Partial<Pick<Member, "nickname" | "profileImageUrl">>,
-  ) => {
-    void memberId;
-    void body;
-    return rejectUnavailable<ApiEnvelope<Member>>("member.updateMember");
-  },
+    body: Pick<Member, "nickname" | "profileImageUrl">,
+  ) => apiClient.put(`/bff/member/${memberId}`, body, isMember),
 
-  deleteMember: (memberId: number) => {
-    void memberId;
-    return rejectUnavailable<ApiEnvelope<string>>("member.deleteMember");
-  },
-
-  getMemberWatches: (memberId: number) => {
-    void memberId;
-    return rejectUnavailable<ApiEnvelope<Watch[]>>(
-      "member.getMemberWatches",
-    );
-  },
-
-  getMemberPaymentHistories: (memberId: number) => {
-    void memberId;
-    return rejectUnavailable<ApiEnvelope<PaymentHistory[]>>(
-      "member.getMemberPaymentHistories",
-    );
-  },
-
-  getMemberSubscription: (memberId: number) => {
-    void memberId;
-    return rejectUnavailable<ApiEnvelope<Subscription>>(
-      "member.getMemberSubscription",
-    );
-  },
-
-  cancelMemberSubscription: (memberId: number) => {
-    void memberId;
-    return rejectUnavailable<ApiEnvelope<string>>(
-      "member.cancelMemberSubscription",
-    );
-  },
+  deleteMember: (memberId: number) =>
+    apiClient.deleteEmpty(`/bff/member/${memberId}`),
 };

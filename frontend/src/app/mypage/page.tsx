@@ -1,237 +1,114 @@
 "use client";
 
 import React from "react";
-import {
-  Alert,
-  Avatar,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CircularProgress,
-  Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Divider,
-  Grid,
-  Snackbar,
-  Stack,
-  TextField,
-  Typography,
-} from "@mui/material";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { CheckCircle2, CircleAlert, UserRound } from "lucide-react";
+import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertDialogAction, AlertDialogCancel, AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { formatDateTime } from "@/lib/dateTime";
 import { useAuth } from "@/lib/AuthContext";
 import { memberApi } from "@/lib/api";
-import { ApiError } from "@/lib/api/errors";
 
 export default function MyPage() {
-  const { member, memberStatus, refreshMember, renewSession, logout } = useAuth();
-  const router = useRouter();
-
-  const [nicknameDraft, setNicknameDraft] = React.useState("");
+  const { member, memberStatus, refreshMember } = useAuth();
   const [editing, setEditing] = React.useState(false);
-  const [saving, setSaving] = React.useState(false);
-  const [renewingSession, setRenewingSession] = React.useState(false);
-  const [toast, setToast] = React.useState<{ message: string; severity: "success" | "error" } | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
-  const [deleting, setDeleting] = React.useState(false);
+  const [nickname, setNickname] = React.useState("");
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [message, setMessage] = React.useState<{ readonly severity: "success" | "error"; readonly text: string } | null>(null);
 
-  if (member === null && (memberStatus === "idle" || memberStatus === "loading")) {
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", py: 20 }}>
-        <CircularProgress color="secondary" size={28} />
-      </Box>
-    );
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    if (member === null || busy) return;
+    setBusy(true); setMessage(null);
+    try {
+      await memberApi.updateMember(member.id, { nickname, profileImageUrl: member.profileImageUrl });
+      await refreshMember(); setEditing(false); setMessage({ severity: "success", text: "프로필을 저장했어요." });
+    } catch (reason) { if (!(reason instanceof Error)) throw reason; setMessage({ severity: "error", text: reason.message }); }
+    finally { setBusy(false); }
   }
 
-  if (member === null) {
-    return (
-      <Container maxWidth="sm" sx={{ py: 10 }}>
-        <Alert severity="error">회원 정보를 불러올 수 없습니다.</Alert>
-      </Container>
-    );
+  async function withdraw() {
+    if (member === null) return;
+    setBusy(true); setMessage(null);
+    try { await memberApi.deleteMember(member.id); globalThis.location.replace("/"); }
+    catch (reason) { if (!(reason instanceof Error)) throw reason; setMessage({ severity: "error", text: reason.message }); }
+    finally { setBusy(false); }
   }
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await memberApi.updateMember(member.id, { nickname: nicknameDraft });
-      await refreshMember();
-      setEditing(false);
-      setToast({ message: "프로필이 저장되었습니다.", severity: "success" });
-    } catch (err) {
-      setToast({
-        message: err instanceof ApiError ? err.message : "저장에 실패했습니다.",
-        severity: "error",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
+  return <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-5 py-7 sm:px-8 sm:py-10">
+    <div className="flex flex-col gap-2">
+      <h1 className="text-[28px] font-semibold tracking-tight sm:text-3xl">마이페이지</h1>
+      <p className="text-sm text-muted-foreground">계정 정보를 확인하고 닉네임을 변경해요.</p>
+    </div>
+    {message && <Alert variant={message.severity === "error" ? "destructive" : "default"}>
+      {message.severity === "error" ? <CircleAlert /> : <CheckCircle2 />}<AlertDescription>{message.text}</AlertDescription>
+    </Alert>}
+    {member === null && memberStatus !== "error" && <div role="status" aria-label="프로필 불러오는 중" className="flex flex-col gap-4">
+      <Skeleton className="h-28 w-full" /><Skeleton className="h-64 w-full" />
+    </div>}
+    {memberStatus === "error" && <Alert variant="destructive"><CircleAlert />
+      <AlertDescription>프로필을 불러올 수 없어요.</AlertDescription>
+      <AlertAction><Button variant="outline" size="sm" onClick={() => void refreshMember()}>재시도</Button></AlertAction>
+    </Alert>}
+    {member && <>
+      <Card>
+        <CardHeader>
+          <CardTitle role="heading" aria-level={2}>내 계정</CardTitle>
+          <CardAction><UserRound className="size-5 text-muted-foreground" aria-hidden="true" /></CardAction>
+        </CardHeader>
+        <CardContent className="flex items-center gap-4">
+          <Avatar className="size-16">
+            <AvatarImage src={member.profileImageUrl || undefined} alt={`${member.nickname} 프로필 사진`} />
+            <AvatarFallback>{member.nickname[0]}</AvatarFallback>
+          </Avatar>
+          <div className="flex min-w-0 flex-col gap-1">
+            <p className="break-all text-lg font-semibold">{member.nickname}</p>
+            <p className="break-all text-sm text-muted-foreground">{member.email}</p>
+            <p className="text-xs text-muted-foreground">최근 로그인: {formatDateTime(member.lastSignInAt)}</p>
+          </div>
+        </CardContent>
+      </Card>
+      <form onSubmit={save}>
+        <Card>
+          <CardHeader><CardTitle role="heading" aria-level={2}>프로필 정보</CardTitle>
+            <CardDescription>서비스에서 사용할 이름을 설정해요.</CardDescription></CardHeader>
+          <CardContent>
+            <FieldGroup>
+              <Field data-disabled={!editing || busy}>
+                <FieldLabel htmlFor="profile-nickname">닉네임</FieldLabel>
+                <Input id="profile-nickname" value={editing ? nickname : member.nickname} disabled={!editing || busy} onChange={event => setNickname(event.target.value)} />
+              </Field>
 
-  const handleCancelEdit = (): void => {
-    setEditing(false);
-  };
+            </FieldGroup>
+          </CardContent>
+          <CardFooter className="justify-end gap-2">
+            {editing ? <><Button variant="outline" disabled={busy} onClick={() => setEditing(false)}>취소</Button>
+              <Button type="submit" disabled={busy}>{busy ? "저장 중" : "저장"}</Button></>
+              : <Button onClick={() => { setNickname(member.nickname); setEditing(true); }}>프로필 수정</Button>}
+          </CardFooter>
+        </Card>
+      </form>
 
-  const handleStartEdit = (): void => {
-    setNicknameDraft(member.nickname);
-    setEditing(true);
-  };
-
-  const handleDeleteAccount = async () => {
-    setDeleting(true);
-    try {
-      await memberApi.deleteMember(member.id);
-      await logout();
-      router.push("/");
-    } catch (err) {
-      setToast({
-        message: err instanceof ApiError ? err.message : "회원 탈퇴에 실패했습니다.",
-        severity: "error",
-      });
-      setDeleting(false);
-      setDeleteDialogOpen(false);
-    }
-  };
-
-  const handleRenewSession = async (): Promise<void> => {
-    setRenewingSession(true);
-    try {
-      const renewed = await renewSession();
-      setToast({
-        message: renewed ? "세션이 갱신되었습니다." : "세션을 갱신할 수 없습니다.",
-        severity: renewed ? "success" : "error",
-      });
-    } catch (err) {
-      setToast({
-        message: err instanceof ApiError ? err.message : "세션 갱신에 실패했습니다.",
-        severity: "error",
-      });
-    } finally {
-      setRenewingSession(false);
-    }
-  };
-
-  return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Typography variant="h5" sx={{ mb: 3, fontWeight: 800 }}>
-        마이페이지
-      </Typography>
-
-      <Grid container spacing={3}>
-        <Grid size={{ xs: 12, md: 5 }}>
-          <Card variant="outlined">
-            <CardContent sx={{ textAlign: "center", py: 4 }}>
-              <Avatar
-                src={member.profileImageUrl || undefined}
-                alt={`${member.nickname} 프로필 사진`}
-                sx={{ width: 72, height: 72, mx: "auto", mb: 2, bgcolor: "primary.main", fontSize: 28 }}
-              >
-                {member.nickname[0]}
-              </Avatar>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                {member.nickname}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {member.email}
-              </Typography>
-            </CardContent>
-          </Card>
-
-          <Stack spacing={1.5} sx={{ mt: 2, "& .MuiButton-root": { minHeight: 40 } }}>
-            <Button component={Link} href="/mypage/subscription" variant="outlined" fullWidth>
-              구독 관리
-            </Button>
-            <Button component={Link} href="/mypage/payments" variant="outlined" fullWidth>
-              결제 이력
-            </Button>
-            <Button
-              variant="outlined"
-              fullWidth
-              onClick={handleRenewSession}
-              disabled={renewingSession}
-            >
-              {renewingSession ? <CircularProgress size={20} color="inherit" /> : "세션 갱신"}
-            </Button>
-            <Button variant="text" color="error" fullWidth onClick={() => setDeleteDialogOpen(true)}>
-              회원 탈퇴
-            </Button>
-          </Stack>
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 7 }}>
-          <Card variant="outlined">
-            <CardContent>
-              <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 700 }}>
-                프로필 정보
-              </Typography>
-              <Stack spacing={2.5}>
-                <TextField
-                  label="닉네임"
-                  value={editing ? nicknameDraft : member.nickname}
-                  onChange={(event) => setNicknameDraft(event.target.value)}
-                  fullWidth
-                  disabled={!editing}
-                />
-                <TextField label="이메일" value={member.email} fullWidth disabled />
-                <Divider />
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    gap: 1,
-                    "& .MuiButton-root": { minHeight: 40 },
-                  }}
-                >
-                  {editing ? (
-                    <>
-                      <Button color="inherit" onClick={handleCancelEdit} disabled={saving}>
-                        취소
-                      </Button>
-                      <Button variant="contained" color="secondary" onClick={handleSave} disabled={saving}>
-                        {saving ? <CircularProgress size={20} color="inherit" /> : "저장"}
-                      </Button>
-                    </>
-                  ) : (
-                    <Button variant="contained" color="secondary" onClick={handleStartEdit}>
-                      수정
-                    </Button>
-                  )}
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      <Dialog open={deleteDialogOpen} onClose={() => !deleting && setDeleteDialogOpen(false)}>
-        <DialogTitle sx={{ fontWeight: 700 }}>정말 탈퇴하시겠어요?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            탈퇴 시 계정 정보는 논리 삭제되며, 네이버 연동도 함께 해제됩니다. 이 작업은 되돌릴 수 없습니다.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDeleteDialogOpen(false)} color="inherit" disabled={deleting}>
-            취소
-          </Button>
-          <Button onClick={handleDeleteAccount} color="error" variant="contained" disabled={deleting}>
-            {deleting ? <CircularProgress size={20} color="inherit" /> : "탈퇴하기"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Snackbar open={toast !== null} autoHideDuration={4000} onClose={() => setToast(null)}>
-        {toast ? (
-          <Alert severity={toast.severity} onClose={() => setToast(null)} sx={{ width: "100%" }}>
-            {toast.message}
-          </Alert>
-        ) : undefined}
-      </Snackbar>
-    </Container>
-  );
+      <div className="flex items-center justify-between gap-3">
+        <Link href="/watches" className={buttonVariants({ variant: "ghost" })}>내 타워</Link>
+        <Button variant="destructive" onClick={() => setDeleteOpen(true)}>회원 탈퇴</Button>
+      </div>
+    </>}
+    <AlertDialog open={deleteOpen} onOpenChange={open => { if (!busy) setDeleteOpen(open); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader><AlertDialogTitle>회원 탈퇴</AlertDialogTitle>
+          <AlertDialogDescription>탈퇴하면 계정과 등록한 타워, 감지 조건, 알림 채널이 삭제돼요. 계속하시겠어요?</AlertDialogDescription></AlertDialogHeader>
+        {message?.severity === "error" && <Alert variant="destructive"><CircleAlert /><AlertDescription>{message.text}</AlertDescription></Alert>}
+        <AlertDialogFooter><AlertDialogCancel disabled={busy}>취소</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" disabled={busy} onClick={() => void withdraw()}>{busy ? "탈퇴 중" : "탈퇴"}</AlertDialogAction></AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </main>;
 }

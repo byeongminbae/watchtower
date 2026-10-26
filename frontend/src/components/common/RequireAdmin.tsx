@@ -2,7 +2,8 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { Box, CircularProgress, Container, Typography } from "@mui/material";
+import { Spinner } from "@/components/ui/spinner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from "@/lib/AuthContext";
 
 // /admin 하위 라우트 전용 가드. 로그인 + ADMIN 권한을 모두 확인.
@@ -19,22 +20,20 @@ export default function RequireAdmin({ children }: { children: React.ReactNode }
 
   if (isInitializing || !isLoggedIn) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", py: 20 }}>
-        <CircularProgress color="secondary" size={28} />
-      </Box>
+      <div className="flex justify-center py-20">
+        <Spinner role="progressbar" aria-label="로그인 상태를 확인하고 있어요" />
+      </div>
     );
   }
 
   if (principal?.role !== "ADMIN") {
     return (
-      <Container maxWidth="sm" sx={{ py: 16, textAlign: "center" }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }} gutterBottom>
-          접근 권한이 없습니다
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          이 페이지는 관리자만 접근할 수 있습니다.
-        </Typography>
-      </Container>
+      <div className="mx-auto w-full max-w-lg px-6 py-20">
+        <Alert variant="destructive">
+          <AlertTitle>접근 권한이 없습니다</AlertTitle>
+          <AlertDescription>이 페이지는 관리자만 접근할 수 있어요.</AlertDescription>
+        </Alert>
+      </div>
     );
   }
 

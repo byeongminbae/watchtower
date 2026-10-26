@@ -1,7 +1,7 @@
-"use client";
-
 import RequireAuth from "@/components/common/RequireAuth";
+import { requireServerSession } from "@/lib/server/session";
 
-export default function MyPageLayout({ children }: { children: React.ReactNode }) {
+export default async function MyPageLayout({ children }: { readonly children: React.ReactNode }) {
+  await requireServerSession();
   return <RequireAuth>{children}</RequireAuth>;
 }

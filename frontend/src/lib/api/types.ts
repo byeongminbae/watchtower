@@ -1,20 +1,20 @@
 import { ApiError } from "./errors";
 
 export interface ApiEnvelope<T> {
-  readonly success: true;
+  readonly isSuccess: true;
   readonly data: T;
   readonly timestamp: string;
 }
 
 export interface ApiEmptyEnvelope {
-  readonly success: true;
+  readonly isSuccess: true;
   readonly timestamp: string;
 }
 
 export type ApiDataGuard<T> = (value: unknown) => value is T;
 
 export type SuccessEnvelopeRecord = Record<string, unknown> & {
-  readonly success: true;
+  readonly isSuccess: true;
   readonly timestamp: string;
 };
 
@@ -37,8 +37,8 @@ export function isSuccessEnvelope(value: unknown): value is SuccessEnvelopeRecor
     typeof value === "object" &&
     value !== null &&
     !Array.isArray(value) &&
-    "success" in value &&
-    value.success === true &&
+    "isSuccess" in value &&
+    value.isSuccess === true &&
     "timestamp" in value &&
     typeof value.timestamp === "string"
   );
@@ -49,7 +49,7 @@ export function decodeUnknownData(
   status: number,
 ): ApiEnvelope<unknown> {
   if (!Object.hasOwn(value, "data")) throw invalidResponse(value, status);
-  return { success: true, data: value.data, timestamp: value.timestamp };
+  return { isSuccess: true, data: value.data, timestamp: value.timestamp };
 }
 
 export function decodeGuardedData<T>(
@@ -60,7 +60,7 @@ export function decodeGuardedData<T>(
   if (!Object.hasOwn(value, "data") || !guard(value.data)) {
     throw invalidResponse(value, status);
   }
-  return { success: true, data: value.data, timestamp: value.timestamp };
+  return { isSuccess: true, data: value.data, timestamp: value.timestamp };
 }
 
 export function decodeEmptyData(
@@ -68,7 +68,7 @@ export function decodeEmptyData(
   status: number,
 ): ApiEmptyEnvelope {
   if (Object.hasOwn(value, "data")) throw invalidResponse(value, status);
-  return { success: true, timestamp: value.timestamp };
+  return { isSuccess: true, timestamp: value.timestamp };
 }
 
 export class InvalidApiDataError extends Error {

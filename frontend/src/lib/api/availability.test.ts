@@ -1,255 +1,81 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { adminApi } from "./admin";
-import { authApi } from "./auth";
-import {
-  backendFeatureInventory,
-  rejectUnavailable,
-} from "./availability";
+import { beforeEach, expect, it, vi } from "vitest";
+import { apiClient } from "./client";
 import { memberApi } from "./member";
-import { paymentApi } from "./payment";
 import { watchApi } from "./watch";
+import { adminApi } from "./admin";
+import { notificationApi } from "./notification";
+import { defaultSearch } from "@/types/pagination";
 
-const TIMESTAMP = "2026-07-29T10:00:00";
-type HasOnlyFeatureParameter =
-  Parameters<typeof rejectUnavailable> extends readonly [unknown] ? true : false;
-const HAS_ONLY_FEATURE_PARAMETER: HasOnlyFeatureParameter = true;
-
-describe("backend API availability inventory", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("Given the unavailable helper type, when inspected, then only a feature ID is representable", () => {
-    // Given / When / Then
-    expect(HAS_ONLY_FEATURE_PARAMETER).toBe(true);
-  });
-
-  it("Given the implemented Naver URL contract, when requested, then preserves its current fetch success", async () => {
-    // Given
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          success: true,
-          data: "https://nid.naver.com/oauth2.0/authorize",
-          timestamp: TIMESTAMP,
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      ),
-    );
-
-    // When
-    const result = await authApi.getNaverLoginUrl("fixture-state");
-
-    // Then
-    expect(result.data).toBe("https://nid.naver.com/oauth2.0/authorize");
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-  });
-
-  it("Given the implemented Naver callback contract, when exchanged, then performs one guarded callback fetch", async () => {
-    // Given
-    const tokens = {
-      accessToken: "fixture-access",
-      refreshToken: "fixture-refresh",
-      accessTokenExpiry: 2_000_000_000,
-    };
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          success: true,
-          data: tokens,
-          timestamp: TIMESTAMP,
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      ),
-    );
-
-    // When
-    const result = await authApi.loginWithNaverCallback(
-      "fixture code",
-      "fixture state",
-    );
-
-    // Then
-    expect(result.data).toEqual(tokens);
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "/bff/auth/naver/callback?code=fixture%20code&state=fixture%20state",
-      expect.objectContaining({ method: "GET" }),
-    );
-  });
-
-  it("Given the implemented member profile contract, when requested, then performs one guarded member fetch", async () => {
-    // Given
-    const member = {
-      id: 7,
-      nickname: "감시자",
-      email: "watcher@example.com",
-      profileImageUrl: "https://example.com/profile.png",
-      lastSignInAt: "2026-07-29T10:00:00",
-    };
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          success: true,
-          data: member,
-          timestamp: TIMESTAMP,
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      ),
-    );
-
-    // When
-    const result = await memberApi.getMember(7);
-
-    // Then
-    expect(result.data).toEqual(member);
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "/bff/member/7",
-      expect.objectContaining({ method: "GET" }),
-    );
-  });
-
-  const unavailableCases = [
-    { feature: "auth.revokeNaverToken", invoke: () => authApi.revokeNaverToken() },
-    { feature: "member.updateMember", invoke: () => memberApi.updateMember(1, { nickname: "수정" }) },
-    { feature: "member.deleteMember", invoke: () => memberApi.deleteMember(1) },
-    { feature: "member.getMemberWatches", invoke: () => memberApi.getMemberWatches(1) },
-    {
-      feature: "member.getMemberPaymentHistories",
-      invoke: () => memberApi.getMemberPaymentHistories(1),
-    },
-    { feature: "member.getMemberSubscription", invoke: () => memberApi.getMemberSubscription(1) },
-    {
-      feature: "member.cancelMemberSubscription",
-      invoke: () => memberApi.cancelMemberSubscription(1),
-    },
-    {
-      feature: "watch.createWatch",
-      invoke: () =>
-        watchApi.createWatch({
-          name: "와치",
-          url: "https://example.test",
-          fetchIntervalSeconds: 60,
-          includeInStat: false,
-          conditions: [{ type: "KEYWORD", keyword: "변경" }],
-        }),
-    },
-    { feature: "watch.getTrendingWatches", invoke: () => watchApi.getTrendingWatches() },
-    { feature: "watch.getWatch", invoke: () => watchApi.getWatch(1) },
-    { feature: "watch.updateWatch", invoke: () => watchApi.updateWatch(1, { status: "PAUSED" }) },
-    { feature: "watch.deleteWatch", invoke: () => watchApi.deleteWatch(1) },
-    { feature: "watch.sendTestNotification", invoke: () => watchApi.sendTestNotification(1) },
-    { feature: "watch.getWatchConditions", invoke: () => watchApi.getWatchConditions(1) },
-    {
-      feature: "watch.createWatchCondition",
-      invoke: () => watchApi.createWatchCondition(1, { type: "KEYWORD", keyword: "변경" }),
-    },
-    {
-      feature: "watch.updateWatchCondition",
-      invoke: () => watchApi.updateWatchCondition(1, 2, { keyword: "수정" }),
-    },
-    {
-      feature: "watch.deleteWatchCondition",
-      invoke: () => watchApi.deleteWatchCondition(1, 2),
-    },
-    { feature: "watch.listWatchSnapshots", invoke: () => watchApi.listWatchSnapshots(1) },
-    { feature: "watch.getWatchSnapshot", invoke: () => watchApi.getWatchSnapshot(1, 2) },
-    { feature: "payment.getPayment", invoke: () => paymentApi.getPayment(1) },
-    {
-      feature: "payment.confirmTossPayment",
-      invoke: () =>
-        paymentApi.confirmTossPayment({
-          paymentKey: "fixture-key",
-          orderId: "fixture-order",
-          amount: 1000,
-        }),
-    },
-    { feature: "admin.getWatches", invoke: () => adminApi.getWatches() },
-    {
-      feature: "admin.updateWatchStatus",
-      invoke: () => adminApi.updateWatchStatus(1, "PAUSED"),
-    },
-    { feature: "admin.cancelPayment", invoke: () => adminApi.cancelPayment(1) },
-    { feature: "admin.getPayments", invoke: () => adminApi.getPayments() },
-    { feature: "admin.getMembers", invoke: () => adminApi.getMembers() },
-    { feature: "admin.updateMemberRole", invoke: () => adminApi.updateMemberRole(1, "ADMIN") },
-    { feature: "admin.updateMemberStatus", invoke: () => adminApi.updateMemberStatus(1, true) },
-    { feature: "admin.getWatchStats", invoke: () => adminApi.getWatchStats() },
-    { feature: "admin.getMemberStats", invoke: () => adminApi.getMemberStats() },
-    { feature: "admin.getPaymentStats", invoke: () => adminApi.getPaymentStats() },
-    { feature: "admin.getAuthStats", invoke: () => adminApi.getAuthStats() },
-  ] as const;
-
-  it("Given the backend contract inventory, when counted, then five features are callable", () => {
-    // Given
-    const callableFeatures = Object.entries(backendFeatureInventory)
-      .filter(([, entry]) => entry.contractClass === "callable")
-      .map(([feature]) => feature);
-
-    // When
-    const callableFeatureCount = callableFeatures.length;
-
-    // Then
-    expect(callableFeatureCount).toBe(5);
-    expect(callableFeatures).toEqual([
-      "auth.getNaverLoginUrl",
-      "auth.loginWithNaverCallback",
-      "auth.renewSession",
-      "auth.logout",
-      "member.getMember",
-    ]);
-  });
-
-  it.each(unavailableCases)(
-    "Given $feature is non-callable, when invoked, then rejects before fetch with its stable feature ID",
-    async ({ feature, invoke }) => {
-      // Given
-      const fetchSpy = vi.spyOn(globalThis, "fetch");
-
-      // When
-      const request = invoke();
-
-      // Then
-      await expect(request).rejects.toEqual(
-        expect.objectContaining({
-          name: "BackendFeatureUnavailableError",
-          feature,
-        }),
-      );
-      expect(fetchSpy).not.toHaveBeenCalled();
-    },
-  );
-
-  it("Given every current API object export, when compared with the invocation table, then none is unclassified", () => {
-    // Given
-    const invokedFeatures = unavailableCases.map(({ feature }) => feature);
-    const currentExportFeatures = [
-      ...Object.keys(authApi).map((method) => `auth.${method}`),
-      ...Object.keys(memberApi).map((method) => `member.${method}`),
-      ...Object.keys(watchApi).map((method) => `watch.${method}`),
-      ...Object.keys(paymentApi).map((method) => `payment.${method}`),
-      ...Object.keys(adminApi).map((method) => `admin.${method}`),
-    ].filter(
-      (feature) =>
-        feature !== "auth.getNaverLoginUrl" &&
-        feature !== "auth.loginWithNaverCallback" &&
-        feature !== "auth.renewSession" &&
-        feature !== "auth.logout" &&
-        feature !== "member.getMember",
-    );
-
-    // When
-    const classifiedFeatures = Object.keys(backendFeatureInventory);
-
-    // Then
-    expect(invokedFeatures).toEqual(currentExportFeatures);
-    expect(classifiedFeatures).toEqual(
-      expect.arrayContaining([
-        "auth.getNaverLoginUrl",
-        "auth.loginWithNaverCallback",
-        "member.getMember",
-        ...currentExportFeatures,
-      ]),
-    );
-  });
+vi.mock("./client", () => ({ apiClient: { get: vi.fn(), post: vi.fn(), put: vi.fn(), postEmpty: vi.fn(), deleteEmpty: vi.fn() } }));
+beforeEach(() => vi.clearAllMocks());
+it("회원 수정과 탈퇴는 실제 회원 경로와 HTTP 방식으로 연결될 것이다", () => {
+  // given
+  const profile = { nickname: "새 이름", profileImageUrl: "https://example.com/avatar.png" };
+  // when
+  memberApi.updateMember(7, profile); memberApi.deleteMember(7);
+  // then
+  expect(apiClient.put).toHaveBeenCalledWith("/bff/member/7", profile, expect.any(Function));
+  expect(apiClient.deleteEmpty).toHaveBeenCalledWith("/bff/member/7");
+});
+it("타워 생성과 수정은 Duration과 모든 필수 필드를 전송할 것이다", () => {
+  // given
+  const create = { name: "관찰", url: "https://example.com", fetchInterval: "PT5M", includeInStat: true, notificationChannelIds: [3],
+    conditions: [{ type: "KEYWORD", keyword: "마감", isSatisfiedAtAppearance: false }] } as const;
+  const update = { name: "관찰", fetchInterval: "PT10M", includeInStat: false, status: "PAUSED" } as const;
+  // when
+  watchApi.createWatch(create); watchApi.updateWatch(9, update);
+  // then
+  expect(apiClient.postEmpty).toHaveBeenCalledWith("/bff/towers", create);
+  expect(apiClient.put).toHaveBeenCalledWith("/bff/towers/9", update, expect.any(Function));
+});
+it("조건 수정과 삭제는 타워에 속한 조건 경로를 사용할 것이다", () => {
+  // given
+  const input = { type: "REGEX", regex: "sale.*", isSatisfiedAtAppearance: true } as const;
+  // when
+  watchApi.createWatchCondition(9, input); watchApi.updateWatchCondition(9, 3, input); watchApi.deleteWatchCondition(9, 3);
+  // then
+  expect(apiClient.postEmpty).toHaveBeenCalledWith("/bff/towers/9/conditions", input);
+  expect(apiClient.put).toHaveBeenCalledWith("/bff/towers/9/conditions/3", input, expect.any(Function));
+  expect(apiClient.deleteEmpty).toHaveBeenCalledWith("/bff/towers/9/conditions/3");
+});
+it("목록의 커서 값과 검색 및 정렬은 서버에 전달될 것이다", () => {
+  // given
+  const criteria = { ...defaultSearch, query: "공고 &", sortField: "CREATED_AT", cursorId: 5, cursorValue: "2026-10-25T10:00:00" } as const;
+  // when
+  watchApi.listMemberWatches(7, criteria); notificationApi.listChannels(criteria);
+  // then
+  const calls = vi.mocked(apiClient.get).mock.calls.map(call => new URL(call[0], "https://front.example"));
+  for (const url of calls) {
+    expect(url.searchParams.get("query")).toBe("공고 &");
+    expect(url.searchParams.get("cursorValue")).toBe(criteria.cursorValue);
+    expect(url.searchParams.get("sortField")).toBe("CREATED_AT");
+  }
+});
+it("관리자 정지는 불리언과 사유를 함께 전송하고 권한은 별도 경로로 바꿀 것이다", () => {
+  // given
+  const status = { banned: true, banReason: "반복적인 정책 위반" };
+  // when
+  adminApi.updateMemberStatus(7, status); adminApi.updateMemberRole(7, "ADMIN");
+  // then
+  expect(apiClient.put).toHaveBeenCalledWith("/bff/admin/members/7/status", status, expect.any(Function));
+  expect(apiClient.put).toHaveBeenCalledWith("/bff/admin/members/7/roles", { role: "ADMIN" }, expect.any(Function));
+});
+it("관리자 목록은 오프셋 페이지와 서버 검색을 요청할 것이다", () => {
+  // given
+  const criteria = { ...defaultSearch, query: "회원", page: 2 };
+  // when
+  adminApi.getMembers(criteria);
+  // then
+  const url = new URL(vi.mocked(apiClient.get).mock.calls[0]?.[0] ?? "", "https://front.example");
+  expect(url.pathname).toBe("/bff/admin/members");
+  expect(url.searchParams.get("page")).toBe("2");
+  expect(url.searchParams.get("query")).toBe("회원");
+});
+it("알림 채널 수정에서는 생성할 때 정한 유형을 보내지 않을 것이다", () => {
+  // given
+  const update = { name: "알림", webhookUrl: "https://example.com/hook" };
+  // when
+  notificationApi.updateChannel(3, update);
+  // then
+  expect(apiClient.put).toHaveBeenCalledWith("/bff/notification/channels/3", update, expect.any(Function));
 });

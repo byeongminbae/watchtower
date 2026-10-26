@@ -14,7 +14,7 @@ it("Given a legacy public API origin, when the browser calls the API, then it st
   vi.resetModules();
   const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
     new Response(
-      JSON.stringify({ success: true, data: "ok", timestamp: TIMESTAMP }),
+      JSON.stringify({ isSuccess: true, data: "ok", timestamp: TIMESTAMP }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     ),
   );

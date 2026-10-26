@@ -1,114 +1,36 @@
 "use client";
 
-import {
-  Alert,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  MenuItem,
-  Stack,
-  TextField,
-} from "@mui/material";
 import React from "react";
-import { WatchConditionType } from "@/types/domain";
-import { CreateWatchConditionRequest } from "@/lib/api/watch";
-import { ApiError } from "@/lib/api/errors";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import type { WatchConditionInput } from "@/types/tower";
+import { isConditionComplete } from "@/lib/tower";
+import ConditionFields from "./ConditionFields";
 
-export default function AddConditionDialog({
-  open,
-  onClose,
-  onAdd,
-  currentCount,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onAdd: (condition: CreateWatchConditionRequest) => Promise<void>;
-  currentCount: number;
+export default function AddConditionDialog({ open, onClose, onAdd, initial }: {
+  readonly open: boolean;
+  readonly onClose: () => void;
+  readonly onAdd: (condition: WatchConditionInput) => Promise<void>;
+  readonly initial?: WatchConditionInput;
 }) {
-  const [type, setType] = React.useState<WatchConditionType>("HTML_FULL");
-  const [keyword, setKeyword] = React.useState("");
-  const [regex, setRegex] = React.useState("");
-  const [submitting, setSubmitting] = React.useState(false);
+  const [condition, setCondition] = React.useState<WatchConditionInput>(initial ?? { type: "HTML" });
+  const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-
-  const reachedLimit = currentCount >= 3;
-
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    setError(null);
-    try {
-      await onAdd({
-        type,
-        keyword: type === "KEYWORD" ? keyword : undefined,
-        regex: type === "REGEX" ? regex : undefined,
-      });
-      setKeyword("");
-      setRegex("");
-      setType("HTML_FULL");
-      onClose();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "조건 추가에 실패했습니다.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const canSubmit =
-    !reachedLimit && (type === "HTML_FULL" || (type === "KEYWORD" && keyword.trim() !== "") || (type === "REGEX" && regex.trim() !== ""));
-
-  return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle sx={{ fontWeight: 700 }}>감지 조건 추가</DialogTitle>
-      <DialogContent>
-        <Stack spacing={3} sx={{ mt: 1 }}>
-          {error && <Alert severity="error">{error}</Alert>}
-          {reachedLimit && <Alert severity="warning">조건은 최대 3개까지 등록할 수 있습니다.</Alert>}
-
-          <TextField
-            select
-            label="감지 조건"
-            value={type}
-            onChange={(e) => setType(e.target.value as WatchConditionType)}
-            disabled={reachedLimit}
-          >
-            <MenuItem value="HTML_FULL">전체 변경 감지</MenuItem>
-            <MenuItem value="KEYWORD">키워드 등장/소멸 감지</MenuItem>
-            <MenuItem value="REGEX">정규식 감지</MenuItem>
-          </TextField>
-
-          {type === "KEYWORD" && (
-            <TextField
-              label="키워드"
-              placeholder="예: 재입고"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              disabled={reachedLimit}
-              autoFocus
-            />
-          )}
-          {type === "REGEX" && (
-            <TextField
-              label="정규식"
-              placeholder="예: 당첨자\s?발표"
-              value={regex}
-              onChange={(e) => setRegex(e.target.value)}
-              disabled={reachedLimit}
-              autoFocus
-            />
-          )}
-        </Stack>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 3 }}>
-        <Button onClick={onClose} color="inherit" disabled={submitting}>
-          취소
-        </Button>
-        <Button onClick={handleSubmit} variant="contained" color="secondary" disabled={!canSubmit || submitting}>
-          {submitting ? <CircularProgress size={20} color="inherit" /> : "추가하기"}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (busy || !isConditionComplete(condition)) return;
+    setBusy(true); setError(null);
+    try { await onAdd(condition); onClose(); }
+    catch (reason) { if (!(reason instanceof Error)) throw reason; setError(reason.message); }
+    finally { setBusy(false); }
+  }
+  return <Dialog open={open} onOpenChange={nextOpen => { if (!nextOpen && !busy) onClose(); }}><DialogContent showCloseButton={!busy}>
+    <form onSubmit={submit} className="flex min-w-0 flex-col gap-6">
+      <DialogHeader><DialogTitle>{initial ? "감지 조건 수정" : "감지 조건 추가"}</DialogTitle><DialogDescription>알림을 받고 싶은 변화만 골라 설정해요.</DialogDescription></DialogHeader>
+      {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+      <ConditionFields value={condition} onChange={setCondition} lockType={initial !== undefined} />
+      <DialogFooter><Button variant="outline" onClick={onClose} disabled={busy}>취소</Button><Button type="submit" disabled={busy || !isConditionComplete(condition)}>{busy ? "저장 중" : "저장"}</Button></DialogFooter>
+    </form>
+  </DialogContent></Dialog>;
 }

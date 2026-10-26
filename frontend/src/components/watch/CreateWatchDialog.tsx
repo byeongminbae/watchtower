@@ -1,158 +1,65 @@
 "use client";
 
-import {
-  Alert,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControlLabel,
-  MenuItem,
-  Slider,
-  Stack,
-  Switch,
-  TextField,
-  Typography,
-} from "@mui/material";
 import React from "react";
-import { CreateWatchRequest } from "@/lib/api/watch";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import type { CreateWatchRequest } from "@/lib/api/watch";
+import type { WatchConditionInput } from "@/types/tower";
 import { ApiError } from "@/lib/api/errors";
-import { WatchConditionType } from "@/types/domain";
+import { isConditionComplete } from "@/lib/tower";
+import ConditionFields from "./ConditionFields";
+import ChannelSelection from "./ChannelSelection";
 
-const INTERVAL_MARKS = [
-  { value: 5, label: "5분" },
-  { value: 60, label: "1시간" },
-  { value: 720, label: "12시간" },
-  { value: 1440, label: "24시간" },
-];
-
-export default function CreateWatchDialog({
-  open,
-  onClose,
-  onSubmit,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onSubmit: (payload: CreateWatchRequest) => Promise<void>;
+export default function CreateWatchDialog({ open, onClose, onSubmit }: {
+  readonly open: boolean;
+  readonly onClose: () => void;
+  readonly onSubmit: (payload: CreateWatchRequest) => Promise<void>;
 }) {
+  const id = React.useId();
   const [name, setName] = React.useState("");
   const [url, setUrl] = React.useState("");
-  const [conditionType, setConditionType] = React.useState<WatchConditionType>("HTML_FULL");
-  const [keyword, setKeyword] = React.useState("");
-  const [interval, setInterval] = React.useState(5);
+  const [condition, setCondition] = React.useState<WatchConditionInput>({ type: "HTML" });
+  const [minutes, setMinutes] = React.useState(5);
   const [includeInStat, setIncludeInStat] = React.useState(true);
+  const [channels, setChannels] = React.useState<readonly number[]>([]);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-
-  const resetForm = () => {
-    setName("");
-    setUrl("");
-    setConditionType("HTML_FULL");
-    setKeyword("");
-    setInterval(5);
-    setIncludeInStat(true);
-    setError(null);
-  };
-
-  const handleClose = () => {
-    if (submitting) return;
-    resetForm();
-    onClose();
-  };
-
-  const canSubmit = name.trim() !== "" && url.trim() !== "" && (conditionType !== "KEYWORD" || keyword.trim() !== "");
-
-  const handleSubmit = async () => {
-    if (!canSubmit) return;
-    setSubmitting(true);
-    setError(null);
+  const valid = name.trim().length > 0 && name.length <= 255 && /^https?:\/\//i.test(url) && minutes >= 5 && minutes <= 1440 && minutes % 5 === 0 && isConditionComplete(condition);
+  const close = () => { if (!submitting) onClose(); };
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!valid || submitting) return;
+    setSubmitting(true); setError(null);
     try {
-      await onSubmit({
-        name,
-        url,
-        fetchIntervalSeconds: interval * 60,
-        includeInStat,
-        conditions: [
-          conditionType === "KEYWORD" ? { type: "KEYWORD", keyword } : { type: conditionType },
-        ],
-      });
-      resetForm();
+      await onSubmit({ name, url, fetchInterval: `PT${minutes}M`, includeInStat, notificationChannelIds: channels, conditions: [condition] });
       onClose();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "와치 등록에 실패했습니다.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
-      <DialogTitle sx={{ fontWeight: 700 }}>새 와치 등록</DialogTitle>
-      <DialogContent>
-        <Stack spacing={3} sx={{ mt: 1 }}>
-          {error && <Alert severity="error">{error}</Alert>}
-
-          <TextField
-            label="사이트 이름"
-            placeholder="예: 회사 채용 공고"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            fullWidth
-          />
-          <TextField
-            label="감시할 URL"
-            placeholder="https://example.com"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            fullWidth
-          />
-
-          <TextField
-            select
-            label="감지 조건"
-            value={conditionType}
-            onChange={(e) => setConditionType(e.target.value as WatchConditionType)}
-          >
-            <MenuItem value="HTML_FULL">전체 변경 감지</MenuItem>
-            <MenuItem value="KEYWORD">키워드 등장/소멸 감지</MenuItem>
-          </TextField>
-          {conditionType === "KEYWORD" && (
-            <TextField label="키워드" value={keyword} onChange={(e) => setKeyword(e.target.value)} fullWidth />
-          )}
-
-          <div>
-            <Typography variant="body2" gutterBottom>
-              확인 주기: {interval < 60 ? `${interval}분` : `${interval / 60}시간`}
-            </Typography>
-            <Slider
-              value={interval}
-              onChange={(_, v) => setInterval(v as number)}
-              min={5}
-              max={1440}
-              step={5}
-              marks={INTERVAL_MARKS}
-              color="secondary"
-            />
-          </div>
-
-          <FormControlLabel
-            control={
-              <Switch checked={includeInStat} onChange={(e) => setIncludeInStat(e.target.checked)} color="secondary" />
-            }
-            label="실시간 Hot URL 통계에 포함"
-          />
-        </Stack>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 3 }}>
-        <Button onClick={handleClose} color="inherit" disabled={submitting}>
-          취소
-        </Button>
-        <Button onClick={handleSubmit} variant="contained" color="secondary" disabled={!canSubmit || submitting}>
-          {submitting ? <CircularProgress size={20} color="inherit" /> : "등록하기"}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
+    } catch (reason) {
+      if (!(reason instanceof Error)) throw reason;
+      setError(reason instanceof ApiError ? reason.message : "타워 등록에 실패했어요.");
+    } finally { setSubmitting(false); }
+  }
+  return <Dialog open={open} onOpenChange={nextOpen => { if (!nextOpen) close(); }}>
+    <DialogContent className="sm:max-w-lg" showCloseButton={!submitting}>
+      <form onSubmit={submit} className="flex min-w-0 flex-col gap-6">
+        <DialogHeader><DialogTitle>새 타워 등록</DialogTitle><DialogDescription>페이지와 감지 조건을 등록하면 변화를 대신 확인해 드려요.</DialogDescription></DialogHeader>
+        {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+        <FieldGroup>
+          <Field><FieldLabel htmlFor={`${id}-name`}>사이트 이름</FieldLabel><Input id={`${id}-name`} required value={name} onChange={event => setName(event.target.value)} placeholder="예: 채용 공고" maxLength={255} /></Field>
+          <Field><FieldLabel htmlFor={`${id}-url`}>감시할 URL</FieldLabel><Input id={`${id}-url`} type="url" required value={url} onChange={event => setUrl(event.target.value)} placeholder="https://example.com" /></Field>
+          <Separator />
+          <ConditionFields value={condition} onChange={setCondition} />
+          <Field><FieldLabel htmlFor={`${id}-interval`}>확인 주기 (분)</FieldLabel><Input id={`${id}-interval`} type="number" required min={5} max={1440} step={5} value={minutes} onChange={event => setMinutes(Number(event.target.value))} /><FieldDescription>5분부터 24시간까지, 5분 단위로 설정해요.</FieldDescription></Field>
+          <Field orientation="horizontal"><Switch id={`${id}-statistics`} checked={includeInStat} onCheckedChange={setIncludeInStat} /><FieldLabel htmlFor={`${id}-statistics`}>인기 URL 통계에 포함</FieldLabel></Field>
+          <Separator />
+          <ChannelSelection selected={channels} onChange={setChannels} />
+        </FieldGroup>
+        <DialogFooter><Button variant="outline" onClick={close} disabled={submitting}>취소</Button><Button type="submit" disabled={!valid || submitting}>{submitting ? "등록 중" : "등록"}</Button></DialogFooter>
+      </form>
+    </DialogContent>
+  </Dialog>;
 }

@@ -1,105 +1,38 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearSession, commitSession } from "@/lib/session";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
 import { AuthProvider, useAuth } from "./AuthContext";
+import { clearSession, commitSession } from "./session";
 
-const NOW_SECONDS = 2_000_000_000;
-const { getMember, logout } = vi.hoisted(() => ({
-  getMember: vi.fn(),
-  logout: vi.fn(),
-}));
-
-vi.mock("@/lib/api", () => ({
-  authApi: { logout },
-  memberApi: { getMember },
-}));
-
-function createJwt(payload: object): string {
-  const encode = (value: object): string =>
-    btoa(JSON.stringify(value))
-      .replaceAll("+", "-")
-      .replaceAll("/", "_")
-      .replaceAll("=", "");
-  return `${encode({ alg: "none", typ: "JWT" })}.${encode(payload)}.fixture`;
-}
-
-function installSession(): void {
-  commitSession(
-    createJwt({
-      sub: "7",
-      role: "NORMAL",
-      iat: NOW_SECONDS,
-      exp: NOW_SECONDS + 60,
-    }),
-    createJwt({
-      sub: "7",
-      iat: NOW_SECONDS,
-      exp: NOW_SECONDS + 600,
-    }),
-  );
-}
-
-function StaleProfileProbe(): React.JSX.Element {
-  const { isLoggedIn, member, logout } = useAuth();
-  return (
-    <>
-      <output aria-label="login-state">{isLoggedIn ? "authenticated" : "anonymous"}</output>
-      <output aria-label="profile-state">{member === null ? "none" : "present"}</output>
-      <button onClick={logout}>로컬 로그아웃</button>
-    </>
-  );
-}
-
-describe("AuthProvider stale profile handling", () => {
-  beforeEach(() => {
-    vi.setSystemTime(NOW_SECONDS * 1_000);
+const mocks = vi.hoisted(() => ({ session: vi.fn(), profile: vi.fn(), logout: vi.fn() }));
+vi.mock("@/lib/api", () => ({ authApi: { getSession: mocks.session, logout: mocks.logout }, memberApi: { getMember: mocks.profile } }));
+function Probe() { const auth = useAuth(); return <output aria-label="프로필">{auth.member?.nickname ?? "없음"}</output>; }
+beforeEach(() => { clearSession(); vi.resetAllMocks(); mocks.session.mockResolvedValue({ data: { memberId: 7, role: "NORMAL" } }); });
+it("로그아웃 후 이전 프로필 요청이 완료돼도 프로필을 복원하지 않을 것이다", async () => {
+  // given
+  let resolve: (value: object) => void = () => undefined;
+  mocks.profile.mockReturnValue(new Promise<object>(done => { resolve = done; }));
+  render(<AuthProvider><Probe /></AuthProvider>);
+  await waitFor(() => expect(mocks.profile).toHaveBeenCalledWith(7));
+  // when
+  await act(async () => {
     clearSession();
-    getMember.mockReset();
-    logout.mockReset();
+    resolve({ data: { id: 7, nickname: "이전 회원", email: "old@example.com", profileImageUrl: "", lastSignInAt: "2026-10-26T10:00:00" } });
   });
-
-  afterEach(() => {
-    vi.useRealTimers();
-    clearSession();
-  });
-
-  it("Given a pending profile request, when logged out before it resolves, then stale profile cannot restore state", async () => {
-    // Given
-    installSession();
-    let resolveProfile: (value: object) => void = () => undefined;
-    getMember.mockReturnValue(
-      new Promise<object>((resolve) => {
-        resolveProfile = resolve;
-      }),
-    );
-    render(
-      <React.StrictMode>
-        <AuthProvider>
-          <StaleProfileProbe />
-        </AuthProvider>
-      </React.StrictMode>,
-    );
-
-    // When
-    fireEvent.click(screen.getByRole("button", { name: "로컬 로그아웃" }));
-    await act(async () => {
-      resolveProfile({
-        success: true,
-        data: {
-          id: 7,
-          nickname: "늦은 회원",
-          email: "late@example.com",
-          profileImageUrl: "",
-          role: "NORMAL",
-          lastSignInAt: "2033-05-18T00:00:00Z",
-        },
-        timestamp: "2033-05-18T00:00:00Z",
-      });
-    });
-
-    // Then
-    expect(screen.getByLabelText("login-state")).toHaveTextContent("anonymous");
-    expect(screen.getByLabelText("profile-state")).toHaveTextContent("none");
-  });
+  // then
+  expect(screen.getByLabelText("프로필")).toHaveTextContent("없음");
+});
+it("다른 회원으로 전환하면 이전 회원의 지연된 응답을 표시하지 않을 것이다", async () => {
+  // given
+  let resolve: (value: object) => void = () => undefined;
+  mocks.profile.mockImplementation((id: number) => id === 7 ? new Promise<object>(done => { resolve = done; }) :
+    Promise.resolve({ data: { id: 8, nickname: "현재 회원", email: "new@example.com", profileImageUrl: "", lastSignInAt: "2026-10-26T10:00:00" } }));
+  render(<AuthProvider><Probe /></AuthProvider>);
+  await waitFor(() => expect(mocks.profile).toHaveBeenCalledWith(7));
+  // when
+  await act(async () => commitSession({ memberId: 8, role: "NORMAL" }));
+  await screen.findByText("현재 회원");
+  await act(async () => resolve({ data: { id: 7, nickname: "이전 회원", email: "old@example.com", profileImageUrl: "", lastSignInAt: "2026-10-26T10:00:00" } }));
+  // then
+  expect(screen.getByLabelText("프로필")).toHaveTextContent("현재 회원");
 });

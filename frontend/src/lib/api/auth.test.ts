@@ -1,166 +1,44 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { authApi } from "./auth";
 
-const TIMESTAMP = "2026-07-29T10:00:00";
-
-function response(data: unknown): Response {
-  return new Response(
-    JSON.stringify({ success: true, data, timestamp: TIMESTAMP }),
-    { status: 200, headers: { "Content-Type": "application/json" } },
-  );
-}
-
-function emptyResponse(): Response {
-  return new Response(
-    JSON.stringify({ success: true, timestamp: TIMESTAMP }),
-    { status: 200, headers: { "Content-Type": "application/json" } },
-  );
-}
-
-describe("authApi.getNaverLoginUrl", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("Given a Naver HTTPS authorize URL, when requested, then returns the parsed provider URL", async () => {
-    // Given
-    const authorizeUrl =
-      "https://nid.naver.com/oauth2.0/authorize?response_type=code&state=fixture-state";
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(response(authorizeUrl));
-
-    // When
-    const result = await authApi.getNaverLoginUrl("fixture-state");
-
-    // Then
-    expect(result.data).toBe(authorizeUrl);
-  });
-
-  it("Given an attacker-controlled URL, when requested, then rejects the malformed response", async () => {
-    // Given
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(response("https://attacker.example/oauth"));
-
-    // When
-    const request = authApi.getNaverLoginUrl("fixture-state");
-
-    // Then
-    await expect(request).rejects.toMatchObject({
-      name: "ApiError",
-      status: 200,
-      code: "INVALID_RESPONSE",
-    });
-  });
-
-  it.each([
-    "not a URL",
-    "http://nid.naver.com/oauth2.0/authorize",
-    "https://nid.naver.com/oauth2.0/token",
-    "https://nid.naver.com.evil.example/oauth2.0/authorize",
-  ])("Given malformed provider URL %s, when requested, then rejects it", async (url) => {
-    // Given
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(response(url));
-
-    // When
-    const request = authApi.getNaverLoginUrl("fixture-state");
-
-    // Then
-    await expect(request).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
-  });
+const timestamp = "2026-10-26T12:00:00";
+afterEach(() => vi.restoreAllMocks());
+it("네이버 로그인 URL을 가져올 때 GET 요청에도 CSRF를 전송할 것이다", async () => {
+  // given
+  const provider = "https://nid.naver.com/oauth2.0/authorize?state=fixture";
+  const fetch = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({ isSuccess: true, timestamp, data: { token: "csrf", headerName: "X-CSRF-TOKEN" } }))
+    .mockResolvedValueOnce(Response.json({ isSuccess: true, timestamp, data: provider }));
+  // when
+  const result = await authApi.getNaverLoginUrl("state /+");
+  // then
+  expect(result.data).toBe(provider);
+  expect(fetch).toHaveBeenNthCalledWith(2, "/bff/auth/naver/url?state=state%20%2F%2B", expect.objectContaining({ headers: { "Content-Type": "application/json", "X-CSRF-TOKEN": "csrf" } }));
 });
-
-describe("authApi.loginWithNaverCallback", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("Given the backend token contract, when the callback is exchanged, then returns the typed token pair", async () => {
-    // Given
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      response({
-        accessToken: "access.jwt.fixture",
-        refreshToken: "refresh.jwt.fixture",
-        accessTokenExpiry: 2_000_000_000,
-      }),
-    );
-
-    // When
-    const result = await authApi.loginWithNaverCallback("fixture-code", "fixture-state");
-
-    // Then
-    expect(result.data).toEqual({
-      accessToken: "access.jwt.fixture",
-      refreshToken: "refresh.jwt.fixture",
-      accessTokenExpiry: 2_000_000_000,
-    });
-    expect(fetch).toHaveBeenCalledWith(
-      "/bff/auth/naver/callback?code=fixture-code&state=fixture-state",
-      expect.objectContaining({ method: "GET" }),
-    );
-  });
-
-  it.each([
-    { accessToken: "", refreshToken: "refresh", accessTokenExpiry: 2_000_000_000 },
-    { accessToken: "access", refreshToken: "", accessTokenExpiry: 2_000_000_000 },
-    { accessToken: "access", refreshToken: "refresh" },
-    { accessToken: "access", refreshToken: "refresh", accessTokenExpiry: "soon" },
-  ])(
-    "Given malformed callback data %#, when exchanged, then rejects the response",
-    async (data) => {
-      // Given
-      vi.spyOn(globalThis, "fetch").mockResolvedValue(response(data));
-
-      // When
-      const request = authApi.loginWithNaverCallback("fixture-code", "fixture-state");
-
-      // Then
-      await expect(request).rejects.toMatchObject({
-        name: "ApiError",
-        code: "INVALID_RESPONSE",
-      });
-    },
-  );
+it.each(["https://attacker.example/", "http://nid.naver.com/oauth2.0/authorize", "https://nid.naver.com.evil.example/oauth2.0/authorize", "https://nid.naver.com/oauth2.0/token", "not a URL"])("공급자 URL %s가 허용한 주소가 아니면 거부할 것이다", async provider => {
+  // given
+  vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({ isSuccess: true, timestamp, data: { token: "csrf", headerName: "X-CSRF-TOKEN" } }))
+    .mockResolvedValueOnce(Response.json({ isSuccess: true, timestamp, data: provider }));
+  // when
+  const request = authApi.getNaverLoginUrl("fixture");
+  // then
+  await expect(request).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
 });
-
-describe("authApi session endpoints", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("Given a refresh token, when renewed, then sends it only to the Next session endpoint body", async () => {
-    // Given
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      response({
-        accessToken: "renewed.access.fixture",
-        refreshToken: "renewed.refresh.fixture",
-        accessTokenExpiry: 3_600_000,
-      }),
-    );
-
-    // When
-    const result = await authApi.renewSession("refresh token/fixture");
-
-    // Then
-    expect(result.data.accessToken).toBe("renewed.access.fixture");
-    expect(fetch).toHaveBeenCalledWith(
-      "/bff/auth/renew",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ refreshToken: "refresh token/fixture" }),
-      }),
-    );
-  });
-
-  it("Given an authenticated session, when logged out, then accepts the empty success response", async () => {
-    // Given
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(emptyResponse());
-
-    // When
-    const result = await authApi.logout();
-
-    // Then
-    expect(result).toEqual({ success: true, timestamp: TIMESTAMP });
-    expect(fetch).toHaveBeenCalledWith(
-      "/bff/auth/logout",
-      expect.objectContaining({ method: "DELETE" }),
-    );
-  });
+it("OAuth 콜백은 JWT 대신 회원 식별자와 권한을 받을 것이다", async () => {
+  // given
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ isSuccess: true, timestamp, data: { memberId: 7, role: "ADMIN" } }));
+  // when
+  const result = await authApi.loginWithNaverCallback("code /+", "state /+");
+  // then
+  expect(result.data).toEqual({ memberId: 7, role: "ADMIN" });
+  expect(fetch).toHaveBeenCalledWith("/bff/auth/naver/callback?code=code%20%2F%2B&state=state%20%2F%2B", expect.anything());
+});
+it.each([{ accessToken: "legacy", refreshToken: "legacy" }, { memberId: 7, role: "ROOT" }])("세션 응답 %j가 현재 계약과 다르면 거부할 것이다", async data => {
+  // given
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ isSuccess: true, timestamp, data }));
+  // when
+  const request = authApi.getSession();
+  // then
+  await expect(request).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
 });

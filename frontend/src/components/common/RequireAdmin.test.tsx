@@ -1,135 +1,43 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import React from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthProvider } from "@/lib/AuthContext";
-import { clearSession, commitSession } from "@/lib/session";
-import RequireAdmin from "./RequireAdmin";
-
-const NOW_SECONDS = 2_000_000_000;
-const { getMember, replace } = vi.hoisted(() => ({
-  getMember: vi.fn(),
-  replace: vi.fn(),
-}));
-
-vi.mock("@/lib/api", () => ({
-  memberApi: { getMember },
-}));
-
-vi.mock("next/navigation", () => ({
-  usePathname: () => "/admin",
-  useRouter: () => ({ replace }),
-}));
-
-function createJwt(payload: object): string {
-  const encode = (value: object): string =>
-    btoa(JSON.stringify(value))
-      .replaceAll("+", "-")
-      .replaceAll("/", "_")
-      .replaceAll("=", "");
-  return `${encode({ alg: "none", typ: "JWT" })}.${encode(payload)}.fixture`;
-}
-
-function installSession(role: "NORMAL" | "ADMIN"): void {
-  commitSession(
-    createJwt({
-      sub: "11",
-      role,
-      iat: NOW_SECONDS,
-      exp: NOW_SECONDS + 60,
-    }),
-    createJwt({
-      sub: "11",
-      iat: NOW_SECONDS,
-      exp: NOW_SECONDS + 600,
-    }),
-  );
-}
-
-describe("RequireAdmin", () => {
-  beforeEach(() => {
-    vi.setSystemTime(NOW_SECONDS * 1_000);
-    history.replaceState(null, "", "/admin");
-    clearSession();
-    getMember.mockReset();
-    replace.mockReset();
-  });
-
-  it("Given an anonymous admin deep link, when redirected to login, then preserves its query and fragment", async () => {
-    // Given
-    history.replaceState(null, "", "/admin?tab=users#suspended");
-
-    // When
-    render(
-      <AuthProvider>
-        <RequireAdmin>
-          <span>관리 화면</span>
-        </RequireAdmin>
-      </AuthProvider>,
-    );
-
-    // Then
-    await waitFor(() => {
-      expect(replace).toHaveBeenCalledWith(
-        "/login?next=%2Fadmin%3Ftab%3Dusers%23suspended",
-      );
-    });
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-    clearSession();
-  });
-
-  it("Given an ADMIN principal and mismatched NORMAL profile, when mounted in StrictMode, then renders admin children", () => {
-    // Given
-    installSession("ADMIN");
-    getMember.mockResolvedValue({
-      success: true,
-      data: {
-        id: 11,
-        nickname: "관리자",
-        email: "admin@example.com",
-        profileImageUrl: "",
-        role: "NORMAL",
-        lastSignInAt: "2033-05-18T00:00:00Z",
-      },
-      timestamp: "2033-05-18T00:00:00Z",
-    });
-
-    // When
-    render(
-      <React.StrictMode>
-        <AuthProvider>
-          <RequireAdmin>
-            <span>관리 화면</span>
-          </RequireAdmin>
-        </AuthProvider>
-      </React.StrictMode>,
-    );
-
-    // Then
-    expect(screen.getByText("관리 화면")).toBeVisible();
-    expect(replace).not.toHaveBeenCalled();
-  });
-
-  it("Given a NORMAL principal, when mounted, then renders the access-denied state", () => {
-    // Given
-    installSession("NORMAL");
-    getMember.mockReturnValue(new Promise(() => undefined));
-
-    // When
-    render(
-      <React.StrictMode>
-        <AuthProvider>
-          <RequireAdmin>
-            <span>관리 화면</span>
-          </RequireAdmin>
-        </AuthProvider>
-      </React.StrictMode>,
-    );
-
-    // Then
-    expect(screen.getByText("접근 권한이 없습니다")).toBeVisible();
-    expect(screen.queryByText("관리 화면")).not.toBeInTheDocument();
-  });
+import { beforeEach, expect, it, vi } from "vitest";
+import Guard from "./RequireAdmin";
+const mocks = vi.hoisted(() => ({ initializing: false, loggedIn: false, role: "NORMAL", replace: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: mocks.replace }) }));
+vi.mock("@/lib/AuthContext", () => ({ useAuth: () => ({ isInitializing: mocks.initializing, isLoggedIn: mocks.loggedIn, principal: { memberId: 7, role: mocks.role } }) }));
+beforeEach(() => { mocks.initializing = false; mocks.loggedIn = false; mocks.role = "NORMAL"; mocks.replace.mockClear(); });
+it("세션 복원이 진행 중이면 보호된 내용을 표시하지 않을 것이다", () => {
+  // given
+  mocks.initializing = true;
+  // when
+  render(<Guard><div>보호된 내용</div></Guard>);
+  // then
+  expect(screen.getByRole("progressbar")).toBeVisible();
+  expect(screen.queryByText("보호된 내용")).not.toBeInTheDocument();
+  expect(mocks.replace).not.toHaveBeenCalled();
+});
+it("비로그인 상태이면 원래 경로를 포함한 로그인 화면으로 이동할 것이다", async () => {
+  // given
+  history.replaceState(null, "", "/admin?page=2");
+  // when
+  render(<Guard><div>보호된 내용</div></Guard>);
+  // then
+  await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/login?next=%2Fadmin%3Fpage%3D2"));
+  expect(screen.queryByText("보호된 내용")).not.toBeInTheDocument();
+});
+it("필요한 로그인과 관리자 권한이 있으면 보호된 내용을 표시할 것이다", () => {
+  // given
+  mocks.loggedIn = true; mocks.role = "ADMIN";
+  // when
+  render(<Guard><div>보호된 내용</div></Guard>);
+  // then
+  expect(screen.getByText("보호된 내용")).toBeVisible();
+});
+it("일반 회원이면 관리자 내용을 표시하지 않을 것이다", () => {
+  // given
+  mocks.loggedIn = true;
+  // when
+  render(<Guard><div>보호된 내용</div></Guard>);
+  // then
+  expect(screen.queryByText("보호된 내용")).not.toBeInTheDocument();
+  expect(screen.getByText("접근 권한이 없습니다")).toBeVisible();
 });

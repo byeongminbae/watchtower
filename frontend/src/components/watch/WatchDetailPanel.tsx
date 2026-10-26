@@ -1,274 +1,119 @@
 "use client";
 
-import {
-  Alert,
-  Avatar,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Divider,
-  IconButton,
-  Snackbar,
-  Stack,
-  Tooltip,
-  Typography,
-} from "@mui/material";
-import LanguageIcon from "@mui/icons-material/Language";
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import PauseIcon from "@mui/icons-material/Pause";
-import NotificationsActiveOutlinedIcon from "@mui/icons-material/NotificationsActiveOutlined";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
-import AddIcon from "@mui/icons-material/Add";
-import LinkIcon from "@mui/icons-material/Link";
-import Link from "next/link";
 import React from "react";
-import { Watch, WatchCondition, WatchSnapshot } from "@/types/domain";
-import WatchStatusDot from "./WatchStatusDot";
+import { Edit3, Globe, Pause, Play, Plus, ScanLine, ShieldBan, Sparkles, Trash2, X } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertDialogAction, AlertDialogCancel, AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from "@/components/ui/empty";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Spinner } from "@/components/ui/spinner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import type { Watch, WatchCondition, WatchConditionInput } from "@/types/tower";
+import { watchApi } from "@/lib/api";
+import { useApiData } from "@/lib/useApiData";
+import WatchActivity from "./WatchActivity";
 import SnapshotTimeline from "./SnapshotTimeline";
 import AddConditionDialog from "./AddConditionDialog";
-import { watchApi } from "@/lib/api";
-import { CreateWatchConditionRequest } from "@/lib/api/watch";
-import { ApiError } from "@/lib/api/errors";
+import EditWatchDialog from "./EditWatchDialog";
 
-const CONDITION_LABEL: Record<string, string> = {
-  HTML_FULL: "전체 변경 감지",
-  KEYWORD: "키워드 감지",
-  REGEX: "정규식 감지",
-};
-
-export default function WatchDetailPanel({
-  watch,
-  snapshots,
-  snapshotsLoading = false,
-  onChanged,
-}: {
-  watch: Watch;
-  snapshots: WatchSnapshot[];
-  snapshotsLoading?: boolean;
-  // 상태 변경(일시정지/재개, 조건 추가/삭제)이 성공했을 때 부모에게 재조회를 요청
-  onChanged?: () => void;
+export default function WatchDetailPanel({ watch, onChanged, onDeleted, headingLevel = 1 }: {
+  readonly watch: Watch;
+  readonly onChanged?: () => void;
+  readonly onDeleted?: () => void;
+  readonly headingLevel?: 1 | 2;
 }) {
-  const isPaused = watch.status === "PAUSED";
-  // watch가 바뀌면 부모에서 key={watch.id}로 이 컴포넌트를 리마운트시켜 초기값을 새로 반영함
-  const [conditions, setConditions] = React.useState<WatchCondition[]>(watch.conditions ?? []);
-  const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [togglingStatus, setTogglingStatus] = React.useState(false);
-  const [sendingNotification, setSendingNotification] = React.useState(false);
-  const [toast, setToast] = React.useState<{ message: string; severity: "success" | "error" } | null>(null);
+  const conditions = useApiData(() => watchApi.getWatchConditions(watch.id).then(r => r.data), [watch.id]);
+  const snapshots = useApiData(() => watchApi.listWatchSnapshots(watch.id).then(r => r.data), [watch.id]);
+  const [conditionDialog, setConditionDialog] = React.useState<{ readonly initial?: WatchCondition } | null>(null);
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const suspended = watch.status === "ILLEGAL_SUSPENDED";
+  const Heading = headingLevel === 1 ? "h1" : "h2";
 
-  React.useEffect(() => {
-    watchApi
-      .getWatchConditions(watch.id)
-      .then((res) => setConditions(res.data))
-      .catch(() => {
-        /* 조건 목록 로드 실패 시 초기값(watch.conditions) 유지 */
-      });
-  }, [watch.id]);
-
-  const handleAddCondition = async (condition: CreateWatchConditionRequest) => {
-    const res = await watchApi.createWatchCondition(watch.id, condition);
-    setConditions((prev) => [...prev, res.data]);
-  };
-
-  const handleDeleteCondition = async (id: number) => {
-    const prev = conditions;
-    setConditions((c) => c.filter((cond) => cond.id !== id));
+  async function toggleStatus() {
+    if (suspended || busy) return;
+    setBusy(true); setError(null);
     try {
-      await watchApi.deleteWatchCondition(watch.id, id);
-    } catch (err) {
-      setConditions(prev); // 실패 시 롤백
-      setToast({
-        message: err instanceof ApiError ? err.message : "조건 삭제에 실패했습니다.",
-        severity: "error",
+      await watchApi.updateWatch(watch.id, {
+        name: watch.name,
+        fetchInterval: watch.fetchInterval,
+        includeInStat: watch.includeInStat,
+        status: watch.status === "RUNNING" ? "PAUSED" : "RUNNING"
       });
-    }
-  };
-
-  const handleToggleStatus = async () => {
-    setTogglingStatus(true);
-    try {
-      await watchApi.updateWatch(watch.id, { status: isPaused ? "RUNNING" : "PAUSED" });
       onChanged?.();
-    } catch (err) {
-      setToast({
-        message: err instanceof ApiError ? err.message : "상태 변경에 실패했습니다.",
-        severity: "error",
-      });
-    } finally {
-      setTogglingStatus(false);
-    }
-  };
-
-  const handleSendTestNotification = async () => {
-    setSendingNotification(true);
-    try {
-      await watchApi.sendTestNotification(watch.id);
-      setToast({ message: "테스트 알림을 발송했습니다.", severity: "success" });
-    } catch (err) {
-      setToast({
-        message: err instanceof ApiError ? err.message : "테스트 알림 발송에 실패했습니다.",
-        severity: "error",
-      });
-    } finally {
-      setSendingNotification(false);
-    }
-  };
-
-  return (
-    <Stack spacing={3}>
-      {/* 헤더 */}
-      <Stack direction="row" spacing={2} alignItems="flex-start">
-        <Avatar
-          variant="rounded"
-          src={watch.faviconUrl || undefined}
-          sx={{ width: 48, height: 48, bgcolor: "background.default" }}
-        >
-          <LanguageIcon />
-        </Avatar>
-        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {watch.name}
-            </Typography>
-            <WatchStatusDot status={watch.status} />
-          </Stack>
-          <Stack direction="row" spacing={0.5} alignItems="center">
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              component="a"
-              href={watch.url}
-              target="_blank"
-              sx={{ textDecoration: "none", "&:hover": { color: "primary.main" } }}
-            >
-              {watch.url}
-            </Typography>
-            <OpenInNewIcon sx={{ fontSize: 14, color: "text.secondary" }} />
-          </Stack>
-          {watch.lastFetchedAt && (
-            <Typography variant="caption" color="text.secondary">
-              최근 갱신 {new Date(watch.lastFetchedAt).toLocaleString("ko-KR")}
-            </Typography>
-          )}
-        </Box>
-        <Stack direction="row" spacing={1}>
-          <Tooltip title="이 와치리스트만 보기 (링크 공유용)">
-            <IconButton component={Link} href={`/watches/${watch.id}`} color="inherit">
-              <LinkIcon />
-            </IconButton>
+    } catch (reason) { if (!(reason instanceof Error)) throw reason; setError(reason.message); }
+    finally { setBusy(false); }
+  }
+  async function saveCondition(condition: WatchConditionInput) {
+    const initial = conditionDialog?.initial;
+    if (initial === undefined) await watchApi.createWatchCondition(watch.id, condition);
+    else if (condition.type !== "HTML") await watchApi.updateWatchCondition(watch.id, initial.id, condition);
+    conditions.refetch(); onChanged?.();
+  }
+  async function removeCondition(id: number) {
+    setBusy(true); setError(null);
+    try { await watchApi.deleteWatchCondition(watch.id, id); conditions.refetch(); onChanged?.(); }
+    catch (reason) { if (!(reason instanceof Error)) throw reason; setError(reason.message); }
+    finally { setBusy(false); }
+  }
+  async function deleteWatch() {
+    setBusy(true); setError(null);
+    try { await watchApi.deleteWatch(watch.id); setDeleteOpen(false); onDeleted?.(); }
+    catch (reason) { if (!(reason instanceof Error)) throw reason; setError(reason.message); }
+    finally { setBusy(false); }
+  }
+  return <>
+    <Card>
+      <CardHeader className="gap-4">
+        <div className="flex min-w-0 items-start gap-3">
+          <Avatar size="lg"><AvatarImage src={watch.faviconUrl || undefined} alt="" /><AvatarFallback><Globe aria-hidden="true" /></AvatarFallback></Avatar>
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <CardTitle><Heading className="text-xl font-semibold tracking-tight wrap-anywhere">{watch.name}</Heading></CardTitle>
+            <CardDescription><a href={watch.url} target="_blank" rel="noopener noreferrer" className="wrap-anywhere underline underline-offset-4">{watch.url}</a></CardDescription>
+          </div>
+          <Tooltip>
+            <TooltipTrigger render={<Button variant={watch.status === "RUNNING" ? "secondary" : "outline"} size="icon" disabled={suspended || busy} onClick={() => void toggleStatus()} />} aria-label={suspended ? "정책 위반으로 감시 정지" : watch.status === "RUNNING" ? "감시 일시정지" : "감시 시작"}>
+              {busy ? <Spinner aria-label="변경 중" /> : suspended ? <ShieldBan /> : watch.status === "RUNNING" ? <Pause /> : <Play />}
+            </TooltipTrigger>
+            <TooltipContent>{suspended ? "정책 위반으로 정지된 타워예요." : watch.status === "RUNNING" ? "감시 중이에요. 눌러서 일시정지해요." : "일시정지 중이에요. 눌러서 다시 시작해요."}</TooltipContent>
           </Tooltip>
-          <Tooltip title="테스트 알림 발송">
-            <span>
-              <IconButton color="secondary" onClick={handleSendTestNotification} disabled={sendingNotification}>
-                {sendingNotification ? <CircularProgress size={20} /> : <NotificationsActiveOutlinedIcon />}
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Button
-            variant={isPaused ? "contained" : "outlined"}
-            color={isPaused ? "secondary" : "inherit"}
-            startIcon={togglingStatus ? <CircularProgress size={16} color="inherit" /> : isPaused ? <PlayArrowIcon /> : <PauseIcon />}
-            onClick={handleToggleStatus}
-            disabled={togglingStatus || watch.status === "PAYMENT_REQUIRED" || watch.status === "ILLEGAL_SUSPENDED"}
-          >
-            {isPaused ? "재개" : "일시정지"}
-          </Button>
-        </Stack>
-      </Stack>
-
-      {watch.status === "PAYMENT_REQUIRED" && (
-        <Card sx={{ bgcolor: "rgba(255,201,74,0.08)", border: "1px solid rgba(255,201,74,0.3)" }}>
-          <CardContent>
-            <Typography variant="body2">
-              현재 플랜 범위를 초과하여 이 와치가 정지되었습니다. 플랜을 업그레이드하면 다시 감시가
-              재개됩니다.
-            </Typography>
-            <Button component={Link} href="/mypage/subscription" size="small" color="secondary" variant="contained" sx={{ mt: 1.5 }}>
-              플랜 업그레이드
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {watch.status === "ILLEGAL_SUSPENDED" && (
-        <Alert severity="error">정책 위반으로 감시가 정지되었습니다.</Alert>
-      )}
-
-      <Divider />
-
-      {/* 조건 목록 */}
-      <Box>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-            감지 조건
-          </Typography>
-          <Button
-            size="small"
-            startIcon={<AddIcon />}
-            disabled={conditions.length >= 3}
-            onClick={() => setDialogOpen(true)}
-          >
-            조건 추가
-          </Button>
-        </Stack>
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          {conditions.length === 0 && (
-            <Typography variant="caption" color="text.secondary">
-              등록된 조건이 없습니다. 조건을 추가해주세요.
-            </Typography>
-          )}
-          {conditions.map((c) => (
-            <Chip
-              key={c.id}
-              label={
-                c.type === "KEYWORD"
-                  ? `키워드: ${c.keyword}`
-                  : c.type === "REGEX"
-                    ? `정규식: ${c.regex}`
-                    : CONDITION_LABEL[c.type]
-              }
-              variant="outlined"
-              onDelete={() => handleDeleteCondition(c.id)}
-            />
-          ))}
-        </Stack>
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
-          조건은 최대 3개까지 등록할 수 있습니다. (확인 주기 {watch.fetchIntervalSeconds / 60}분)
-        </Typography>
-      </Box>
-
-      <Divider />
-
-      {snapshotsLoading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-          <CircularProgress color="secondary" size={24} />
-        </Box>
-      ) : (
-        <SnapshotTimeline snapshots={snapshots} />
-      )}
-
-      <AddConditionDialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        onAdd={handleAddCondition}
-        currentCount={conditions.length}
-      />
-
-      <Snackbar
-        open={toast !== null}
-        autoHideDuration={4000}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        {toast ? (
-          <Alert severity={toast.severity} onClose={() => setToast(null)} sx={{ width: "100%" }}>
-            {toast.message}
-          </Alert>
-        ) : undefined}
-      </Snackbar>
-    </Stack>
-  );
+        </div>
+        <div><Button variant="outline" disabled={suspended || busy} onClick={() => setEditOpen(true)}><Edit3 data-icon="inline-start" />타워 수정</Button></div>
+      </CardHeader>
+      <CardContent className="flex min-w-0 flex-col gap-6">
+        {error && !deleteOpen && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription><Button variant="ghost" size="icon-sm" aria-label="오류 닫기" onClick={() => setError(null)}><X /></Button></Alert>}
+        {suspended && <Alert variant="destructive"><AlertDescription>정책 위반으로 감시가 정지되었어요. 타워 설정을 수정할 수 없어요.</AlertDescription></Alert>}
+        <WatchActivity watch={watch} />
+        {watch.latestAiSummary && <Alert><Sparkles /><AlertTitle>최근 변화 요약</AlertTitle><AlertDescription>{watch.latestAiSummary}</AlertDescription></Alert>}
+        <Separator />
+        <section className="flex min-w-0 flex-col gap-4">
+          <div className="flex items-center justify-between gap-3"><div><h2 className="text-base font-semibold">감지 조건</h2><p className="mt-1 text-sm text-muted-foreground">알림을 받을 변화를 설정해요.</p></div><Button variant="outline" size="sm" disabled={busy} onClick={() => setConditionDialog({})}><Plus data-icon="inline-start" />조건 추가</Button></div>
+          {conditions.loading && <p role="status" className="text-sm text-muted-foreground">조건 불러오는 중</p>}
+          {conditions.error && <Alert variant="destructive"><AlertDescription>{conditions.error}<Button variant="outline" size="sm" onClick={conditions.refetch}>재시도</Button></AlertDescription></Alert>}
+          {!conditions.loading && !conditions.error && conditions.data?.length === 0 && <Empty className="border"><EmptyHeader><EmptyMedia variant="icon"><ScanLine /></EmptyMedia><EmptyDescription>등록된 조건이 없어요. 조건을 추가해 주세요.</EmptyDescription></EmptyHeader></Empty>}
+          {!conditions.loading && !conditions.error && conditions.data?.map(condition => <div key={condition.id} className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center">
+            <div className="min-w-0 flex-1"><p className="text-sm font-medium wrap-anywhere">{condition.type === "HTML" ? "전체 변경 감지" : condition.type === "KEYWORD" ? `키워드: ${condition.keyword}` : `정규식: ${condition.regex}`}</p>{condition.type !== "HTML" && <p className="mt-1 text-xs text-muted-foreground">{condition.isSatisfiedAtAppearance ? "등장할 때 알림" : "사라질 때 알림"}</p>}</div>
+            <div className="flex shrink-0 gap-1">{condition.type !== "HTML" && <Button variant="ghost" size="sm" disabled={busy} onClick={() => setConditionDialog({ initial: condition })}>조건 수정</Button>}<Button variant="destructive" size="sm" disabled={busy} onClick={() => void removeCondition(condition.id)}>조건 삭제</Button></div>
+          </div>)}
+        </section>
+        <Separator />
+        {snapshots.loading && <p role="status" className="text-sm text-muted-foreground">스냅샷 불러오는 중</p>}
+        {snapshots.error && <Alert variant="destructive"><AlertDescription>{snapshots.error}<Button variant="outline" size="sm" onClick={snapshots.refetch}>재시도</Button></AlertDescription></Alert>}
+        {!snapshots.loading && !snapshots.error && snapshots.data && <SnapshotTimeline snapshots={snapshots.data} />}
+      </CardContent>
+      <CardFooter className="justify-end"><Button variant="destructive" size="sm" disabled={busy} onClick={() => setDeleteOpen(true)}><Trash2 data-icon="inline-start" />타워 삭제</Button></CardFooter>
+    </Card>
+    {conditionDialog !== null && <AddConditionDialog open onClose={() => setConditionDialog(null)} onAdd={saveCondition} initial={conditionDialog.initial} />}
+    {editOpen && <EditWatchDialog watch={watch} onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); onChanged?.(); }} />}
+    <AlertDialog open={deleteOpen} onOpenChange={open => { if (!busy) setDeleteOpen(open); }}><AlertDialogContent>
+      <AlertDialogHeader><AlertDialogTitle>타워를 삭제할까요?</AlertDialogTitle><AlertDialogDescription>이 타워의 감시를 종료하고 목록에서 삭제해요.</AlertDialogDescription></AlertDialogHeader>
+      {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+      <AlertDialogFooter><AlertDialogCancel disabled={busy}>취소</AlertDialogCancel><AlertDialogAction variant="destructive" disabled={busy} onClick={() => void deleteWatch()}>{busy ? "삭제 중" : "삭제"}</AlertDialogAction></AlertDialogFooter>
+    </AlertDialogContent></AlertDialog>
+  </>;
 }

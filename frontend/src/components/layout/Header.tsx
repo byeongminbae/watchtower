@@ -1,199 +1,74 @@
 "use client";
 
-import Link from "next/link";
-import {
-  AppBar,
-  Avatar,
-  Box,
-  Button,
-  Container,
-  Menu,
-  MenuItem,
-  Toolbar,
-  Typography,
-} from "@mui/material";
-import { useRouter } from "next/navigation";
-import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import React from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { Bell, ChevronDown, LogOut, Settings, ShieldCheck, UsersRound, X } from "lucide-react";
 import LighthouseMark from "@/components/common/LighthouseMark";
+import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/AuthContext";
+import { cn } from "@/lib/utils";
 
 export default function Header() {
   const { isLoggedIn, principal, member, logout } = useAuth();
   const router = useRouter();
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const open = Boolean(anchorEl);
-  const isAdmin = principal?.role === "ADMIN";
-  const displayName = member?.nickname.trim() || "회원";
+  const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const name = member?.nickname.trim() || "회원";
+  async function signOut() {
+    setMenuOpen(false);
+    setError(null);
+    try {
+      await logout();
+      router.push("/");
+    } catch (reason) {
+      if (!(reason instanceof Error)) throw reason;
+      setError(reason.message);
+    }
+  }
+  return <>
+    <header className="sticky top-0 z-20 border-b bg-background">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
+        <Link href="/" className="flex shrink-0 items-center gap-2 font-semibold"><LighthouseMark size={28} /><span>Watchtower</span></Link>
+        <div className="flex min-w-0 items-center gap-2">
+          {isLoggedIn ? <>
+            <Link href="/watches" className={cn(buttonVariants({ variant: "ghost" }), "hidden sm:inline-flex")}
+              aria-current={pathname.startsWith("/watches") ? "page" : undefined}>내 타워</Link>
+            {principal?.role === "ADMIN" && <Link href="/admin" className={cn(buttonVariants({ variant: "ghost" }), "hidden sm:inline-flex")}
+              aria-current={pathname.startsWith("/admin") ? "page" : undefined}>관리자</Link>}
 
-  const handleLogout = async () => {
-    setAnchorEl(null);
-    await logout();
-    router.push("/");
-  };
-
-  const navItems = isAdmin
-    ? [{ label: "관리자", href: "/admin" }]
-    : [{ label: "내 와치리스트", href: "/watches" }];
-
-  return (
-    <AppBar position="sticky" elevation={0}>
-      <Container maxWidth="lg">
-        <Toolbar disableGutters sx={{ gap: { xs: 1, sm: 3 } }}>
-          <Box
-            component={Link}
-            href="/"
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-              textDecoration: "none",
-              color: "inherit",
-            }}
-          >
-            <LighthouseMark size={26} />
-            <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: -0.5 }}>
-              Watchtower
-            </Typography>
-          </Box>
-
-          {isLoggedIn && (
-            <Box sx={{ display: "flex", gap: 0.5, flexGrow: 1 }}>
-              {navItems.map((item) => (
-                <Button
-                  key={item.href}
-                  component={Link}
-                  href={item.href}
-                  color="inherit"
-                  sx={{
-                    color: "text.secondary",
-                    whiteSpace: "nowrap",
-                    px: { xs: 0.5, sm: 1 },
-                    "&:hover": { color: "text.primary" },
-                  }}
-                >
-                  {item.label}
-                </Button>
-              ))}
-            </Box>
-          )}
-          {!isLoggedIn && <Box sx={{ flexGrow: 1 }} />}
-
-          {isLoggedIn ? (
-            <>
-              {!isAdmin && (
-                <Button
-                  component={Link}
-                  href="/watches"
-                  variant="contained"
-                  color="secondary"
-                  size="small"
-                  sx={{ display: { xs: "none", sm: "inline-flex" } }}
-                >
-                  와치 등록
-                </Button>
-              )}
-
-              <Box
-                component="button"
-                type="button"
-                aria-label={`${displayName} 메뉴`}
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 0.5,
-                  p: 0,
-                  minWidth: 40,
-                  minHeight: 40,
-                  border: 0,
-                  bgcolor: "transparent",
-                  color: "inherit",
-                  cursor: "pointer",
-                }}
-                onClick={(e) => setAnchorEl(e.currentTarget)}
-              >
-                <Avatar
-                  src={
-                    !isAdmin && member?.profileImageUrl
-                      ? member.profileImageUrl
-                      : undefined
-                  }
-                  alt={!isAdmin ? `${displayName} 프로필 사진` : undefined}
-                  sx={{ width: 32, height: 32, bgcolor: "primary.main" }}
-                >
-                  {isAdmin ? <AdminPanelSettingsOutlinedIcon fontSize="small" /> : displayName[0]}
-                </Avatar>
-                <KeyboardArrowDownIcon fontSize="small" sx={{ color: "text.secondary" }} />
-              </Box>
-              <Menu anchorEl={anchorEl} open={open} onClose={() => setAnchorEl(null)}>
-                {isAdmin
-                  ? [
-                      <MenuItem
-                        key="admin-dashboard"
-                        component={Link}
-                        href="/admin"
-                        onClick={() => setAnchorEl(null)}
-                      >
-                        대시보드
-                      </MenuItem>,
-                      <MenuItem
-                        key="admin-watches"
-                        component={Link}
-                        href="/admin/watches"
-                        onClick={() => setAnchorEl(null)}
-                      >
-                        와치리스트 관리
-                      </MenuItem>,
-                      <MenuItem
-                        key="admin-payments"
-                        component={Link}
-                        href="/admin/payments"
-                        onClick={() => setAnchorEl(null)}
-                      >
-                        결제 내역 관리
-                      </MenuItem>,
-                      <MenuItem
-                        key="admin-members"
-                        component={Link}
-                        href="/admin/members"
-                        onClick={() => setAnchorEl(null)}
-                      >
-                        회원 관리
-                      </MenuItem>,
-                    ]
-                  : [
-                      <MenuItem key="mypage" component={Link} href="/mypage" onClick={() => setAnchorEl(null)}>
-                        마이페이지
-                      </MenuItem>,
-                      <MenuItem
-                        key="subscription"
-                        component={Link}
-                        href="/mypage/subscription"
-                        onClick={() => setAnchorEl(null)}
-                      >
-                        구독 관리
-                      </MenuItem>,
-                      <MenuItem
-                        key="payments"
-                        component={Link}
-                        href="/mypage/payments"
-                        onClick={() => setAnchorEl(null)}
-                      >
-                        결제 이력
-                      </MenuItem>,
-                    ]}
-                <MenuItem onClick={handleLogout}>로그아웃</MenuItem>
-              </Menu>
-            </>
-          ) : (
-            <Button component={Link} href="/login" variant="contained" color="secondary">
-              로그인
-            </Button>
-          )}
-        </Toolbar>
-      </Container>
-    </AppBar>
-  );
+            <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+              <DropdownMenuTrigger render={<Button variant="ghost" />} aria-label={`${name} 메뉴`}>
+                <Avatar className="size-6"><AvatarImage src={member?.profileImageUrl || undefined} alt={`${name} 프로필 사진`} /><AvatarFallback>{name[0]}</AvatarFallback></Avatar>
+                <span className="hidden max-w-36 truncate sm:inline">{name}</span>
+                <ChevronDown data-icon="inline-end" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={10} className="min-w-52">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>내 계정</DropdownMenuLabel>
+                  <DropdownMenuItem render={<Link href="/mypage" />}><Settings />마이페이지</DropdownMenuItem>
+                  <DropdownMenuItem render={<Link href="/mypage/notifications" />}><Bell />알림 채널</DropdownMenuItem>
+                </DropdownMenuGroup>
+                {principal?.role === "ADMIN" && <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>관리</DropdownMenuLabel>
+                    <DropdownMenuItem render={<Link href="/admin/members" />}><UsersRound />회원 관리</DropdownMenuItem>
+                    <DropdownMenuItem render={<Link href="/admin/watches" />}><ShieldCheck />타워 관리</DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </>}
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup><DropdownMenuItem onClick={() => void signOut()}><LogOut />로그아웃</DropdownMenuItem></DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </> : <Link href="/login" className={buttonVariants()}>로그인</Link>}
+        </div>
+      </div>
+    </header>
+    {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription><AlertAction><Button size="icon" variant="ghost" aria-label="오류 닫기" onClick={() => setError(null)}><X /></Button></AlertAction></Alert>}
+  </>;
 }

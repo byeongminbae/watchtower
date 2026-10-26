@@ -1,16 +1,10 @@
 "use client";
 
-import LoginIcon from "@mui/icons-material/Login";
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Container,
-  Paper,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { LogIn } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React from "react";
@@ -145,10 +139,7 @@ export default function OAuthCallbackPage(): React.JSX.Element {
               (response) => {
                 if (!mounted.current) return;
                 if (
-                  !acceptSession({
-                    accessToken: response.data.accessToken,
-                    refreshToken: response.data.refreshToken,
-                  })
+                  !acceptSession(response.data)
                 ) {
                   setStatus({ kind: "exchange-failure" });
                   return;
@@ -172,69 +163,23 @@ export default function OAuthCallbackPage(): React.JSX.Element {
   const isProgress = status.kind === "loading" || status.kind === "success";
 
   return (
-    <Box
-      component="main"
-      sx={{
-        minHeight: "calc(100dvh - 64px)",
-        display: "flex",
-        alignItems: "center",
-        background: "var(--wt-login-atmosphere)",
-      }}
-    >
-      <Container maxWidth="xs">
-        <Paper
-          elevation={0}
-          sx={{
-            p: { xs: 3, sm: 5 },
-            textAlign: "center",
-            border: "1px solid",
-            borderColor: "divider",
-            borderRadius: 4,
-          }}
-        >
-          <Stack spacing={2.5} alignItems="center">
-            <LighthouseMark size={48} />
-            <Typography variant="h5" sx={{ fontWeight: 800 }}>
-              로그인 확인
-            </Typography>
-            {isProgress ? (
-              <>
-                <CircularProgress
-                  color="secondary"
-                  size={28}
-                  aria-label={messageFor(status)}
-                />
-                <Typography role="status" aria-live="polite" color="text.secondary">
-                  {messageFor(status)}
-                </Typography>
-              </>
-            ) : (
-              <>
-                <Alert
-                  severity="error"
-                  sx={{
-                    width: "100%",
-                    textAlign: "left",
-                    wordBreak: "keep-all",
-                  }}
-                >
-                  {messageFor(status)}
-                </Alert>
-                <Button
-                  component={Link}
-                  href="/login"
-                  variant="contained"
-                  color="secondary"
-                  startIcon={<LoginIcon />}
-                  fullWidth
-                >
-                  로그인 다시 시도하기
-                </Button>
-              </>
-            )}
-          </Stack>
-        </Paper>
-      </Container>
-    </Box>
+    <main className="flex min-h-[calc(100dvh-4rem)] items-center justify-center px-6 py-12">
+      <Card className="w-full max-w-md">
+        <CardHeader className="items-center gap-4 text-center">
+          <LighthouseMark size={40} />
+          <CardTitle><h1>로그인 확인</h1></CardTitle>
+          <CardDescription>계정 연결 상태를 확인하고 있어요.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center gap-6 pb-4">
+          {isProgress ? <>
+            <Spinner role="progressbar" aria-label={messageFor(status)} />
+            <p role="status" aria-live="polite" className="text-center text-sm text-muted-foreground">{messageFor(status)}</p>
+          </> : <>
+            <Alert variant="destructive"><AlertDescription>{messageFor(status)}</AlertDescription></Alert>
+            <Link href="/login" className={buttonVariants()}><LogIn data-icon="inline-start" />로그인 다시 시도하기</Link>
+          </>}
+        </CardContent>
+      </Card>
+    </main>
   );
 }

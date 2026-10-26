@@ -1,8 +1,7 @@
 "use client";
 
 import React from "react";
-import { BackendFeatureUnavailableError } from "@/lib/api/errors";
-import { BACKEND_FEATURE_UNAVAILABLE_MESSAGE } from "@/lib/api/availability";
+import { ApiError } from "@/lib/api/errors";
 
 interface UseApiDataResult<T> {
   data: T | null;
@@ -21,7 +20,7 @@ export function useApiData<T>(fetcher: () => Promise<T>, deps: React.DependencyL
   const [data, setData] = React.useState<T | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [pendingGeneration, setPendingGeneration] = React.useState(0);
-  const [resolvedGeneration, setResolvedGeneration] = React.useState(0);
+  const [resolvedGeneration, setResolvedGeneration] = React.useState(-1);
   const generationRef = React.useRef(0);
   const fetcherRef = React.useRef(fetcher);
 
@@ -45,9 +44,7 @@ export function useApiData<T>(fetcher: () => Promise<T>, deps: React.DependencyL
         if (generationRef.current !== currentGeneration) return;
         setData(null);
         setError(
-          reason instanceof BackendFeatureUnavailableError
-            ? BACKEND_FEATURE_UNAVAILABLE_MESSAGE
-            : "현재는 데이터를 불러올 수 없습니다",
+          reason instanceof ApiError ? reason.message : "자료를 불러올 수 없어요. 다시 시도해 주세요.",
         );
         setResolvedGeneration(currentGeneration);
       });
@@ -55,6 +52,7 @@ export function useApiData<T>(fetcher: () => Promise<T>, deps: React.DependencyL
 
   React.useEffect(() => {
     runFetch();
+    return () => { generationRef.current += 1; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
