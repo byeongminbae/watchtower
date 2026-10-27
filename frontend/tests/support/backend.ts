@@ -18,9 +18,9 @@ const oauthStates = new Map<string, string>();
 const invalidSessions = new Set<string>();
 let sequence = 100;
 function makeState(): State {
-  const member = { id: 7, nickname: "테스트 회원", email: "member@example.com", profileImageUrl: "/watchtower.png", lastSignInAt: timestamp };
+  const member = { id: 7, nickname: "테스트 회원", email: "member@example.com", profileImageUrl: "/watchtower-icon.svg", lastSignInAt: timestamp };
   const tower: Watch = { id: 9, name: "채용 공고", url: "https://example.com/jobs", fetchInterval: "PT5M", includeInStat: true,
-    status: "RUNNING", faviconUrl: "/watchtower.png", lastFetchedAt: timestamp, lastNotifiedAt: timestamp, latestAiSummary: "새 공고가 등록되었어요." };
+    status: "RUNNING", faviconUrl: "/watchtower-icon.svg", lastFetchedAt: timestamp, lastNotifiedAt: timestamp, latestAiSummary: "새 공고가 등록되었어요." };
   return { member, towers: [tower], channels: [{ id: 3, name: "개발 알림", type: "DISCORD", webhookUrl: "https://example.com/hooks/test" }],
     conditions: new Map([[9, [{ id: 1, type: "HTML" }]]]), records: [],
     members: [
