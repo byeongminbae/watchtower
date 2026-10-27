@@ -22,7 +22,7 @@ export default function LandingStory() {
                 <h2 className="text-3xl font-semibold tracking-tight break-keep">소식을 기다리며 새로고침만 하기엔, 우리 삶엔 할 일이 너무
                     많으니까요</h2>
                 <p>2026년 서울시 청년지원금을 놓치고
-                    "누가 나 대신 사이트 좀 지켜봐 줬으면" 하는 마음이 들어 개발하게 되었습니다.
+                    &quot;누가 나 대신 사이트 좀 지켜봐 줬으면&quot; 하는 마음이 들어 개발하게 되었습니다.
 
                     새로고침은 와치타워가 할 테니, 여러분은 일상에 집중하세요!</p>
             </div>
