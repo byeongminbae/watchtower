@@ -7,11 +7,17 @@
     "node": ">=24"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/main.js",
-    "typecheck": "tsc -p tsconfig.test.json",
-    "test": "vitest",
-    "test:run": "vitest run"
+    "build": "nest build",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:debug": "nest start --debug --watch",
+    "start:prod": "node dist/main.js",
+    "lint": "oxlint --type-aware src/ test/",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:cov": "vitest run --coverage",
+    "test:e2e": "vitest run --config ./vitest.config.e2e.ts"
   },
   "dependencies": {
     "@nestjs/common": "12.3.2",
@@ -24,8 +30,16 @@
     "rxjs": "7.8.2"
   },
   "devDependencies": {
+    "@nestjs/cli": "12.0.11",
+    "@nestjs/schematics": "12.0.12",
+    "@nestjs/testing": "12.3.2",
     "@types/node": "24.19.2",
-    "typescript": "7.0.2",
+    "@vitest/coverage-v8": "5.0.5",
+    "oxlint": "1.90.0",
+    "oxlint-tsgolint": "7.0.2005",
+    "prettier": "3.9.10",
+    "source-map-support": "0.5.21",
+    "typescript": "6.0.3",
     "vitest": "5.0.5"
   }
 }

@@ -1,6 +1,6 @@
-import { Global, Module } from "@nestjs/common"
-import { CrawlerConfig } from "./config/crawler-config.ts"
-import { CrawlModule } from "./crawl/crawl.module.ts"
+import { Global, Module } from '@nestjs/common';
+import { CrawlerConfig } from './config/crawler-config.js';
+import { CrawlModule } from './crawl/crawl.module.js';
 
 @Global()
 @Module({

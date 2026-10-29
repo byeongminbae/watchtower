@@ -1,5 +1,5 @@
-import type { ObjectStorageClient } from "oci-objectstorage"
-import type { HtmlStorage } from "../../crawl/interfaces/html-storage.ts"
+import type { ObjectStorageClient } from 'oci-objectstorage';
+import type { HtmlStorage } from '../../crawl/interfaces/html-storage.interface.js';
 
 export class OciHtmlStorage implements HtmlStorage {
   constructor(
@@ -13,7 +13,7 @@ export class OciHtmlStorage implements HtmlStorage {
       bucketName,
       objectName,
       putObjectBody: html,
-      contentType: "text/html; charset=utf-8"
-    })
+      contentType: 'text/html; charset=utf-8'
+    });
   }
 }

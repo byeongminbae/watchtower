@@ -1,9 +1,9 @@
-import { Inject, Injectable } from "@nestjs/common"
-import { TimeProvider } from "../common/time-provider.ts"
-import type { CrawlRequest } from "./crawl-request.ts"
-import { type CrawlResult, FailedCrawlResult, FetchedCrawlResult } from "./crawl-result.ts"
-import { HTML_STORAGE, type HtmlStorage } from "./interfaces/html-storage.ts"
-import { PAGE_FETCHER, type PageFetcher } from "./interfaces/page-fetcher.ts"
+import { Inject, Injectable } from '@nestjs/common';
+import { TimeProvider } from '../common/time-provider.js';
+import type { CrawlRequest } from './crawl-request.js';
+import { type CrawlResult, FailedCrawlResult, FetchedCrawlResult } from './crawl-result.js';
+import { HTML_STORAGE, type HtmlStorage } from './interfaces/html-storage.interface.js';
+import { PAGE_FETCHER, type PageFetcher } from './interfaces/page-fetcher.interface.js';
 
 @Injectable()
 export class CrawlService {
@@ -14,15 +14,15 @@ export class CrawlService {
   ) {}
 
   async crawl(request: CrawlRequest, bucketName: string): Promise<CrawlResult> {
-    const startedAt = this.timeProvider.now()
-    const outcome = await this.pageFetcher.fetchPage(request.url)
+    const startedAt = this.timeProvider.now();
+    const outcome = await this.pageFetcher.fetchPage(request.url);
 
-    if (outcome.kind === "failed") {
-      return FailedCrawlResult.of(request, startedAt, this.timeProvider.now(), outcome.error)
+    if (outcome.kind === 'failed') {
+      return FailedCrawlResult.of(request, startedAt, this.timeProvider.now(), outcome.error);
     }
 
-    const htmlObjectName = request.toHtmlObjectName()
-    await this.htmlStorage.saveHtml(bucketName, htmlObjectName, outcome.page.html)
-    return FetchedCrawlResult.of(request, startedAt, this.timeProvider.now(), outcome.page, htmlObjectName)
+    const htmlObjectName = request.toHtmlObjectName();
+    await this.htmlStorage.saveHtml(bucketName, htmlObjectName, outcome.page.html);
+    return FetchedCrawlResult.of(request, startedAt, this.timeProvider.now(), outcome.page, htmlObjectName);
   }
 }

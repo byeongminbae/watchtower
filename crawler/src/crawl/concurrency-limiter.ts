@@ -4,65 +4,65 @@
  * 자리가 나면 기다리던 acquire 에 바로 넘겨서, 자리가 비었다고 알림을 받은 쪽끼리 다투지 않게 함
  */
 export class ConcurrencyLimiter {
-  private available: number
-  private readonly acquirers: Array<() => void> = []
-  private readonly observers: Array<() => void> = []
+  private available: number;
+  private readonly acquirers: Array<() => void> = [];
+  private readonly observers: Array<() => void> = [];
 
   constructor(limit: number) {
-    this.available = limit
+    this.available = limit;
   }
 
   get availableSlots(): number {
-    return this.available
+    return this.available;
   }
 
   /** @return 자리를 돌려주는 함수 */
   async acquire(): Promise<() => void> {
     if (this.hasAvailableSlot()) {
-      this.available--
+      this.available--;
     } else {
-      await new Promise<void>((resolve) => this.acquirers.push(resolve))
+      await new Promise<void>((resolve) => this.acquirers.push(resolve));
     }
-    return this.releaseOnce()
+    return this.releaseOnce();
   }
 
   /** 자리를 차지하지 않고 빈 자리가 생길 때까지만 기다림 */
   async whenAvailable(): Promise<void> {
     if (this.hasAvailableSlot()) {
-      return
+      return;
     }
-    await new Promise<void>((resolve) => this.observers.push(resolve))
+    await new Promise<void>((resolve) => this.observers.push(resolve));
   }
 
   private hasAvailableSlot(): boolean {
-    return this.available > 0
+    return this.available > 0;
   }
 
   private releaseOnce(): () => void {
-    let isReleased = false
+    let isReleased = false;
     return () => {
       if (!isReleased) {
-        isReleased = true
-        this.release()
+        isReleased = true;
+        this.release();
       }
-    }
+    };
   }
 
   private release(): void {
     if (this.handOverToNextAcquirer()) {
-      return
+      return;
     }
-    this.available++
-    this.notifyObservers()
+    this.available++;
+    this.notifyObservers();
   }
 
   private handOverToNextAcquirer(): boolean {
-    const nextAcquirer = this.acquirers.shift()
-    nextAcquirer?.()
-    return nextAcquirer !== undefined
+    const nextAcquirer = this.acquirers.shift();
+    nextAcquirer?.();
+    return nextAcquirer !== undefined;
   }
 
   private notifyObservers(): void {
-    this.observers.splice(0).forEach((notify) => notify())
+    this.observers.splice(0).forEach((notify) => notify());
   }
 }

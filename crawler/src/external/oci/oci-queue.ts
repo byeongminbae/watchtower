@@ -1,8 +1,8 @@
-import type { SimpleAuthenticationDetailsProvider } from "oci-common"
-import { QueueClient, type models } from "oci-queue"
-import { CrawlPolicy } from "../../crawl/crawl-policy.ts"
-import type { ReceivedMessage, RequestQueue } from "../../crawl/interfaces/request-queue.ts"
-import type { ResultQueue } from "../../crawl/interfaces/result-queue.ts"
+import type { SimpleAuthenticationDetailsProvider } from 'oci-common';
+import { QueueClient, type models } from 'oci-queue';
+import { CrawlPolicy } from '../../crawl/crawl-policy.js';
+import type { ReceivedMessage, RequestQueue } from '../../crawl/interfaces/request-queue.interface.js';
+import type { ResultQueue } from '../../crawl/interfaces/result-queue.interface.js';
 
 /** 큐 하나에 대한 메시지 수신, 발행, 완료 처리. 큐마다 메시지 엔드포인트가 다를 수 있어 클라이언트를 따로 둠 */
 export class OciQueue implements RequestQueue, ResultQueue {
@@ -11,10 +11,14 @@ export class OciQueue implements RequestQueue, ResultQueue {
     private readonly queueId: string
   ) {}
 
-  static of(authenticationDetailsProvider: SimpleAuthenticationDetailsProvider, queueId: string, endpoint: string): OciQueue {
-    const client = new QueueClient({ authenticationDetailsProvider })
-    client.endpoint = endpoint
-    return new OciQueue(client, queueId)
+  static of(
+    authenticationDetailsProvider: SimpleAuthenticationDetailsProvider,
+    queueId: string,
+    endpoint: string
+  ): OciQueue {
+    const client = new QueueClient({ authenticationDetailsProvider });
+    client.endpoint = endpoint;
+    return new OciQueue(client, queueId);
   }
 
   async receive(limit: number): Promise<ReceivedMessage[]> {
@@ -23,40 +27,40 @@ export class OciQueue implements RequestQueue, ResultQueue {
       limit,
       visibilityInSeconds: CrawlPolicy.MESSAGE_VISIBILITY_SECONDS,
       timeoutInSeconds: CrawlPolicy.QUEUE_POLLING_TIMEOUT_SECONDS
-    })
+    });
     return response.getMessages.messages.map(({ content, receipt, deliveryCount }) => {
-      return { content, receipt, deliveryCount }
-    })
+      return { content, receipt, deliveryCount };
+    });
   }
 
   async publishAll(contents: string[]): Promise<void> {
     if (contents.length === 0) {
-      return
+      return;
     }
     await this.client.putMessages({
       queueId: this.queueId,
       putMessagesDetails: { messages: contents.map((content) => ({ content })) }
-    })
+    });
   }
 
   async completeAll(receipts: string[]): Promise<void> {
     if (receipts.length === 0) {
-      return
+      return;
     }
     const response = await this.client.deleteMessages({
       queueId: this.queueId,
       deleteMessagesDetails: { entries: receipts.map((receipt) => ({ receipt })) }
-    })
-    OciQueue.logFailedDeletes(response.deleteMessagesResult)
+    });
+    OciQueue.logFailedDeletes(response.deleteMessagesResult);
   }
 
   private static logFailedDeletes(result: models.DeleteMessagesResult): void {
-    const failedCount = result.serverFailures + result.clientFailures
+    const failedCount = result.serverFailures + result.clientFailures;
     if (failedCount === 0) {
-      return
+      return;
     }
     console.error(`요청 ${failedCount}건 완료 처리 실패. 같은 결과가 다시 발행될 수 있음`, {
       errors: result.entries.filter((entry) => entry.errorCode !== undefined)
-    })
+    });
   }
 }

@@ -1,6 +1,6 @@
-import type { CrawlEnvironmentName } from "../config/crawler-config.ts"
-import type { RequestQueue } from "./interfaces/request-queue.ts"
-import type { ResultQueue } from "./interfaces/result-queue.ts"
+import type { CrawlEnvironmentName } from '../config/crawler-config.js';
+import type { RequestQueue } from './interfaces/request-queue.interface.js';
+import type { ResultQueue } from './interfaces/result-queue.interface.js';
 
 /**
  * 크롤러는 dev, prod 요청을 한 프로세스에서 처리하지만 결과가 섞이면 안 됨

@@ -5,16 +5,16 @@ export class HttpUrl {
   /** @return URL 형식이 아니거나 http(s) 가 아니면 undefined */
   static from(value: string): HttpUrl | undefined {
     if (!URL.canParse(value)) {
-      return undefined
+      return undefined;
     }
-    const { protocol, hostname } = new URL(value)
-    if (!HttpUrl.isHttpProtocol(protocol) || hostname === "") {
-      return undefined
+    const { protocol, hostname } = new URL(value);
+    if (!HttpUrl.isHttpProtocol(protocol) || hostname === '') {
+      return undefined;
     }
-    return new HttpUrl(hostname)
+    return new HttpUrl(hostname);
   }
 
   private static isHttpProtocol(protocol: string): boolean {
-    return protocol === "http:" || protocol === "https:"
+    return protocol === 'http:' || protocol === 'https:';
   }
 }

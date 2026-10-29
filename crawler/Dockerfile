@@ -3,7 +3,7 @@ ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
-COPY tsconfig.json ./
+COPY nest-cli.json tsconfig.json tsconfig.build.json ./
 COPY src ./src
 RUN npm run build
 

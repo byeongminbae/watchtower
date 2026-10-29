@@ -1,4 +1,4 @@
-import { HttpUrl } from "./http-url.ts"
+import { HttpUrl } from './http-url.js';
 
 /**
  * 백엔드 스케줄러가 요청 큐에 넣는 크롤링 요청
@@ -16,44 +16,48 @@ export class CrawlRequest {
 
   /** @return 형식이 맞지 않거나 http(s) 가 아닌 URL 이면 undefined */
   static from(content: string): CrawlRequest | undefined {
-    const message = CrawlRequest.parseJson(content)
+    const message = CrawlRequest.parseJson(content);
     if (!CrawlRequest.isObject(message)) {
-      return undefined
+      return undefined;
     }
 
-    const { towerId, url, scheduledAt } = message
-    if (!CrawlRequest.isPositiveInteger(towerId) || !CrawlRequest.isHttpUrl(url) || !CrawlRequest.isDateTime(scheduledAt)) {
-      return undefined
+    const { towerId, url, scheduledAt } = message;
+    if (
+      !CrawlRequest.isPositiveInteger(towerId) ||
+      !CrawlRequest.isHttpUrl(url) ||
+      !CrawlRequest.isDateTime(scheduledAt)
+    ) {
+      return undefined;
     }
-    return new CrawlRequest(towerId, url, scheduledAt)
+    return new CrawlRequest(towerId, url, scheduledAt);
   }
 
   /** 같은 요청이 다시 처리되면 같은 객체를 덮어써서 저장소에 중복이 쌓이지 않게 함 */
   toHtmlObjectName(): string {
-    return `towers/${this.towerId}/${this.scheduledAt}.html`
+    return `towers/${this.towerId}/${this.scheduledAt}.html`;
   }
 
   private static parseJson(content: string): unknown {
     try {
-      return JSON.parse(content)
+      return JSON.parse(content);
     } catch {
-      return undefined
+      return undefined;
     }
   }
 
   private static isObject(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null
+    return typeof value === 'object' && value !== null;
   }
 
   private static isPositiveInteger(value: unknown): value is number {
-    return typeof value === "number" && Number.isSafeInteger(value) && value > 0
+    return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
   }
 
   private static isHttpUrl(value: unknown): value is string {
-    return typeof value === "string" && HttpUrl.from(value) !== undefined
+    return typeof value === 'string' && HttpUrl.from(value) !== undefined;
   }
 
   private static isDateTime(value: unknown): value is string {
-    return typeof value === "string" && !Number.isNaN(Date.parse(value))
+    return typeof value === 'string' && !Number.isNaN(Date.parse(value));
   }
 }

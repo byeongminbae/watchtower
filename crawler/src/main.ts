@@ -1,8 +1,10 @@
-import "reflect-metadata"
-import { NestFactory } from "@nestjs/core"
-import { AppModule } from "./app.module.ts"
-import { CrawlWorker } from "./crawl/crawl.worker.ts"
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module.js';
+import { CrawlWorker } from './crawl/crawl.worker.js';
 
-const app = await NestFactory.createApplicationContext(AppModule)
-app.enableShutdownHooks()
-app.get(CrawlWorker).start()
+async function bootstrap(): Promise<void> {
+  const app = await NestFactory.createApplicationContext(AppModule);
+  app.enableShutdownHooks();
+  app.get(CrawlWorker).start();
+}
+await bootstrap();

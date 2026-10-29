@@ -1,7 +1,11 @@
-import { defineConfig } from "vitest/config"
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  resolve: { tsconfigPaths: true },
   test: {
-    setupFiles: ["reflect-metadata"]
+    globals: true,
+    root: './',
+    include: ['**/*.spec.ts'],
+    setupFiles: ['reflect-metadata']
   }
-})
+});

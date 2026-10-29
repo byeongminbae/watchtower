@@ -1,13 +1,13 @@
-import { setTimeout as sleep } from "node:timers/promises"
-import { type BeforeApplicationShutdown, Injectable } from "@nestjs/common"
-import { CrawlerConfig } from "../config/crawler-config.ts"
-import { ConcurrencyLimiter } from "./concurrency-limiter.ts"
-import { type CrawlEnvironment, CrawlEnvironments } from "./crawl-environment.ts"
-import { CrawlPolicy } from "./crawl-policy.ts"
-import { CrawlRequest } from "./crawl-request.ts"
-import { CrawlService } from "./crawl.service.ts"
-import type { ReceivedMessage } from "./interfaces/request-queue.ts"
-import { ResultBatcher } from "./result-batcher.ts"
+import { setTimeout as sleep } from 'node:timers/promises';
+import { type BeforeApplicationShutdown, Injectable } from '@nestjs/common';
+import { CrawlerConfig } from '../config/crawler-config.js';
+import { ConcurrencyLimiter } from './concurrency-limiter.js';
+import { type CrawlEnvironment, CrawlEnvironments } from './crawl-environment.js';
+import { CrawlPolicy } from './crawl-policy.js';
+import { CrawlRequest } from './crawl-request.js';
+import { CrawlService } from './crawl.service.js';
+import type { ReceivedMessage } from './interfaces/request-queue.interface.js';
+import { ResultBatcher } from './result-batcher.js';
 
 /**
  * 환경마다 요청 큐 수신 루프를 하나씩 돌리고, 동시 처리 한도는 모든 환경이 함께 씀
@@ -18,98 +18,103 @@ import { ResultBatcher } from "./result-batcher.ts"
  */
 @Injectable()
 export class CrawlWorker implements BeforeApplicationShutdown {
-  private readonly limiter: ConcurrencyLimiter
-  private readonly batchers: Map<CrawlEnvironment, ResultBatcher>
-  private readonly inFlight = new Set<Promise<void>>()
-  private consuming: Promise<unknown> = Promise.resolve()
-  private isStopping = false
+  private readonly limiter: ConcurrencyLimiter;
+  private readonly batchers: Map<CrawlEnvironment, ResultBatcher>;
+  private readonly inFlight = new Set<Promise<void>>();
+  private consuming: Promise<unknown> = Promise.resolve();
+  private isStopping = false;
 
   constructor(
     private readonly environments: CrawlEnvironments,
     config: CrawlerConfig,
     private readonly crawlService: CrawlService
   ) {
-    this.limiter = new ConcurrencyLimiter(config.concurrency)
-    this.batchers = new Map(environments.all.map((environment) => {
-      return [environment, new ResultBatcher(environment.resultQueue, environment.requestQueue)]
-    }))
+    this.limiter = new ConcurrencyLimiter(config.concurrency);
+    this.batchers = new Map(
+      environments.all.map((environment) => {
+        return [environment, new ResultBatcher(environment.resultQueue, environment.requestQueue)];
+      })
+    );
   }
 
   start(): void {
-    this.consuming = Promise.all(this.environments.all.map((environment) => this.consume(environment)))
+    this.consuming = Promise.all(this.environments.all.map((environment) => this.consume(environment)));
   }
 
   /** 새 메시지를 받지 않고, 처리 중인 크롤링과 모아둔 결과 발행이 끝날 때까지 기다림 */
   async beforeApplicationShutdown(): Promise<void> {
-    this.isStopping = true
-    await this.consuming
-    await Promise.allSettled(this.inFlight)
-    await this.closeBatchers()
+    this.isStopping = true;
+    await this.consuming;
+    await Promise.allSettled(this.inFlight);
+    await this.closeBatchers();
   }
 
   /** 예외를 밖으로 던지지 않음. 완료 처리하지 않은 메시지는 큐가 다시 전달함 */
   async handle(environment: CrawlEnvironment, message: ReceivedMessage): Promise<void> {
-    const request = CrawlRequest.from(message.content)
+    const request = CrawlRequest.from(message.content);
     if (request === undefined) {
-      console.error(`[${environment.name}] 형식이 잘못된 크롤링 요청. dead letter queue 로 이동할 때까지 완료 처리하지 않음`, {
-        content: message.content,
-        deliveryCount: message.deliveryCount
-      })
-      return
+      console.error(
+        `[${environment.name}] 형식이 잘못된 크롤링 요청. dead letter queue 로 이동할 때까지 완료 처리하지 않음`,
+        {
+          content: message.content,
+          deliveryCount: message.deliveryCount
+        }
+      );
+      return;
     }
 
     try {
-      const result = await this.crawlService.crawl(request, environment.bucketName)
-      this.batchers.get(environment)?.add(JSON.stringify(result), message.receipt)
+      const result = await this.crawlService.crawl(request, environment.bucketName);
+      this.batchers.get(environment)?.add(JSON.stringify(result), message.receipt);
     } catch (error) {
       console.error(`[${environment.name}] 크롤링 실패. 재전달 후 다시 처리함`, {
         towerId: request.towerId,
         scheduledAt: request.scheduledAt,
         deliveryCount: message.deliveryCount,
         error
-      })
+      });
     }
   }
 
   private async consume(environment: CrawlEnvironment): Promise<void> {
     while (!this.isStopping) {
-      await this.limiter.whenAvailable()
+      await this.limiter.whenAvailable();
 
-      let messages: ReceivedMessage[]
+      let messages: ReceivedMessage[];
       try {
-        messages = await environment.requestQueue.receive(this.receiveLimit())
+        messages = await environment.requestQueue.receive(this.receiveLimit());
       } catch (error) {
-        console.error(`[${environment.name}] 크롤링 요청 수신 실패`, error)
-        await sleep(CrawlPolicy.QUEUE_RETRY_DELAY_MILLIS)
-        continue
+        console.error(`[${environment.name}] 크롤링 요청 수신 실패`, error);
+        await sleep(CrawlPolicy.QUEUE_RETRY_DELAY_MILLIS);
+        continue;
       }
 
       // 중지 중에 받은 메시지는 처리하지 않음. visibility 시간이 지나면 다시 전달됨
       if (this.isStopping) {
-        return
+        return;
       }
 
       for (const message of messages) {
-        await this.dispatch(environment, message)
+        await this.dispatch(environment, message);
       }
     }
   }
 
   private receiveLimit(): number {
-    return Math.min(Math.max(this.limiter.availableSlots, 1), CrawlPolicy.QUEUE_BATCH_SIZE)
+    return Math.min(Math.max(this.limiter.availableSlots, 1), CrawlPolicy.QUEUE_BATCH_SIZE);
   }
 
   /** 자리가 날 때까지 기다린 뒤 처리를 시작하고, 끝날 때까지 기다리지는 않음 */
   private async dispatch(environment: CrawlEnvironment, message: ReceivedMessage): Promise<void> {
-    const release = await this.limiter.acquire()
+    const release = await this.limiter.acquire();
     const task = this.handle(environment, message).finally(() => {
-      release()
-      this.inFlight.delete(task)
-    })
-    this.inFlight.add(task)
+      release();
+      this.inFlight.delete(task);
+    });
+    this.inFlight.add(task);
   }
 
   private async closeBatchers(): Promise<void> {
-    await Promise.all([...this.batchers.values()].map((batcher) => batcher.close()))
+    await Promise.all([...this.batchers.values()].map((batcher) => batcher.close()));
   }
 }

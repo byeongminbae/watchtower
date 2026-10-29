@@ -1,9 +1,9 @@
-import { Module } from "@nestjs/common"
-import { TimeProvider } from "../common/time-provider.ts"
-import { OciModule } from "../external/oci/oci.module.ts"
-import { PlaywrightModule } from "../external/playwright/playwright.module.ts"
-import { CrawlService } from "./crawl.service.ts"
-import { CrawlWorker } from "./crawl.worker.ts"
+import { Module } from '@nestjs/common';
+import { TimeProvider } from '../common/time-provider.js';
+import { OciModule } from '../external/oci/oci.module.js';
+import { PlaywrightModule } from '../external/playwright/playwright.module.js';
+import { CrawlService } from './crawl.service.js';
+import { CrawlWorker } from './crawl.worker.js';
 
 @Module({
   imports: [OciModule, PlaywrightModule],
