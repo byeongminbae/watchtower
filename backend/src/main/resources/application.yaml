@@ -15,8 +15,14 @@ server:
 spring:
   application:
     name: watchtower
-  config:
-    import: aws-parameterstore:/watchtower/backend/
+  cloud:
+    oci:
+      config:
+        type: INSTANCE_PRINCIPAL
+      region:
+        static: ap-osaka-1
+      vault:
+        compartment: ocid1.tenancy.oc1..aaaaaaaajrqij5qzv6e6fnfaq2pk2pjexmmgkbgabdwkyglw2kz2a3egbkna
   lifecycle:
     timeout-per-shutdown-phase: 60s
 

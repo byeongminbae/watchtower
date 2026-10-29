@@ -1,0 +1,34 @@
+name: watchtower-ci
+
+services:
+  postgres:
+    profiles: [backend]
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: watchtower
+      POSTGRES_USER: watchtower
+      POSTGRES_PASSWORD: watchtower
+    healthcheck:
+      test: ["CMD", "pg_isready", "--host", "127.0.0.1", "--username", "watchtower", "--dbname", "watchtower"]
+      interval: 1s
+      retries: 30
+
+  backend:
+    profiles: [backend]
+    image: ${IMAGE_URI}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_CLOUD_OCI_VAULT_ENABLED: "false"
+      SPRING_AUTOCONFIGURE_EXCLUDE: com.oracle.cloud.spring.autoconfigure.core.CredentialsProviderAutoConfiguration
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/watchtower
+      SPRING_DATASOURCE_USERNAME: watchtower
+      SPRING_DATASOURCE_PASSWORD: watchtower
+      WATCHTOWER_AUTH_NAVER_CLIENT_ID: ci
+      WATCHTOWER_AUTH_NAVER_CLIENT_SECRET: ci
+      WATCHTOWER_AUTH_NAVER_CALLBACK_URL: http://127.0.0.1:3000/login/callback
+
+  frontend:
+    profiles: [frontend]
+    image: ${IMAGE_URI}
