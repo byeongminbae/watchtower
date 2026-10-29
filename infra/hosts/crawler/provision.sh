@@ -6,6 +6,8 @@ set -euo pipefail
 DOKKU_VERSION=v0.38.32
 APP=crawler
 
+command -v jq >/dev/null || DEBIAN_FRONTEND=noninteractive apt-get install -y -qq jq
+
 if ! command -v dokku >/dev/null; then
   wget -q -O /tmp/dokku-bootstrap.sh "https://dokku.com/install/$DOKKU_VERSION/bootstrap.sh"
   DEBIAN_FRONTEND=noninteractive DOKKU_TAG=$DOKKU_VERSION bash /tmp/dokku-bootstrap.sh
