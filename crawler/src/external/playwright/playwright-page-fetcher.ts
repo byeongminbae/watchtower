@@ -2,7 +2,7 @@ import { Injectable, type OnApplicationShutdown } from "@nestjs/common"
 import { type Browser, type BrowserContext, type Page, type Request, type Response, type Route, chromium, errors } from "playwright"
 import { CrawlError } from "../../crawl/crawl-error.ts"
 import { CrawlPolicy } from "../../crawl/crawl-policy.ts"
-import type { PageFetcher, PageFetchOutcome } from "../../crawl/crawl.service.ts"
+import type { PageFetcher, PageFetchOutcome } from "../../crawl/interfaces/page-fetcher.ts"
 import { HostCheck } from "../../crawl/host-check.ts"
 import { DnsResolver } from "../dns/dns-resolver.ts"
 

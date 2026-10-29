@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { CrawlerConfig } from "../../src/config/crawler-config.ts"
-import { CrawlEnvironment, CrawlEnvironments, type ReceivedMessage } from "../../src/crawl/crawl-environment.ts"
+import { CrawlEnvironment, CrawlEnvironments } from "../../src/crawl/crawl-environment.ts"
+import type { ReceivedMessage } from "../../src/crawl/interfaces/request-queue.ts"
 import { CrawlError } from "../../src/crawl/crawl-error.ts"
 import { CrawlRequest } from "../../src/crawl/crawl-request.ts"
 import { type CrawlResult, FailedCrawlResult } from "../../src/crawl/crawl-result.ts"

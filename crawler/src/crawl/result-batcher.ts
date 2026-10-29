@@ -1,5 +1,6 @@
 import { CrawlPolicy } from "./crawl-policy.ts"
-import type { RequestQueue, ResultQueue } from "./crawl-environment.ts"
+import type { RequestQueue } from "./interfaces/request-queue.ts"
+import type { ResultQueue } from "./interfaces/result-queue.ts"
 
 /**
  * 결과를 모아 한 번에 발행하고, 발행에 성공한 결과의 요청만 한 번에 완료 처리함

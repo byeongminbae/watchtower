@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest"
 import { TimeProvider } from "../../src/common/time-provider.ts"
 import { CrawlError } from "../../src/crawl/crawl-error.ts"
 import { CrawlRequest } from "../../src/crawl/crawl-request.ts"
-import { CrawlService, type HtmlStorage, type PageFetcher } from "../../src/crawl/crawl.service.ts"
+import { CrawlService } from "../../src/crawl/crawl.service.ts"
+import type { HtmlStorage } from "../../src/crawl/interfaces/html-storage.ts"
+import type { PageFetcher } from "../../src/crawl/interfaces/page-fetcher.ts"
 
 const request = CrawlRequest.from(JSON.stringify({ towerId: 7, url: "https://example.com", scheduledAt: "2026-10-30T00:00:00.000Z" }))!
 const startedAt = new Date("2026-10-30T00:00:01.000Z")

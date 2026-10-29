@@ -3,7 +3,7 @@ import { Region, SimpleAuthenticationDetailsProvider } from "oci-common"
 import { ObjectStorageClient } from "oci-objectstorage"
 import { CrawlerConfig } from "../../config/crawler-config.ts"
 import { CrawlEnvironment, CrawlEnvironments } from "../../crawl/crawl-environment.ts"
-import { HtmlStorage } from "../../crawl/crawl.service.ts"
+import { HTML_STORAGE } from "../../crawl/interfaces/html-storage.ts"
 import { OciHtmlStorage } from "./oci-html-storage.ts"
 import { OciQueue } from "./oci-queue.ts"
 
@@ -24,7 +24,7 @@ import { OciQueue } from "./oci-queue.ts"
       }
     },
     {
-      provide: HtmlStorage,
+      provide: HTML_STORAGE,
       inject: [CrawlerConfig, SimpleAuthenticationDetailsProvider],
       useFactory: (config: CrawlerConfig, authenticationDetailsProvider: SimpleAuthenticationDetailsProvider) => {
         return new OciHtmlStorage(new ObjectStorageClient({ authenticationDetailsProvider }), config.objectStorageNamespace)
@@ -45,6 +45,6 @@ import { OciQueue } from "./oci-queue.ts"
       }
     }
   ],
-  exports: [HtmlStorage, CrawlEnvironments]
+  exports: [HTML_STORAGE, CrawlEnvironments]
 })
 export class OciModule {}

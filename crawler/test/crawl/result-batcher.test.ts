@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import type { RequestQueue, ResultQueue } from "../../src/crawl/crawl-environment.ts"
+import type { RequestQueue } from "../../src/crawl/interfaces/request-queue.ts"
+import type { ResultQueue } from "../../src/crawl/interfaces/result-queue.ts"
 import { CrawlPolicy } from "../../src/crawl/crawl-policy.ts"
 import { ResultBatcher } from "../../src/crawl/result-batcher.ts"
 

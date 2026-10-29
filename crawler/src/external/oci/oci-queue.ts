@@ -1,7 +1,8 @@
 import type { SimpleAuthenticationDetailsProvider } from "oci-common"
 import { QueueClient, type models } from "oci-queue"
 import { CrawlPolicy } from "../../crawl/crawl-policy.ts"
-import type { ReceivedMessage, RequestQueue, ResultQueue } from "../../crawl/crawl-environment.ts"
+import type { ReceivedMessage, RequestQueue } from "../../crawl/interfaces/request-queue.ts"
+import type { ResultQueue } from "../../crawl/interfaces/result-queue.ts"
 
 /** 큐 하나에 대한 메시지 수신, 발행, 완료 처리. 큐마다 메시지 엔드포인트가 다를 수 있어 클라이언트를 따로 둠 */
 export class OciQueue implements RequestQueue, ResultQueue {

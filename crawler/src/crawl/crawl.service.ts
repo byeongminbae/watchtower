@@ -1,33 +1,15 @@
-import { Injectable } from "@nestjs/common"
+import { Inject, Injectable } from "@nestjs/common"
 import { TimeProvider } from "../common/time-provider.ts"
-import type { CrawlError } from "./crawl-error.ts"
 import type { CrawlRequest } from "./crawl-request.ts"
 import { type CrawlResult, FailedCrawlResult, FetchedCrawlResult } from "./crawl-result.ts"
-
-export type FetchedPage = {
-  httpStatusCode: number
-  finalUrl: string
-  html: string
-}
-
-export type PageFetchOutcome =
-  | { kind: "fetched", page: FetchedPage }
-  | { kind: "failed", error: CrawlError }
-
-export abstract class PageFetcher {
-  /** 재시도해도 결과가 같은 실패는 failed 로 돌려주고, 브라우저 종료 같은 일시적인 오류만 예외로 던짐 */
-  abstract fetchPage(url: string): Promise<PageFetchOutcome>
-}
-
-export abstract class HtmlStorage {
-  abstract saveHtml(bucketName: string, objectName: string, html: string): Promise<void>
-}
+import { HTML_STORAGE, type HtmlStorage } from "./interfaces/html-storage.ts"
+import { PAGE_FETCHER, type PageFetcher } from "./interfaces/page-fetcher.ts"
 
 @Injectable()
 export class CrawlService {
   constructor(
-    private readonly pageFetcher: PageFetcher,
-    private readonly htmlStorage: HtmlStorage,
+    @Inject(PAGE_FETCHER) private readonly pageFetcher: PageFetcher,
+    @Inject(HTML_STORAGE) private readonly htmlStorage: HtmlStorage,
     private readonly timeProvider: TimeProvider
   ) {}
 

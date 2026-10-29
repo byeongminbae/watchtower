@@ -1,5 +1,5 @@
 import type { ObjectStorageClient } from "oci-objectstorage"
-import type { HtmlStorage } from "../../crawl/crawl.service.ts"
+import type { HtmlStorage } from "../../crawl/interfaces/html-storage.ts"
 
 export class OciHtmlStorage implements HtmlStorage {
   constructor(

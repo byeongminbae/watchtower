@@ -2,10 +2,11 @@ import { setTimeout as sleep } from "node:timers/promises"
 import { type BeforeApplicationShutdown, Injectable } from "@nestjs/common"
 import { CrawlerConfig } from "../config/crawler-config.ts"
 import { ConcurrencyLimiter } from "./concurrency-limiter.ts"
-import { type CrawlEnvironment, CrawlEnvironments, type ReceivedMessage } from "./crawl-environment.ts"
+import { type CrawlEnvironment, CrawlEnvironments } from "./crawl-environment.ts"
 import { CrawlPolicy } from "./crawl-policy.ts"
 import { CrawlRequest } from "./crawl-request.ts"
 import { CrawlService } from "./crawl.service.ts"
+import type { ReceivedMessage } from "./interfaces/request-queue.ts"
 import { ResultBatcher } from "./result-batcher.ts"
 
 /**
