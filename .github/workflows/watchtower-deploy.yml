@@ -160,6 +160,13 @@ jobs:
           echo "$GITHUB_TOKEN" | dokku registry:login --global --password-stdin ghcr.io "$GITHUB_ACTOR"
           dokku git:from-image "$DOKKU_APP" "$IMAGE_URI"
 
+          # 크롤러는 사용자가 입력한 URL 을 열기 때문에 호스트 방화벽 없이 실행되면 안 됨
+          if [ "$SERVICE" = "crawler" ] && ! dokku run crawler node dist/egress-check.js; then
+            dokku ps:stop crawler
+            echo "크롤러 호스트 방화벽이 없어 크롤러를 중지함. infra/crawler-firewall.sh 를 적용한 뒤 다시 배포해야 함" >&2
+            exit 1
+          fi
+
       - name: Revoke runner SSH
         if: always() && steps.runner-ssh.outputs.rule_id != ''
         env: *oci-cli-env
