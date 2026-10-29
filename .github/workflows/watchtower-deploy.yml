@@ -11,10 +11,9 @@ on:
         options:
           - backend
           - frontend
-          - caddy
         default: backend
       environment:
-        description: "배포 환경 (Caddy는 공용 서비스라 선택값 무시)"
+        description: "배포 환경"
         required: true
         type: choice
         options:
@@ -22,54 +21,48 @@ on:
           - prod
         default: dev
 
+concurrency:
+  group: deploy-${{ inputs.service }}-${{ inputs.environment }}
+
 env:
   SERVICE: ${{ inputs.service }}
   DEPLOY_ENV: ${{ inputs.environment }}
-  ECR_REPOSITORY: watchtower-${{ inputs.service }}-ecr
-  ECS_CLUSTER: watchtower-cluster
-  ECS_SERVICE: ${{ inputs.service == 'caddy' && 'watchtower-caddy-task-service' || format('watchtower-{0}-{1}-task-service', inputs.service, inputs.environment) }}
-  TASK_CONTAINER_NAME: watchtower-${{ inputs.service }}-container
+  IMAGE_REPOSITORY: ghcr.io/${{ github.repository_owner }}/watchtower-${{ inputs.service }}
+  DOKKU_APP: ${{ inputs.service == 'backend' && 'back' || 'front' }}-${{ inputs.environment }}
+  DOKKU_HOST: ${{ vars.DOKKU_HOST }}
+  DEPLOY_NSG_ID: ${{ vars.OCI_DEPLOY_NSG_ID }}
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
+      packages: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
       - name: Build image
-        if: env.SERVICE != 'caddy'
         env:
-          IMAGE_TAG: ${{ env.SERVICE }}-${{ env.DEPLOY_ENV }}-${{ github.sha }}
+          IMAGE_TAG: ${{ env.DEPLOY_ENV }}-${{ github.sha }}
         run: |
-          local_image="watchtower/${SERVICE}:${IMAGE_TAG}"
+          image_uri="${IMAGE_REPOSITORY}:${IMAGE_TAG}"
           build_args=(--build-arg "SPRING_PROFILE=${DEPLOY_ENV}")
 
           if [ "$SERVICE" = "frontend" ]; then
-            build_args+=(--build-arg "INTERNAL_API_BASE_URL=http://back-${DEPLOY_ENV}:8080")
+            build_args+=(--build-arg "INTERNAL_API_BASE_URL=http://back-${DEPLOY_ENV}.web:8080")
           fi
 
           docker build \
             -f "${SERVICE}/Dockerfile" \
             "${build_args[@]}" \
-            -t "$local_image" \
+            -t "$image_uri" \
             "./${SERVICE}"
 
-          echo "LOCAL_IMAGE=$local_image" >> "$GITHUB_ENV"
-          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
+          echo "IMAGE_URI=$image_uri" >> "$GITHUB_ENV"
 
       - name: Verify image health
-        if: env.SERVICE != 'caddy'
         run: |
           app_container="watchtower-ci-${SERVICE}"
           db_container="watchtower-ci-postgres"
@@ -99,7 +92,7 @@ jobs:
               --env POSTGRES_DB=watchtower \
               --env POSTGRES_USER=watchtower \
               --env POSTGRES_PASSWORD=watchtower \
-              postgres:17-alpine >/dev/null
+              postgres:18-alpine >/dev/null
 
             for _ in $(seq 1 30); do
               if docker exec "$db_container" sh -c \
@@ -120,18 +113,19 @@ jobs:
             docker run --detach \
               --name "$app_container" \
               --network "$network" \
-              --env AWS_ACCESS_KEY_ID \
-              --env AWS_SECRET_ACCESS_KEY \
-              --env AWS_SESSION_TOKEN \
-              --env AWS_REGION \
+              --env SPRING_CLOUD_OCI_VAULT_ENABLED=false \
+              --env SPRING_AUTOCONFIGURE_EXCLUDE=com.oracle.cloud.spring.autoconfigure.core.CredentialsProviderAutoConfiguration \
               --env SPRING_DATASOURCE_URL=jdbc:postgresql://watchtower-ci-postgres:5432/watchtower \
               --env SPRING_DATASOURCE_USERNAME=watchtower \
               --env SPRING_DATASOURCE_PASSWORD=watchtower \
-              "$LOCAL_IMAGE" >/dev/null
+              --env WATCHTOWER_AUTH_NAVER_CLIENT_ID=ci \
+              --env WATCHTOWER_AUTH_NAVER_CLIENT_SECRET=ci \
+              --env WATCHTOWER_AUTH_NAVER_CALLBACK_URL=http://127.0.0.1:3000/login/callback \
+              "$IMAGE_URI" >/dev/null
           else
             docker run --detach \
               --name "$app_container" \
-              "$LOCAL_IMAGE" >/dev/null
+              "$IMAGE_URI" >/dev/null
           fi
 
           for _ in $(seq 1 30); do
@@ -152,58 +146,67 @@ jobs:
           show_logs
           exit 1
 
-      - name: Verify ECS capacity
-        run: |
-          connected_instances=$(aws ecs list-container-instances \
-            --cluster "$ECS_CLUSTER" \
-            --filter "agentConnected == true" \
-            --query 'length(containerInstanceArns)' \
-            --output text)
-
-          if [ "$connected_instances" -eq 0 ]; then
-            echo "No connected ECS container instance is available in $ECS_CLUSTER" >&2
-            exit 1
-          fi
-
-      - name: Login to ECR
-        if: env.SERVICE != 'caddy'
-        id: ecr-login
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Push image to ECR
-        if: env.SERVICE != 'caddy'
+      - name: Push image to GHCR
         env:
-          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          image_uri="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
-          docker tag "$LOCAL_IMAGE" "$image_uri"
-          docker push "$image_uri"
-          echo "IMAGE_URI=$image_uri" >> "$GITHUB_ENV"
+          echo "$GITHUB_TOKEN" | docker login ghcr.io --username "${{ github.actor }}" --password-stdin
+          docker push "$IMAGE_URI"
 
-      - name: Render task definition
-        id: render-task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: ecs/task-definition.${{ env.SERVICE }}.json
-          container-name: ${{ env.TASK_CONTAINER_NAME }}
-          image: ${{ env.SERVICE == 'caddy' && 'caddy:2-alpine' || env.IMAGE_URI }}
+      - name: Install OCI CLI
+        run: pipx install oci-cli
 
-      - name: Deploy to ECS service
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
-
-      - name: Start deployed service
+      - name: Allow runner SSH
+        id: runner-ssh
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
         run: |
-          aws ecs update-service \
-            --cluster "$ECS_CLUSTER" \
-            --service "$ECS_SERVICE" \
-            --desired-count 1 \
-            --output json >/dev/null
+          runner_ip=$(curl -fsS https://checkip.amazonaws.com)
+          rule_id=$(oci network nsg rules add \
+            --nsg-id "$DEPLOY_NSG_ID" \
+            --security-rules "[{\"direction\":\"INGRESS\",\"protocol\":\"6\",\"source\":\"${runner_ip}/32\",\"sourceType\":\"CIDR_BLOCK\",\"tcpOptions\":{\"destinationPortRange\":{\"min\":22,\"max\":22}},\"description\":\"github-actions run ${{ github.run_id }}\"}]" \
+            --query 'data."security-rules"[0].id' \
+            --raw-output)
+          echo "rule_id=$rule_id" >> "$GITHUB_OUTPUT"
 
-          aws ecs wait services-stable \
-            --cluster "$ECS_CLUSTER" \
-            --services "$ECS_SERVICE"
+      - name: Deploy to Dokku
+        env:
+          DOKKU_SSH_PRIVATE_KEY: ${{ secrets.DOKKU_SSH_PRIVATE_KEY }}
+          DOKKU_KNOWN_HOSTS: ${{ vars.DOKKU_KNOWN_HOSTS }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "$DOKKU_SSH_PRIVATE_KEY" > ~/.ssh/dokku
+          chmod 600 ~/.ssh/dokku
+          echo "$DOKKU_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+          dokku() {
+            ssh -i ~/.ssh/dokku -o ConnectTimeout=10 "dokku@${DOKKU_HOST}" "$@"
+          }
+
+          for _ in $(seq 1 12); do
+            if dokku version >/dev/null 2>&1; then
+              break
+            fi
+            sleep 5
+          done
+
+          echo "$GITHUB_TOKEN" | dokku registry:login --password-stdin ghcr.io "${{ github.actor }}"
+          dokku git:from-image "$DOKKU_APP" "$IMAGE_URI"
+
+      - name: Revoke runner SSH
+        if: always() && steps.runner-ssh.outputs.rule_id != ''
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+        run: |
+          oci network nsg rules remove \
+            --nsg-id "$DEPLOY_NSG_ID" \
+            --security-rule-ids '["${{ steps.runner-ssh.outputs.rule_id }}"]'

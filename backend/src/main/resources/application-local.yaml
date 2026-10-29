@@ -9,7 +9,12 @@ logging:
     kr.byeongmin: DEBUG
 
 spring:
-  config:
-    import: aws-parameterstore:/watchtower/backend/local/
+  cloud:
+    oci:
+      config:
+        type: FILE
+      vault:
+        property-sources:
+          - vault-id: ocid1.vault.oc1.ap-osaka-1.fzvog2tgaafqy.abvwsljrjnlwob4t4xlgkhpprljovqbqz3kxpc552xfkocpn466xnscnq5oa
   jpa:
     show-sql: true

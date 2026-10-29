@@ -1,0 +1,16 @@
+{
+  "healthchecks": {
+    "web": [
+      {
+        "type": "startup",
+        "name": "actuator health",
+        "path": "/actuator/health",
+        "port": 8080,
+        "initialDelay": 20,
+        "attempts": 30,
+        "wait": 5,
+        "timeout": 5
+      }
+    ]
+  }
+}

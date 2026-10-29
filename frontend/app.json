@@ -1,0 +1,16 @@
+{
+  "healthchecks": {
+    "web": [
+      {
+        "type": "startup",
+        "name": "next root",
+        "path": "/",
+        "port": 3000,
+        "initialDelay": 3,
+        "attempts": 20,
+        "wait": 3,
+        "timeout": 5
+      }
+    ]
+  }
+}

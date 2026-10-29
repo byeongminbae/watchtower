@@ -34,6 +34,7 @@ RUN groupadd -r watchtower && useradd -r -g watchtower watchtower
 WORKDIR /app
 
 COPY --from=build /app/build/libs/*.jar app.jar
+COPY app.json ./
 RUN chown -R watchtower:watchtower /app
 USER watchtower
 
