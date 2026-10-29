@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { CrawlError } from '../../crawl/crawl-error.js';
+import { CrawlError } from '../../crawl/crawl-result.js';
 import { CrawlPolicy } from '../../crawl/crawl-policy.js';
 import { DnsResolver } from '../dns/dns-resolver.js';
 import { PlaywrightPageFetcher } from './playwright-page-fetcher.js';

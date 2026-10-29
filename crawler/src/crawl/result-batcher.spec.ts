@@ -1,5 +1,4 @@
-import type { RequestQueue } from './interfaces/request-queue.interface.js';
-import type { ResultQueue } from './interfaces/result-queue.interface.js';
+import type { RequestQueue, ResultQueue } from './interfaces/queue.interface.js';
 import { CrawlPolicy } from './crawl-policy.js';
 import { ResultBatcher } from './result-batcher.js';
 

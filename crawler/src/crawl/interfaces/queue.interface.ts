@@ -11,3 +11,8 @@ export interface RequestQueue {
   /** 지우지 못한 메시지는 visibility 시간이 지나면 다시 전달됨 */
   completeAll(receipts: string[]): Promise<void>;
 }
+
+export interface ResultQueue {
+  /** 전부 넣거나 전부 실패함 */
+  publishAll(contents: string[]): Promise<void>;
+}

@@ -1,9 +1,8 @@
 import type { CrawlerConfig } from '../config/crawler-config.js';
 import { CrawlEnvironment, CrawlEnvironments } from './crawl-environment.js';
-import type { ReceivedMessage } from './interfaces/request-queue.interface.js';
-import { CrawlError } from './crawl-error.js';
+import type { ReceivedMessage } from './interfaces/queue.interface.js';
+import { CrawlError, type CrawlResult, FailedCrawlResult } from './crawl-result.js';
 import { CrawlRequest } from './crawl-request.js';
-import { type CrawlResult, FailedCrawlResult } from './crawl-result.js';
 import type { CrawlService } from './crawl.service.js';
 import { CrawlWorker } from './crawl.worker.js';
 

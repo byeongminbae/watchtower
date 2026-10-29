@@ -1,6 +1,5 @@
 import { CrawlPolicy } from './crawl-policy.js';
-import type { RequestQueue } from './interfaces/request-queue.interface.js';
-import type { ResultQueue } from './interfaces/result-queue.interface.js';
+import type { RequestQueue, ResultQueue } from './interfaces/queue.interface.js';
 
 /**
  * 결과를 모아 한 번에 발행하고, 발행에 성공한 결과의 요청만 한 번에 완료 처리함

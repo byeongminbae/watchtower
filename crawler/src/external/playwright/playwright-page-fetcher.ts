@@ -9,7 +9,7 @@ import {
   chromium,
   errors
 } from 'playwright';
-import { CrawlError } from '../../crawl/crawl-error.js';
+import { CrawlError } from '../../crawl/crawl-result.js';
 import { CrawlPolicy } from '../../crawl/crawl-policy.js';
 import type { PageFetcher, PageFetchOutcome } from '../../crawl/interfaces/page-fetcher.interface.js';
 import { HostCheck } from '../../crawl/host-check.js';

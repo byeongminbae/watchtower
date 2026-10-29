@@ -6,7 +6,7 @@ import { type CrawlEnvironment, CrawlEnvironments } from './crawl-environment.js
 import { CrawlPolicy } from './crawl-policy.js';
 import { CrawlRequest } from './crawl-request.js';
 import { CrawlService } from './crawl.service.js';
-import type { ReceivedMessage } from './interfaces/request-queue.interface.js';
+import type { ReceivedMessage } from './interfaces/queue.interface.js';
 import { ResultBatcher } from './result-batcher.js';
 
 /**

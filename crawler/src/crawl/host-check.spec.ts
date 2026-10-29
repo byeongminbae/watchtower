@@ -8,6 +8,70 @@ function createDnsResolver(records: Record<string, string[]>): DnsResolver {
 }
 
 describe('HostCheck', () => {
+  it('외부 IPv4와 IPv6 주소로만 조회되는 호스트는 접근을 허용함', async () => {
+    for (const address of ['8.8.8.8', '2001:4860:4860::8888']) {
+      // given
+      const hostCheck = new HostCheck(createDnsResolver({ 'target.example': [address] }));
+
+      // when
+      const result = await hostCheck.isAllowedHost('target.example');
+
+      // then
+      expect(result, address).toBe(true);
+    }
+  });
+
+  it('내부망, 메타데이터, 멀티캐스트 주소로 조회되는 호스트는 접근을 허용하지 않음', async () => {
+    for (const address of [
+      '0.0.0.0',
+      '127.0.0.1',
+      '10.0.0.163',
+      '100.64.0.1',
+      '172.16.0.1',
+      '192.168.0.1',
+      '169.254.169.254',
+      '224.0.0.1',
+      '::',
+      '::1',
+      'fc00::1',
+      'fd12:3456::1',
+      'fe80::1',
+      'fec0::1',
+      'ff02::1'
+    ]) {
+      // given
+      const hostCheck = new HostCheck(createDnsResolver({ 'target.example': [address] }));
+
+      // when
+      const result = await hostCheck.isAllowedHost('target.example');
+
+      // then
+      expect(result, address).toBe(false);
+    }
+  });
+
+  it('IPv6 형식으로 감싼 내부 IPv4 주소로 조회되는 호스트도 접근을 허용하지 않음', async () => {
+    // given
+    const hostCheck = new HostCheck(createDnsResolver({ 'target.example': ['::ffff:169.254.169.254'] }));
+
+    // when
+    const result = await hostCheck.isAllowedHost('target.example');
+
+    // then
+    expect(result).toBe(false);
+  });
+
+  it('IP 형식이 아닌 조회 결과는 판단할 수 없으므로 접근을 허용하지 않음', async () => {
+    // given
+    const hostCheck = new HostCheck(createDnsResolver({ 'target.example': ['not-an-ip'] }));
+
+    // when
+    const result = await hostCheck.isAllowedHost('target.example');
+
+    // then
+    expect(result).toBe(false);
+  });
+
   it('조회된 주소가 모두 외부 주소일 때만 접근을 허용함', async () => {
     // given
     const hostCheck = new HostCheck(

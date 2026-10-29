@@ -7,8 +7,7 @@ import { CrawlEnvironment, CrawlEnvironments } from '../src/crawl/crawl-environm
 import { CrawlWorker } from '../src/crawl/crawl.worker.js';
 import { HTML_STORAGE, type HtmlStorage } from '../src/crawl/interfaces/html-storage.interface.js';
 import { PAGE_FETCHER, type PageFetcher } from '../src/crawl/interfaces/page-fetcher.interface.js';
-import type { ReceivedMessage, RequestQueue } from '../src/crawl/interfaces/request-queue.interface.js';
-import type { ResultQueue } from '../src/crawl/interfaces/result-queue.interface.js';
+import type { ReceivedMessage, RequestQueue, ResultQueue } from '../src/crawl/interfaces/queue.interface.js';
 
 class InMemoryRequestQueue implements RequestQueue {
   readonly completedReceipts: string[] = [];

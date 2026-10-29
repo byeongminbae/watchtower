@@ -1,4 +1,4 @@
-import { HttpUrl } from './http-url.js';
+import { HttpUrl } from './host-check.js';
 
 /**
  * 백엔드 스케줄러가 요청 큐에 넣는 크롤링 요청

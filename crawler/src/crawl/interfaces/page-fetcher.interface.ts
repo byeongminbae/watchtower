@@ -1,4 +1,4 @@
-import type { CrawlError } from '../crawl-error.js';
+import type { CrawlError } from '../crawl-result.js';
 
 export const PAGE_FETCHER = Symbol('PageFetcher');
 

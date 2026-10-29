@@ -1,5 +1,5 @@
 import { TimeProvider } from '../common/time-provider.js';
-import { CrawlError } from './crawl-error.js';
+import { CrawlError } from './crawl-result.js';
 import { CrawlRequest } from './crawl-request.js';
 import { CrawlService } from './crawl.service.js';
 import type { HtmlStorage } from './interfaces/html-storage.interface.js';
