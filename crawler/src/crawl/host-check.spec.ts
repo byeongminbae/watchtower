@@ -14,7 +14,7 @@ describe('HostCheck', () => {
       const hostCheck = new HostCheck(createDnsResolver({ 'target.example': [address] }));
 
       // when
-      const result = await hostCheck.isAllowedHost('target.example');
+      const result = await hostCheck.isAllowedUrl('https://target.example/');
 
       // then
       expect(result, address).toBe(true);
@@ -43,7 +43,7 @@ describe('HostCheck', () => {
       const hostCheck = new HostCheck(createDnsResolver({ 'target.example': [address] }));
 
       // when
-      const result = await hostCheck.isAllowedHost('target.example');
+      const result = await hostCheck.isAllowedUrl('https://target.example/');
 
       // then
       expect(result, address).toBe(false);
@@ -55,7 +55,7 @@ describe('HostCheck', () => {
     const hostCheck = new HostCheck(createDnsResolver({ 'target.example': ['::ffff:169.254.169.254'] }));
 
     // when
-    const result = await hostCheck.isAllowedHost('target.example');
+    const result = await hostCheck.isAllowedUrl('https://target.example/');
 
     // then
     expect(result).toBe(false);
@@ -66,7 +66,7 @@ describe('HostCheck', () => {
     const hostCheck = new HostCheck(createDnsResolver({ 'target.example': ['not-an-ip'] }));
 
     // when
-    const result = await hostCheck.isAllowedHost('target.example');
+    const result = await hostCheck.isAllowedUrl('https://target.example/');
 
     // then
     expect(result).toBe(false);
@@ -83,8 +83,8 @@ describe('HostCheck', () => {
 
     // when
     const results = await Promise.all([
-      hostCheck.isAllowedHost('example.com'),
-      hostCheck.isAllowedHost('mixed.example')
+      hostCheck.isAllowedUrl('https://example.com/'),
+      hostCheck.isAllowedUrl('https://mixed.example/')
     ]);
 
     // then
@@ -96,7 +96,7 @@ describe('HostCheck', () => {
     const hostCheck = new HostCheck(createDnsResolver({}));
 
     // when
-    const result = await hostCheck.isAllowedHost('unknown.example');
+    const result = await hostCheck.isAllowedUrl('https://unknown.example/');
 
     // then
     expect(result).toBe(false);
@@ -108,7 +108,7 @@ describe('HostCheck', () => {
     const hostCheck = new HostCheck(dnsResolver);
 
     // when
-    await Promise.all([hostCheck.isAllowedHost('example.com'), hostCheck.isAllowedHost('example.com')]);
+    await Promise.all([hostCheck.isAllowedUrl('https://example.com/'), hostCheck.isAllowedUrl('https://example.com/')]);
 
     // then
     expect(dnsResolver.resolveAll).toHaveBeenCalledTimes(1);
@@ -120,7 +120,7 @@ describe('HostCheck', () => {
     const hostCheck = new HostCheck(dnsResolver);
 
     // when
-    const result = await hostCheck.isAllowedHost('[::1]');
+    const result = await hostCheck.isAllowedUrl('http://[::1]/');
 
     // then
     expect(dnsResolver.resolveAll).toHaveBeenCalledWith('::1');

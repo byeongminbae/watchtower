@@ -17,7 +17,7 @@ export class HostCheck {
     return httpUrl !== undefined && (await this.isAllowedHost(httpUrl.host));
   }
 
-  isAllowedHost(host: string): Promise<boolean> {
+  private isAllowedHost(host: string): Promise<boolean> {
     let verdict = this.verdicts.get(host);
     if (verdict === undefined) {
       verdict = this.resolvesOnlyToExternalAddresses(host);

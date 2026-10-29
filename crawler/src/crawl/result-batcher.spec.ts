@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import type { RequestQueue, ResultQueue } from './interfaces/queue.interface.js';
 import { CrawlPolicy } from './crawl-policy.js';
 import { ResultBatcher } from './result-batcher.js';
@@ -8,7 +9,7 @@ describe('ResultBatcher', () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
     resultQueue = { publishAll: vi.fn(async () => {}) };
     requestQueue = { receive: vi.fn(async () => []), completeAll: vi.fn(async () => {}) };
   });

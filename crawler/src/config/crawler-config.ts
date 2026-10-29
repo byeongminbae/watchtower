@@ -27,7 +27,7 @@ export class CrawlerConfig {
   ) {}
 
   /** 값이 하나라도 빠지면 빠진 이름을 모두 담아 기동을 멈춤 */
-  static from(env: NodeJS.ProcessEnv): CrawlerConfig {
+  static from(env: Record<string, string | undefined>): CrawlerConfig {
     const missingNames: string[] = [];
     const required = (name: string): string => {
       const value = env[name];

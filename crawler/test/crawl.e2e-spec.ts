@@ -1,10 +1,9 @@
 import { setTimeout as sleep } from 'node:timers/promises';
+import { Logger } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { SimpleAuthenticationDetailsProvider } from 'oci-common';
 import { AppModule } from '../src/app.module.js';
-import { CrawlerConfig } from '../src/config/crawler-config.js';
 import { CrawlEnvironment, CrawlEnvironments } from '../src/crawl/crawl-environment.js';
-import { CrawlWorker } from '../src/crawl/crawl.worker.js';
 import { HTML_STORAGE, type HtmlStorage } from '../src/crawl/interfaces/html-storage.interface.js';
 import { PAGE_FETCHER, type PageFetcher } from '../src/crawl/interfaces/page-fetcher.interface.js';
 import type { ReceivedMessage, RequestQueue, ResultQueue } from '../src/crawl/interfaces/queue.interface.js';
@@ -35,27 +34,6 @@ class InMemoryResultQueue implements ResultQueue {
   }
 }
 
-function createConfig(): CrawlerConfig {
-  const env: NodeJS.ProcessEnv = {
-    OCI_REGION: 'ap-osaka-1',
-    OCI_TENANCY_ID: 'e2e',
-    OCI_USER_ID: 'e2e',
-    OCI_FINGERPRINT: 'e2e',
-    OCI_PRIVATE_KEY: 'e2e',
-    OBJECT_STORAGE_NAMESPACE: 'e2e',
-    CRAWLER_CONCURRENCY: '2'
-  };
-  for (const name of CrawlerConfig.ENVIRONMENT_NAMES) {
-    const suffix = name.toUpperCase();
-    env[`CRAWL_REQUEST_QUEUE_ID_${suffix}`] = `request-${name}`;
-    env[`CRAWL_REQUEST_QUEUE_ENDPOINT_${suffix}`] = 'http://127.0.0.1:9';
-    env[`CRAWL_RESULT_QUEUE_ID_${suffix}`] = `result-${name}`;
-    env[`CRAWL_RESULT_QUEUE_ENDPOINT_${suffix}`] = 'http://127.0.0.1:9';
-    env[`OBJECT_STORAGE_BUCKET_${suffix}`] = `watchtower-snapshot-${name}`;
-  }
-  return CrawlerConfig.from(env);
-}
-
 describe('크롤러 (e2e)', () => {
   let moduleRef: TestingModule;
   let devRequestQueue: InMemoryRequestQueue;
@@ -65,7 +43,7 @@ describe('크롤러 (e2e)', () => {
   let savedBuckets: string[];
 
   beforeEach(async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
     devRequestQueue = new InMemoryRequestQueue([]);
     prodRequestQueue = new InMemoryRequestQueue([
       {
@@ -93,8 +71,6 @@ describe('크롤러 (e2e)', () => {
     };
 
     moduleRef = await Test.createTestingModule({ imports: [AppModule] })
-      .overrideProvider(CrawlerConfig)
-      .useValue(createConfig())
       .overrideProvider(SimpleAuthenticationDetailsProvider)
       .useValue({})
       .overrideProvider(PAGE_FETCHER)
@@ -112,11 +88,10 @@ describe('크롤러 (e2e)', () => {
   });
 
   it('prod 요청 큐로 들어온 요청은 prod 버킷에 저장하고 prod 결과 큐로만 발행한 뒤 요청을 완료 처리함', async () => {
-    // given
-    const worker = moduleRef.get(CrawlWorker);
+    // given: 요청 큐, 결과 큐, 브라우저, 저장소는 beforeEach 에서 가짜로 준비함
 
     // when
-    worker.start();
+    await moduleRef.init();
     await vi.waitFor(() => expect(savedBuckets).toHaveLength(1));
     await moduleRef.close();
 

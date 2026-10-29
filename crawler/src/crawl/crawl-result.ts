@@ -13,7 +13,7 @@ export class CrawlError {
 
   private constructor(
     readonly code: string,
-    readonly description: string
+    private readonly description: string
   ) {}
 }
 

@@ -24,6 +24,8 @@ import { DnsResolver } from '../dns/dns-resolver.js';
  */
 @Injectable()
 export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown {
+  /** 기본값은 크롤러의 환경변수 전체라, 브라우저가 장악되면 OCI 개인키 같은 비밀값까지 읽힘 */
+  private static readonly BROWSER_ENV = { HOME: '/tmp', PATH: '/usr/local/bin:/usr/bin:/bin' };
   private browser: Promise<Browser> | undefined;
 
   constructor(private readonly dnsResolver: DnsResolver) {}
@@ -92,7 +94,7 @@ export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown
 
   private getBrowser(): Promise<Browser> {
     if (this.browser === undefined) {
-      const browser = chromium.launch();
+      const browser = chromium.launch({ env: PlaywrightPageFetcher.BROWSER_ENV });
       this.forgetWhenDisconnected(browser);
       this.browser = browser;
     }
@@ -124,9 +126,13 @@ export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown
 
 /** 크롤링 한 건 동안 브라우저가 보내는 요청을 걸러내고, 메인 페이지 탐색이 막혔는지 기억함 */
 class RequestFilter {
-  isMainNavigationBlocked = false;
+  private mainNavigationBlocked = false;
 
   constructor(private readonly hostCheck: HostCheck) {}
+
+  get isMainNavigationBlocked(): boolean {
+    return this.mainNavigationBlocked;
+  }
 
   async handle(route: Route): Promise<void> {
     const request = route.request();
@@ -134,7 +140,7 @@ class RequestFilter {
       return route.abort('blockedbyclient');
     }
     if (!(await this.hostCheck.isAllowedUrl(request.url()))) {
-      this.isMainNavigationBlocked ||= RequestFilter.isMainFrameNavigation(request);
+      this.mainNavigationBlocked ||= RequestFilter.isMainFrameNavigation(request);
       return route.abort('blockedbyclient');
     }
     return route.continue();

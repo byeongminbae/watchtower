@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import type { SimpleAuthenticationDetailsProvider } from 'oci-common';
 import { QueueClient, type models } from 'oci-queue';
 import { CrawlPolicy } from '../../crawl/crawl-policy.js';
@@ -5,6 +6,8 @@ import type { ReceivedMessage, RequestQueue, ResultQueue } from '../../crawl/int
 
 /** 큐 하나에 대한 메시지 수신, 발행, 완료 처리. 큐마다 메시지 엔드포인트가 다를 수 있어 클라이언트를 따로 둠 */
 export class OciQueue implements RequestQueue, ResultQueue {
+  private static readonly logger = new Logger(OciQueue.name);
+
   private constructor(
     private readonly client: QueueClient,
     private readonly queueId: string
@@ -58,7 +61,7 @@ export class OciQueue implements RequestQueue, ResultQueue {
     if (failedCount === 0) {
       return;
     }
-    console.error(`요청 ${failedCount}건 완료 처리 실패. 같은 결과가 다시 발행될 수 있음`, {
+    OciQueue.logger.error(`요청 ${failedCount}건 완료 처리 실패. 같은 결과가 다시 발행될 수 있음`, {
       errors: result.entries.filter((entry) => entry.errorCode !== undefined)
     });
   }

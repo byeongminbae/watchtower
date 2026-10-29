@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { CrawlPolicy } from './crawl-policy.js';
 import type { RequestQueue, ResultQueue } from './interfaces/queue.interface.js';
 
@@ -7,6 +8,7 @@ import type { RequestQueue, ResultQueue } from './interfaces/queue.interface.js'
  * 발행에 실패하면 요청을 완료 처리하지 않으므로 큐가 다시 전달함. 결과가 유실되지 않는 대신 중복될 수 있음
  */
 export class ResultBatcher {
+  private readonly logger = new Logger(ResultBatcher.name);
   private readonly contents: string[] = [];
   private readonly receipts: string[] = [];
   private readonly flushes = new Set<Promise<void>>();
@@ -68,14 +70,14 @@ export class ResultBatcher {
     try {
       await this.resultQueue.publishAll(contents);
     } catch (error) {
-      console.error(`결과 ${contents.length}건 발행 실패. 요청을 다시 전달받아 처리함`, error);
+      this.logger.error(`결과 ${contents.length}건 발행 실패. 요청을 다시 전달받아 처리함`, error);
       return;
     }
 
     try {
       await this.requestQueue.completeAll(receipts);
     } catch (error) {
-      console.error(`요청 ${receipts.length}건 완료 처리 실패. 같은 결과가 다시 발행될 수 있음`, error);
+      this.logger.error(`요청 ${receipts.length}건 완료 처리 실패. 같은 결과가 다시 발행될 수 있음`, error);
     }
   }
 }

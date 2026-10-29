@@ -1,6 +1,7 @@
 import { setTimeout as sleep } from 'node:timers/promises';
-import { type BeforeApplicationShutdown, Injectable } from '@nestjs/common';
-import { CrawlerConfig } from '../config/crawler-config.js';
+import { type BeforeApplicationShutdown, Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { CrawlerConfig } from '../config/crawler-config.js';
 import { ConcurrencyLimiter } from './concurrency-limiter.js';
 import { type CrawlEnvironment, CrawlEnvironments } from './crawl-environment.js';
 import { CrawlPolicy } from './crawl-policy.js';
@@ -17,7 +18,8 @@ import { ResultBatcher } from './result-batcher.js';
  * 기다리는 시간은 크롤링 한두 건 수준이라 메시지 visibility 시간 안에 끝남
  */
 @Injectable()
-export class CrawlWorker implements BeforeApplicationShutdown {
+export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShutdown {
+  private readonly logger = new Logger(CrawlWorker.name);
   private readonly limiter: ConcurrencyLimiter;
   private readonly batchers: Map<CrawlEnvironment, ResultBatcher>;
   private readonly inFlight = new Set<Promise<void>>();
@@ -26,10 +28,10 @@ export class CrawlWorker implements BeforeApplicationShutdown {
 
   constructor(
     private readonly environments: CrawlEnvironments,
-    config: CrawlerConfig,
+    configService: ConfigService<CrawlerConfig, true>,
     private readonly crawlService: CrawlService
   ) {
-    this.limiter = new ConcurrencyLimiter(config.concurrency);
+    this.limiter = new ConcurrencyLimiter(configService.get('concurrency', { infer: true }));
     this.batchers = new Map(
       environments.all.map((environment) => {
         return [environment, new ResultBatcher(environment.resultQueue, environment.requestQueue)];
@@ -37,7 +39,7 @@ export class CrawlWorker implements BeforeApplicationShutdown {
     );
   }
 
-  start(): void {
+  onApplicationBootstrap(): void {
     this.consuming = Promise.all(this.environments.all.map((environment) => this.consume(environment)));
   }
 
@@ -50,15 +52,12 @@ export class CrawlWorker implements BeforeApplicationShutdown {
   }
 
   /** 예외를 밖으로 던지지 않음. 완료 처리하지 않은 메시지는 큐가 다시 전달함 */
-  async handle(environment: CrawlEnvironment, message: ReceivedMessage): Promise<void> {
+  private async handle(environment: CrawlEnvironment, message: ReceivedMessage): Promise<void> {
     const request = CrawlRequest.from(message.content);
     if (request === undefined) {
-      console.error(
+      this.logger.error(
         `[${environment.name}] 형식이 잘못된 크롤링 요청. dead letter queue 로 이동할 때까지 완료 처리하지 않음`,
-        {
-          content: message.content,
-          deliveryCount: message.deliveryCount
-        }
+        { content: message.content, deliveryCount: message.deliveryCount }
       );
       return;
     }
@@ -67,7 +66,7 @@ export class CrawlWorker implements BeforeApplicationShutdown {
       const result = await this.crawlService.crawl(request, environment.bucketName);
       this.batchers.get(environment)?.add(JSON.stringify(result), message.receipt);
     } catch (error) {
-      console.error(`[${environment.name}] 크롤링 실패. 재전달 후 다시 처리함`, {
+      this.logger.error(`[${environment.name}] 크롤링 실패. 재전달 후 다시 처리함`, {
         towerId: request.towerId,
         scheduledAt: request.scheduledAt,
         deliveryCount: message.deliveryCount,
@@ -84,7 +83,7 @@ export class CrawlWorker implements BeforeApplicationShutdown {
       try {
         messages = await environment.requestQueue.receive(this.receiveLimit());
       } catch (error) {
-        console.error(`[${environment.name}] 크롤링 요청 수신 실패`, error);
+        this.logger.error(`[${environment.name}] 크롤링 요청 수신 실패`, error);
         await sleep(CrawlPolicy.QUEUE_RETRY_DELAY_MILLIS);
         continue;
       }
