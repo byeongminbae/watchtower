@@ -1,5 +1,5 @@
 name: watchtower-deploy
-run-name: Deploy ${{ inputs.service }} to ${{ inputs.environment }}
+run-name: Deploy ${{ inputs.service }}${{ inputs.service != 'crawler' && format(' to {0}', inputs.environment) || '' }}
 
 on:
   workflow_dispatch:
@@ -11,9 +11,10 @@ on:
         options:
           - backend
           - frontend
+          - crawler
         default: backend
       environment:
-        description: "배포 환경"
+        description: "배포 환경 (crawler 는 dev, prod 공용이라 선택값 무시)"
         required: true
         type: choice
         options:
@@ -22,15 +23,11 @@ on:
         default: dev
 
 concurrency:
-  group: deploy-${{ inputs.service }}-${{ inputs.environment }}
+  group: deploy-${{ inputs.service }}-${{ inputs.service != 'crawler' && inputs.environment || 'shared' }}
 
 env:
   SERVICE: ${{ inputs.service }}
   DEPLOY_ENV: ${{ inputs.environment }}
-  IMAGE_URI: ghcr.io/${{ github.repository_owner }}/watchtower-${{ inputs.service }}:${{ inputs.environment }}-${{ github.sha }}
-  DOKKU_APP: ${{ inputs.service == 'backend' && 'back' || 'front' }}-${{ inputs.environment }}
-  DOKKU_HOST: ${{ vars.DOKKU_HOST }}
-  DEPLOY_NSG_ID: ${{ vars.OCI_DEPLOY_NSG_ID }}
 
 jobs:
   build-and-deploy:
@@ -43,21 +40,55 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Build image
+      - name: Resolve deploy target
+        env:
+          APP_DOKKU_HOST: ${{ vars.DOKKU_HOST }}
+          APP_DEPLOY_NSG_ID: ${{ vars.OCI_DEPLOY_NSG_ID }}
+          APP_KNOWN_HOSTS: ${{ vars.DOKKU_KNOWN_HOSTS }}
+          CRAWLER_DOKKU_HOST: ${{ vars.CRAWLER_DOKKU_HOST }}
+          CRAWLER_DEPLOY_NSG_ID: ${{ vars.OCI_CRAWLER_DEPLOY_NSG_ID }}
+          CRAWLER_KNOWN_HOSTS: ${{ vars.CRAWLER_DOKKU_KNOWN_HOSTS }}
         run: |
-          build_args=(--build-arg "SPRING_PROFILE=$DEPLOY_ENV")
-          if [ "$SERVICE" = "frontend" ]; then
-            build_args+=(--build-arg "INTERNAL_API_BASE_URL=http://back-$DEPLOY_ENV.web:8080")
+          case "$SERVICE" in
+            backend)
+              app="back-$DEPLOY_ENV"; tag="$DEPLOY_ENV-$GITHUB_SHA"; target=app
+              build_args="--build-arg SPRING_PROFILE=$DEPLOY_ENV" ;;
+            frontend)
+              app="front-$DEPLOY_ENV"; tag="$DEPLOY_ENV-$GITHUB_SHA"; target=app
+              build_args="--build-arg INTERNAL_API_BASE_URL=http://back-$DEPLOY_ENV.web:8080" ;;
+            crawler)
+              app="crawler"; tag="$GITHUB_SHA"; target=crawler
+              build_args="" ;;
+          esac
+
+          if [ "$target" = "crawler" ]; then
+            host="$CRAWLER_DOKKU_HOST"; nsg_id="$CRAWLER_DEPLOY_NSG_ID"; known_hosts="$CRAWLER_KNOWN_HOSTS"
+          else
+            host="$APP_DOKKU_HOST"; nsg_id="$APP_DEPLOY_NSG_ID"; known_hosts="$APP_KNOWN_HOSTS"
           fi
 
-          docker build "${build_args[@]}" \
+          {
+            echo "IMAGE_URI=ghcr.io/$GITHUB_REPOSITORY_OWNER/watchtower-$SERVICE:$tag"
+            echo "DOKKU_APP=$app"
+            echo "DOKKU_HOST=$host"
+            echo "DEPLOY_NSG_ID=$nsg_id"
+            echo "DOKKU_KNOWN_HOSTS=$known_hosts"
+            echo "BUILD_ARGS=$build_args"
+          } >> "$GITHUB_ENV"
+
+      - name: Build image
+        run: |
+          # shellcheck disable=SC2086
+          docker build $BUILD_ARGS \
             --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" \
             --tag "$IMAGE_URI" \
             "./$SERVICE"
 
       - name: Verify image health
-        run: docker compose --file .github/ci/compose.yml --profile "$SERVICE" up --detach --wait --wait-timeout 300
+        run: |
+          CI_OCI_PRIVATE_KEY="$(openssl genrsa 2048 2>/dev/null)" \
+            docker compose --file .github/ci/compose.yml --profile "$SERVICE" up --detach --wait --wait-timeout 300
 
       - name: Show container logs
         if: failure()
@@ -105,7 +136,6 @@ jobs:
       - name: Deploy to Dokku
         env:
           DOKKU_SSH_PRIVATE_KEY: ${{ secrets.DOKKU_SSH_PRIVATE_KEY }}
-          DOKKU_KNOWN_HOSTS: ${{ vars.DOKKU_KNOWN_HOSTS }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           install -m 700 -d ~/.ssh
