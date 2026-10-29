@@ -1,8 +1,8 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { type BeforeApplicationShutdown, Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Semaphore } from 'async-mutex';
 import type { CrawlerConfig } from '../config/crawler-config.js';
-import { ConcurrencyLimiter } from './concurrency-limiter.js';
 import { type CrawlEnvironment, CrawlEnvironments } from './crawl-environment.js';
 import { CrawlPolicy } from './crawl-policy.js';
 import { CrawlRequest } from './crawl-request.js';
@@ -20,7 +20,7 @@ import { ResultBatcher } from './result-batcher.js';
 @Injectable()
 export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShutdown {
   private readonly logger = new Logger(CrawlWorker.name);
-  private readonly limiter: ConcurrencyLimiter;
+  private readonly semaphore: Semaphore;
   private readonly batchers: Map<CrawlEnvironment, ResultBatcher>;
   private readonly inFlight = new Set<Promise<void>>();
   private consuming: Promise<unknown> = Promise.resolve();
@@ -31,7 +31,7 @@ export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShu
     configService: ConfigService<CrawlerConfig, true>,
     private readonly crawlService: CrawlService
   ) {
-    this.limiter = new ConcurrencyLimiter(configService.get('concurrency', { infer: true }));
+    this.semaphore = new Semaphore(configService.get('concurrency', { infer: true }));
     this.batchers = new Map(
       environments.all.map((environment) => {
         return [environment, new ResultBatcher(environment.resultQueue, environment.requestQueue)];
@@ -77,7 +77,7 @@ export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShu
 
   private async consume(environment: CrawlEnvironment): Promise<void> {
     while (!this.isStopping) {
-      await this.limiter.whenAvailable();
+      await this.semaphore.waitForUnlock();
 
       let messages: ReceivedMessage[];
       try {
@@ -100,12 +100,12 @@ export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShu
   }
 
   private receiveLimit(): number {
-    return Math.min(Math.max(this.limiter.availableSlots, 1), CrawlPolicy.QUEUE_BATCH_SIZE);
+    return Math.min(Math.max(this.semaphore.getValue(), 1), CrawlPolicy.QUEUE_BATCH_SIZE);
   }
 
   /** 자리가 날 때까지 기다린 뒤 처리를 시작하고, 끝날 때까지 기다리지는 않음 */
   private async dispatch(environment: CrawlEnvironment, message: ReceivedMessage): Promise<void> {
-    const release = await this.limiter.acquire();
+    const [, release] = await this.semaphore.acquire();
     const task = this.handle(environment, message).finally(() => {
       release();
       this.inFlight.delete(task);
