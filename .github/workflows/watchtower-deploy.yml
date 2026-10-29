@@ -127,7 +127,7 @@ jobs:
             sleep 5
           done
 
-          echo "$GITHUB_TOKEN" | dokku registry:login --password-stdin ghcr.io "$GITHUB_ACTOR"
+          echo "$GITHUB_TOKEN" | dokku registry:login --global --password-stdin ghcr.io "$GITHUB_ACTOR"
           dokku git:from-image "$DOKKU_APP" "$IMAGE_URI"
 
       - name: Revoke runner SSH
