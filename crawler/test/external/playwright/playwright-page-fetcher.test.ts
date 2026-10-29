@@ -3,14 +3,17 @@ import type { AddressInfo } from "node:net"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { CrawlError } from "../../../src/crawl/crawl-error.ts"
 import { CrawlPolicy } from "../../../src/crawl/crawl-policy.ts"
+import { DnsResolver } from "../../../src/external/dns/dns-resolver.ts"
 import { PlaywrightPageFetcher } from "../../../src/external/playwright/playwright-page-fetcher.ts"
 
-/** 127.0.0.1 은 외부 주소, localhost 는 내부 주소로 취급해 같은 서버로 허용과 차단을 모두 재현함 */
-const pageFetcher = new PlaywrightPageFetcher(() => {
-  return async (host) => {
-    return host === "127.0.0.1"
+/** 127.0.0.1 은 외부 주소로 조회되게 하고 localhost 는 그대로 두어, 같은 테스트 서버로 허용과 차단을 모두 재현함 */
+class TestDnsResolver extends DnsResolver {
+  override async resolveAll(host: string): Promise<string[]> {
+    return host === "127.0.0.1" ? ["93.184.216.34"] : ["127.0.0.1"]
   }
-})
+}
+
+const pageFetcher = new PlaywrightPageFetcher(new TestDnsResolver())
 
 let server: Server
 let allowedOrigin: string

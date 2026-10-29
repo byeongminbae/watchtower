@@ -1,10 +1,10 @@
 import { setTimeout as sleep } from "node:timers/promises"
-import { type BeforeApplicationShutdown, Inject, Injectable } from "@nestjs/common"
-import { CRAWLER_CONFIG, type CrawlerConfig } from "../config/crawler-config.ts"
+import { type BeforeApplicationShutdown, Injectable } from "@nestjs/common"
+import { CrawlerConfig } from "../config/crawler-config.ts"
 import { ConcurrencyLimiter } from "./concurrency-limiter.ts"
-import { CRAWL_ENVIRONMENTS, type CrawlEnvironment, type ReceivedMessage } from "./crawl-environment.ts"
+import { type CrawlEnvironment, CrawlEnvironments, type ReceivedMessage } from "./crawl-environment.ts"
 import { CrawlPolicy } from "./crawl-policy.ts"
-import { parseCrawlRequest } from "./crawl-request.ts"
+import { CrawlRequest } from "./crawl-request.ts"
 import { CrawlService } from "./crawl.service.ts"
 import { ResultBatcher } from "./result-batcher.ts"
 
@@ -24,18 +24,18 @@ export class CrawlWorker implements BeforeApplicationShutdown {
   private isStopping = false
 
   constructor(
-    @Inject(CRAWL_ENVIRONMENTS) private readonly environments: CrawlEnvironment[],
-    @Inject(CRAWLER_CONFIG) config: CrawlerConfig,
+    private readonly environments: CrawlEnvironments,
+    config: CrawlerConfig,
     private readonly crawlService: CrawlService
   ) {
     this.limiter = new ConcurrencyLimiter(config.concurrency)
-    this.batchers = new Map(environments.map((environment) => {
+    this.batchers = new Map(environments.all.map((environment) => {
       return [environment, new ResultBatcher(environment.resultQueue, environment.requestQueue)]
     }))
   }
 
   start(): void {
-    this.consuming = Promise.all(this.environments.map((environment) => this.consume(environment)))
+    this.consuming = Promise.all(this.environments.all.map((environment) => this.consume(environment)))
   }
 
   /** 새 메시지를 받지 않고, 처리 중인 크롤링과 모아둔 결과 발행이 끝날 때까지 기다림 */
@@ -48,7 +48,7 @@ export class CrawlWorker implements BeforeApplicationShutdown {
 
   /** 예외를 밖으로 던지지 않음. 완료 처리하지 않은 메시지는 큐가 다시 전달함 */
   async handle(environment: CrawlEnvironment, message: ReceivedMessage): Promise<void> {
-    const request = parseCrawlRequest(message.content)
+    const request = CrawlRequest.from(message.content)
     if (request === undefined) {
       console.error(`[${environment.name}] 형식이 잘못된 크롤링 요청. dead letter queue 로 이동할 때까지 완료 처리하지 않음`, {
         content: message.content,

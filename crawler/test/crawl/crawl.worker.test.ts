@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { CrawlerConfig } from "../../src/config/crawler-config.ts"
-import type { CrawlEnvironment, ReceivedMessage } from "../../src/crawl/crawl-environment.ts"
-import type { CrawlResult } from "../../src/crawl/crawl-result.ts"
+import { CrawlEnvironment, CrawlEnvironments, type ReceivedMessage } from "../../src/crawl/crawl-environment.ts"
+import { CrawlError } from "../../src/crawl/crawl-error.ts"
+import { CrawlRequest } from "../../src/crawl/crawl-request.ts"
+import { type CrawlResult, FailedCrawlResult } from "../../src/crawl/crawl-result.ts"
 import type { CrawlService } from "../../src/crawl/crawl.service.ts"
 import { CrawlWorker } from "../../src/crawl/crawl.worker.ts"
 
@@ -11,25 +13,22 @@ const message: ReceivedMessage = {
   deliveryCount: 1
 }
 
-const result: CrawlResult = {
-  towerId: 1,
-  url: "https://example.com",
-  scheduledAt: "2026-10-30T00:00:00.000Z",
-  startedAt: "2026-10-30T00:00:01.000Z",
-  endedAt: "2026-10-30T00:00:02.000Z",
-  outcome: "FAILED",
-  errorCode: "CRW_002"
-}
+const result: CrawlResult = FailedCrawlResult.of(
+  CrawlRequest.from(message.content)!,
+  new Date("2026-10-30T00:00:01.000Z"),
+  new Date("2026-10-30T00:00:02.000Z"),
+  CrawlError.NAVIGATION_TIMEOUT
+)
 
 const config = { concurrency: 2 } as CrawlerConfig
 
 function createEnvironment(name: CrawlEnvironment["name"]): CrawlEnvironment {
-  return {
+  return new CrawlEnvironment(
     name,
-    requestQueue: { receive: vi.fn(async () => []), completeAll: vi.fn(async () => {}) },
-    resultQueue: { publishAll: vi.fn(async () => {}) },
-    bucketName: `watchtower-snapshot-${name}`
-  }
+    { receive: vi.fn(async () => []), completeAll: vi.fn(async () => {}) },
+    { publishAll: vi.fn(async () => {}) },
+    `watchtower-snapshot-${name}`
+  )
 }
 
 describe("CrawlWorker.handle", () => {
@@ -45,7 +44,7 @@ describe("CrawlWorker.handle", () => {
   it("결과는 요청을 받은 환경의 버킷과 결과 큐로만 보냄", async () => {
     // given
     const crawlService = { crawl: vi.fn(async () => result) } as unknown as CrawlService
-    const worker = new CrawlWorker([dev, prod], config, crawlService)
+    const worker = new CrawlWorker(new CrawlEnvironments([dev, prod]), config, crawlService)
 
     // when
     await worker.handle(prod, message)
@@ -65,7 +64,7 @@ describe("CrawlWorker.handle", () => {
         throw new Error("Object Storage 장애")
       })
     } as unknown as CrawlService
-    const worker = new CrawlWorker([dev], config, crawlService)
+    const worker = new CrawlWorker(new CrawlEnvironments([dev]), config, crawlService)
 
     // when
     await worker.handle(dev, message)
@@ -79,7 +78,7 @@ describe("CrawlWorker.handle", () => {
   it("형식이 잘못된 요청은 크롤링하지 않고 dead letter queue 로 가도록 완료 처리하지 않음", async () => {
     // given
     const crawlService = { crawl: vi.fn(async () => result) } as unknown as CrawlService
-    const worker = new CrawlWorker([dev], config, crawlService)
+    const worker = new CrawlWorker(new CrawlEnvironments([dev]), config, crawlService)
 
     // when
     await worker.handle(dev, { ...message, content: "not json" })
@@ -125,7 +124,7 @@ describe("CrawlWorker 수신 루프", () => {
         return result
       })
     } as unknown as CrawlService
-    const worker = new CrawlWorker([dev, prod], config, crawlService)
+    const worker = new CrawlWorker(new CrawlEnvironments([dev, prod]), config, crawlService)
 
     // when
     worker.start()

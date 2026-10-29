@@ -1,17 +1,17 @@
 import { describe, expect, it, vi } from "vitest"
+import { TimeProvider } from "../../src/common/time-provider.ts"
 import { CrawlError } from "../../src/crawl/crawl-error.ts"
-import type { CrawlRequest } from "../../src/crawl/crawl-request.ts"
+import { CrawlRequest } from "../../src/crawl/crawl-request.ts"
 import { CrawlService, type HtmlStorage, type PageFetcher } from "../../src/crawl/crawl.service.ts"
 
-const request: CrawlRequest = { towerId: 7, url: "https://example.com", scheduledAt: "2026-10-30T00:00:00.000Z" }
+const request = CrawlRequest.from(JSON.stringify({ towerId: 7, url: "https://example.com", scheduledAt: "2026-10-30T00:00:00.000Z" }))!
 const startedAt = new Date("2026-10-30T00:00:01.000Z")
 const endedAt = new Date("2026-10-30T00:00:03.000Z")
 
-function createNow(): () => Date {
-  const times = [startedAt, endedAt]
-  return () => {
-    return times.shift() ?? endedAt
-  }
+function createTimeProvider(): TimeProvider {
+  const timeProvider = new TimeProvider()
+  vi.spyOn(timeProvider, "now").mockReturnValueOnce(startedAt).mockReturnValue(endedAt)
+  return timeProvider
 }
 
 describe("CrawlService", () => {
@@ -23,7 +23,7 @@ describe("CrawlService", () => {
       }
     }
     const htmlStorage: HtmlStorage = { saveHtml: vi.fn(async () => {}) }
-    const crawlService = new CrawlService(pageFetcher, htmlStorage, createNow())
+    const crawlService = new CrawlService(pageFetcher, htmlStorage, createTimeProvider())
 
     // when
     const result = await crawlService.crawl(request, "watchtower-snapshot-dev")
@@ -34,7 +34,7 @@ describe("CrawlService", () => {
       "towers/7/2026-10-30T00:00:00.000Z.html",
       "<html></html>"
     )
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       towerId: 7,
       url: "https://example.com",
       scheduledAt: "2026-10-30T00:00:00.000Z",
@@ -55,7 +55,7 @@ describe("CrawlService", () => {
       }
     }
     const htmlStorage: HtmlStorage = { saveHtml: vi.fn(async () => {}) }
-    const crawlService = new CrawlService(pageFetcher, htmlStorage, createNow())
+    const crawlService = new CrawlService(pageFetcher, htmlStorage, createTimeProvider())
 
     // when
     const result = await crawlService.crawl(request, "watchtower-snapshot-dev")

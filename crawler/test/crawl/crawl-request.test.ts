@@ -1,16 +1,27 @@
 import { describe, expect, it } from "vitest"
-import { parseCrawlRequest } from "../../src/crawl/crawl-request.ts"
+import { CrawlRequest } from "../../src/crawl/crawl-request.ts"
 
-describe("parseCrawlRequest", () => {
+describe("CrawlRequest.from", () => {
   it("타워 ID, http(s) URL, 예정 시각이 모두 올바르면 요청으로 인정함", () => {
     // given
     const content = JSON.stringify({ towerId: 1, url: "https://example.com/a", scheduledAt: "2026-10-30T00:00:00.000Z" })
 
     // when
-    const request = parseCrawlRequest(content)
+    const request = CrawlRequest.from(content)
 
     // then
-    expect(request).toEqual({ towerId: 1, url: "https://example.com/a", scheduledAt: "2026-10-30T00:00:00.000Z" })
+    expect(request).toMatchObject({ towerId: 1, url: "https://example.com/a", scheduledAt: "2026-10-30T00:00:00.000Z" })
+  })
+
+  it("HTML 저장 위치는 같은 요청이면 항상 같음", () => {
+    // given
+    const content = JSON.stringify({ towerId: 1, url: "https://example.com/a", scheduledAt: "2026-10-30T00:00:00.000Z" })
+
+    // when
+    const objectNames = [CrawlRequest.from(content)?.toHtmlObjectName(), CrawlRequest.from(content)?.toHtmlObjectName()]
+
+    // then
+    expect(objectNames).toEqual(["towers/1/2026-10-30T00:00:00.000Z.html", "towers/1/2026-10-30T00:00:00.000Z.html"])
   })
 
   it("http(s) 가 아닌 URL 은 백엔드에서 검증했더라도 거부함", () => {
@@ -19,7 +30,7 @@ describe("parseCrawlRequest", () => {
       const content = JSON.stringify({ towerId: 1, url, scheduledAt: "2026-10-30T00:00:00.000Z" })
 
       // when
-      const request = parseCrawlRequest(content)
+      const request = CrawlRequest.from(content)
 
       // then
       expect(request, url).toBeUndefined()
@@ -36,7 +47,7 @@ describe("parseCrawlRequest", () => {
       JSON.stringify({ towerId: 1, url: "https://example.com", scheduledAt: "어제" })
     ]) {
       // given, when
-      const request = parseCrawlRequest(content)
+      const request = CrawlRequest.from(content)
 
       // then
       expect(request, content).toBeUndefined()

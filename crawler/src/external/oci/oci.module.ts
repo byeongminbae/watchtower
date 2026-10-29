@@ -2,19 +2,17 @@ import { Module } from "@nestjs/common"
 import { Region, SimpleAuthenticationDetailsProvider } from "oci-common"
 import { ObjectStorageClient } from "oci-objectstorage"
 import { QueueClient } from "oci-queue"
-import { CRAWLER_CONFIG, type CrawlerConfig } from "../../config/crawler-config.ts"
-import { CRAWL_ENVIRONMENTS, type CrawlEnvironment } from "../../crawl/crawl-environment.ts"
-import { HTML_STORAGE } from "../../crawl/crawl.service.ts"
+import { CrawlerConfig } from "../../config/crawler-config.ts"
+import { CrawlEnvironment, CrawlEnvironments } from "../../crawl/crawl-environment.ts"
+import { HtmlStorage } from "../../crawl/crawl.service.ts"
 import { OciHtmlStorage } from "./oci-html-storage.ts"
 import { OciQueue } from "./oci-queue.ts"
-
-const AUTHENTICATION_DETAILS_PROVIDER = Symbol("AUTHENTICATION_DETAILS_PROVIDER")
 
 @Module({
   providers: [
     {
-      provide: AUTHENTICATION_DETAILS_PROVIDER,
-      inject: [CRAWLER_CONFIG],
+      provide: SimpleAuthenticationDetailsProvider,
+      inject: [CrawlerConfig],
       useFactory: (config: CrawlerConfig) => {
         return new SimpleAuthenticationDetailsProvider(
           config.ociTenancyId,
@@ -27,15 +25,15 @@ const AUTHENTICATION_DETAILS_PROVIDER = Symbol("AUTHENTICATION_DETAILS_PROVIDER"
       }
     },
     {
-      provide: HTML_STORAGE,
-      inject: [CRAWLER_CONFIG, AUTHENTICATION_DETAILS_PROVIDER],
+      provide: HtmlStorage,
+      inject: [CrawlerConfig, SimpleAuthenticationDetailsProvider],
       useFactory: (config: CrawlerConfig, authenticationDetailsProvider: SimpleAuthenticationDetailsProvider) => {
         return new OciHtmlStorage(new ObjectStorageClient({ authenticationDetailsProvider }), config.objectStorageNamespace)
       }
     },
     {
-      provide: CRAWL_ENVIRONMENTS,
-      inject: [CRAWLER_CONFIG, AUTHENTICATION_DETAILS_PROVIDER],
+      provide: CrawlEnvironments,
+      inject: [CrawlerConfig, SimpleAuthenticationDetailsProvider],
       useFactory: (config: CrawlerConfig, authenticationDetailsProvider: SimpleAuthenticationDetailsProvider) => {
         const toQueue = (queueId: string, endpoint: string): OciQueue => {
           const client = new QueueClient({ authenticationDetailsProvider })
@@ -43,17 +41,17 @@ const AUTHENTICATION_DETAILS_PROVIDER = Symbol("AUTHENTICATION_DETAILS_PROVIDER"
           return new OciQueue(client, queueId)
         }
 
-        return config.environments.map((environment): CrawlEnvironment => {
-          return {
-            name: environment.name,
-            requestQueue: toQueue(environment.requestQueueId, environment.requestQueueEndpoint),
-            resultQueue: toQueue(environment.resultQueueId, environment.resultQueueEndpoint),
-            bucketName: environment.bucketName
-          }
-        })
+        return new CrawlEnvironments(config.environments.map((environment) => {
+          return new CrawlEnvironment(
+            environment.name,
+            toQueue(environment.requestQueueId, environment.requestQueueEndpoint),
+            toQueue(environment.resultQueueId, environment.resultQueueEndpoint),
+            environment.bucketName
+          )
+        }))
       }
     }
   ],
-  exports: [HTML_STORAGE, CRAWL_ENVIRONMENTS]
+  exports: [HtmlStorage, CrawlEnvironments]
 })
 export class OciModule {}

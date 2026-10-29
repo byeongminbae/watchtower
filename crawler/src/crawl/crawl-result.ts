@@ -1,68 +1,64 @@
-import type { CrawlErrorType } from "./crawl-error.ts"
+import type { CrawlError } from "./crawl-error.ts"
 import type { CrawlRequest } from "./crawl-request.ts"
 
 /**
- * 크롤러가 결과 큐에 넣는 크롤링 결과
+ * 크롤러가 결과 큐에 넣는 크롤링 결과. 필드가 그대로 JSON 으로 직렬화됨
  *
  * 4xx, 5xx 응답도 페이지를 받아온 것이므로 FETCHED 로 보냄. 접근 가능 여부와 변경 여부는 백엔드가 판단함
  */
 export type CrawlResult = FetchedCrawlResult | FailedCrawlResult
 
-type CrawlResultBase = {
-  towerId: number
-  url: string
-  scheduledAt: string
-  startedAt: string
-  endedAt: string
-}
+abstract class CrawlResultBase {
+  readonly towerId: number
+  readonly url: string
+  readonly scheduledAt: string
+  readonly startedAt: string
+  readonly endedAt: string
 
-export type FetchedCrawlResult = CrawlResultBase & {
-  outcome: "FETCHED"
-  httpStatusCode: number
-  finalUrl: string
-  htmlObjectName: string
-}
-
-export type FailedCrawlResult = CrawlResultBase & {
-  outcome: "FAILED"
-  errorCode: string
-}
-
-export function toFetchedResult(
-  request: CrawlRequest,
-  startedAt: Date,
-  endedAt: Date,
-  page: { httpStatusCode: number, finalUrl: string },
-  htmlObjectName: string
-): FetchedCrawlResult {
-  return {
-    ...toResultBase(request, startedAt, endedAt),
-    outcome: "FETCHED",
-    httpStatusCode: page.httpStatusCode,
-    finalUrl: page.finalUrl,
-    htmlObjectName
+  protected constructor(request: CrawlRequest, startedAt: Date, endedAt: Date) {
+    this.towerId = request.towerId
+    this.url = request.url
+    this.scheduledAt = request.scheduledAt
+    this.startedAt = startedAt.toISOString()
+    this.endedAt = endedAt.toISOString()
   }
 }
 
-export function toFailedResult(
-  request: CrawlRequest,
-  startedAt: Date,
-  endedAt: Date,
-  error: CrawlErrorType
-): FailedCrawlResult {
-  return {
-    ...toResultBase(request, startedAt, endedAt),
-    outcome: "FAILED",
-    errorCode: error.code
+export class FetchedCrawlResult extends CrawlResultBase {
+  readonly outcome = "FETCHED"
+
+  private constructor(
+    request: CrawlRequest,
+    startedAt: Date,
+    endedAt: Date,
+    readonly httpStatusCode: number,
+    readonly finalUrl: string,
+    readonly htmlObjectName: string
+  ) {
+    super(request, startedAt, endedAt)
+  }
+
+  static of(
+    request: CrawlRequest,
+    startedAt: Date,
+    endedAt: Date,
+    page: { httpStatusCode: number, finalUrl: string },
+    htmlObjectName: string
+  ): FetchedCrawlResult {
+    return new FetchedCrawlResult(request, startedAt, endedAt, page.httpStatusCode, page.finalUrl, htmlObjectName)
   }
 }
 
-function toResultBase(request: CrawlRequest, startedAt: Date, endedAt: Date): CrawlResultBase {
-  return {
-    towerId: request.towerId,
-    url: request.url,
-    scheduledAt: request.scheduledAt,
-    startedAt: startedAt.toISOString(),
-    endedAt: endedAt.toISOString()
+export class FailedCrawlResult extends CrawlResultBase {
+  readonly outcome = "FAILED"
+  readonly errorCode: string
+
+  private constructor(request: CrawlRequest, startedAt: Date, endedAt: Date, error: CrawlError) {
+    super(request, startedAt, endedAt)
+    this.errorCode = error.code
+  }
+
+  static of(request: CrawlRequest, startedAt: Date, endedAt: Date, error: CrawlError): FailedCrawlResult {
+    return new FailedCrawlResult(request, startedAt, endedAt, error)
   }
 }

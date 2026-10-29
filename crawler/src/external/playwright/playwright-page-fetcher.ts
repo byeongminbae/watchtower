@@ -1,12 +1,10 @@
-import { Inject, Injectable, type OnApplicationShutdown } from "@nestjs/common"
+import { Injectable, type OnApplicationShutdown } from "@nestjs/common"
 import { type Browser, type Request, type Response, chromium, errors } from "playwright"
 import { CrawlError } from "../../crawl/crawl-error.ts"
 import { CrawlPolicy } from "../../crawl/crawl-policy.ts"
 import type { PageFetcher, PageFetchOutcome } from "../../crawl/crawl.service.ts"
-
-export const HOST_GUARD_FACTORY = Symbol("HOST_GUARD_FACTORY")
-
-export type HostGuardFactory = () => (host: string) => Promise<boolean>
+import { HostCheck } from "../../crawl/host-check.ts"
+import { DnsResolver } from "../dns/dns-resolver.ts"
 
 /**
  * 브라우저 하나를 띄워 두고 크롤링마다 새 컨텍스트를 열어 쿠키와 저장소가 섞이지 않게 함
@@ -19,11 +17,11 @@ export type HostGuardFactory = () => (host: string) => Promise<boolean>
 export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown {
   private browser: Promise<Browser> | undefined
 
-  constructor(@Inject(HOST_GUARD_FACTORY) private readonly createHostGuard: HostGuardFactory) {}
+  constructor(private readonly dnsResolver: DnsResolver) {}
 
   async fetchPage(url: string): Promise<PageFetchOutcome> {
     const browser = await this.getBrowser()
-    const isAllowedHost = this.createHostGuard()
+    const hostCheck = new HostCheck(this.dnsResolver)
     const context = await browser.newContext({ serviceWorkers: "block", acceptDownloads: false })
 
     try {
@@ -34,7 +32,7 @@ export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown
         if (CrawlPolicy.SKIPPED_RESOURCE_TYPES.has(request.resourceType())) {
           return route.abort("blockedbyclient")
         }
-        if (!(await isAllowedUrl(request.url(), isAllowedHost))) {
+        if (!(await hostCheck.isAllowedUrl(request.url()))) {
           isMainNavigationBlocked ||= request.isNavigationRequest() && request.frame().parentFrame() === null
           return route.abort("blockedbyclient")
         }
@@ -61,7 +59,7 @@ export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown
       if (response === null) {
         return { kind: "failed", error: CrawlError.NAVIGATION_FAILED }
       }
-      if (!(await isRedirectChainAllowed(response, isAllowedHost))) {
+      if (!(await this.isRedirectChainAllowed(response, hostCheck))) {
         return { kind: "failed", error: CrawlError.URL_NOT_ALLOWED }
       }
 
@@ -103,21 +101,13 @@ export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown
     }
     return this.browser
   }
-}
 
-async function isAllowedUrl(url: string, isAllowedHost: (host: string) => Promise<boolean>): Promise<boolean> {
-  const { protocol, hostname } = new URL(url)
-  return (protocol === "http:" || protocol === "https:") && await isAllowedHost(hostname)
-}
-
-async function isRedirectChainAllowed(
-  response: Response,
-  isAllowedHost: (host: string) => Promise<boolean>
-): Promise<boolean> {
-  for (let request: Request | null = response.request(); request !== null; request = request.redirectedFrom()) {
-    if (!(await isAllowedUrl(request.url(), isAllowedHost))) {
-      return false
+  private async isRedirectChainAllowed(response: Response, hostCheck: HostCheck): Promise<boolean> {
+    for (let request: Request | null = response.request(); request !== null; request = request.redirectedFrom()) {
+      if (!(await hostCheck.isAllowedUrl(request.url()))) {
+        return false
+      }
     }
+    return true
   }
-  return true
 }
