@@ -1,6 +1,9 @@
 import { BlockList, isIP } from "node:net"
 
+type IpFamily = "ipv4" | "ipv6"
+
 export class IpAddress {
+  private static readonly IPV4_MAPPED_PREFIX = "::ffff:"
   private static readonly INTERNAL_RANGES = new BlockList()
 
   static {
@@ -22,28 +25,40 @@ export class IpAddress {
 
   private constructor(
     private readonly value: string,
-    private readonly family: "ipv4" | "ipv6"
+    private readonly family: IpFamily
   ) {}
 
-  /**
-   * ::ffff:127.0.0.1 처럼 IPv6 형식으로 감싼 IPv4 주소는 IPv4 로 꺼내서 판단함
-   * @return IP 형식이 아니면 undefined
-   */
+  /** @return IP 형식이 아니면 undefined */
   static from(value: string): IpAddress | undefined {
-    const mappedPrefix = "::ffff:"
-    if (value.toLowerCase().startsWith(mappedPrefix) && isIP(value.slice(mappedPrefix.length)) === 4) {
-      return new IpAddress(value.slice(mappedPrefix.length), "ipv4")
+    const mappedIpv4 = IpAddress.unwrapMappedIpv4(value)
+    if (mappedIpv4 !== undefined) {
+      return new IpAddress(mappedIpv4, "ipv4")
     }
 
-    const version = isIP(value)
-    if (version === 0) {
-      return undefined
-    }
-    return new IpAddress(value, version === 4 ? "ipv4" : "ipv6")
+    const family = IpAddress.toFamily(value)
+    return family === undefined ? undefined : new IpAddress(value, family)
   }
 
-  /** 내부망, 루프백, 링크 로컬(인스턴스 메타데이터 포함), 멀티캐스트 대역인지 판단함 */
   isInternal(): boolean {
     return IpAddress.INTERNAL_RANGES.check(this.value, this.family)
+  }
+
+  private static unwrapMappedIpv4(value: string): string | undefined {
+    if (!value.toLowerCase().startsWith(IpAddress.IPV4_MAPPED_PREFIX)) {
+      return undefined
+    }
+    const ipv4 = value.slice(IpAddress.IPV4_MAPPED_PREFIX.length)
+    return isIP(ipv4) === 4 ? ipv4 : undefined
+  }
+
+  private static toFamily(value: string): IpFamily | undefined {
+    switch (isIP(value)) {
+      case 4:
+        return "ipv4"
+      case 6:
+        return "ipv6"
+      default:
+        return undefined
+    }
   }
 }

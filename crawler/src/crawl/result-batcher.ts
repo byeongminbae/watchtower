@@ -21,11 +21,11 @@ export class ResultBatcher {
     this.contents.push(content)
     this.receipts.push(receipt)
 
-    if (this.contents.length >= CrawlPolicy.QUEUE_BATCH_SIZE) {
+    if (this.isBatchFull()) {
       this.flush()
       return
     }
-    this.flushTimer ??= setTimeout(() => this.flush(), CrawlPolicy.RESULT_FLUSH_DELAY_MILLIS)
+    this.scheduleFlush()
   }
 
   /** 남은 결과를 모두 발행할 때까지 기다림 */
@@ -34,21 +34,34 @@ export class ResultBatcher {
     await Promise.allSettled(this.flushes)
   }
 
+  private isBatchFull(): boolean {
+    return this.contents.length >= CrawlPolicy.QUEUE_BATCH_SIZE
+  }
+
+  private scheduleFlush(): void {
+    this.flushTimer ??= setTimeout(() => this.flush(), CrawlPolicy.RESULT_FLUSH_DELAY_MILLIS)
+  }
+
   private flush(): void {
     clearTimeout(this.flushTimer)
     this.flushTimer = undefined
-    if (this.contents.length === 0) {
-      return
-    }
 
-    const contents = this.contents.splice(0, CrawlPolicy.QUEUE_BATCH_SIZE)
-    const receipts = this.receipts.splice(0, CrawlPolicy.QUEUE_BATCH_SIZE)
-    const flushing = this.publishThenComplete(contents, receipts).finally(() => this.flushes.delete(flushing))
-    this.flushes.add(flushing)
-
-    if (this.contents.length > 0) {
-      this.flush()
+    while (this.contents.length > 0) {
+      const { contents, receipts } = this.takeBatch()
+      this.track(this.publishThenComplete(contents, receipts))
     }
+  }
+
+  private takeBatch(): { contents: string[], receipts: string[] } {
+    return {
+      contents: this.contents.splice(0, CrawlPolicy.QUEUE_BATCH_SIZE),
+      receipts: this.receipts.splice(0, CrawlPolicy.QUEUE_BATCH_SIZE)
+    }
+  }
+
+  private track(flushing: Promise<void>): void {
+    const tracked = flushing.finally(() => this.flushes.delete(tracked))
+    this.flushes.add(tracked)
   }
 
   private async publishThenComplete(contents: string[], receipts: string[]): Promise<void> {

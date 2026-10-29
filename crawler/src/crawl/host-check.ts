@@ -1,4 +1,5 @@
 import type { DnsResolver } from "../external/dns/dns-resolver.ts"
+import { HttpUrl } from "./http-url.ts"
 import { IpAddress } from "./ip-address.ts"
 
 /**
@@ -13,8 +14,8 @@ export class HostCheck {
   constructor(private readonly dnsResolver: DnsResolver) {}
 
   async isAllowedUrl(url: string): Promise<boolean> {
-    const { protocol, hostname } = new URL(url)
-    return (protocol === "http:" || protocol === "https:") && await this.isAllowedHost(hostname)
+    const httpUrl = HttpUrl.from(url)
+    return httpUrl !== undefined && await this.isAllowedHost(httpUrl.host)
   }
 
   isAllowedHost(host: string): Promise<boolean> {
@@ -26,17 +27,17 @@ export class HostCheck {
     return verdict
   }
 
-  /** IP 형식이 아닌 조회 결과는 판단할 수 없으므로 허용하지 않음 */
   private async resolvesOnlyToExternalAddresses(host: string): Promise<boolean> {
-    const addresses = await this.dnsResolver.resolveAll(HostCheck.toBareHost(host))
-    return addresses.length > 0 && addresses.every((address) => {
-      const ipAddress = IpAddress.from(address)
-      return ipAddress !== undefined && !ipAddress.isInternal()
-    })
+    const addresses = await this.dnsResolver.resolveAll(HostCheck.stripIpv6Brackets(host))
+    return addresses.length > 0 && addresses.every((address) => HostCheck.isExternalIpAddress(address))
   }
 
-  /** URL 의 IPv6 호스트는 [::1] 처럼 대괄호로 감싸져 있음 */
-  private static toBareHost(host: string): string {
+  private static isExternalIpAddress(address: string): boolean {
+    const ipAddress = IpAddress.from(address)
+    return ipAddress !== undefined && !ipAddress.isInternal()
+  }
+
+  private static stripIpv6Brackets(host: string): string {
     return host.startsWith("[") && host.endsWith("]") ? host.slice(1, -1) : host
   }
 }

@@ -1,7 +1,6 @@
 import { Module } from "@nestjs/common"
 import { Region, SimpleAuthenticationDetailsProvider } from "oci-common"
 import { ObjectStorageClient } from "oci-objectstorage"
-import { QueueClient } from "oci-queue"
 import { CrawlerConfig } from "../../config/crawler-config.ts"
 import { CrawlEnvironment, CrawlEnvironments } from "../../crawl/crawl-environment.ts"
 import { HtmlStorage } from "../../crawl/crawl.service.ts"
@@ -35,17 +34,11 @@ import { OciQueue } from "./oci-queue.ts"
       provide: CrawlEnvironments,
       inject: [CrawlerConfig, SimpleAuthenticationDetailsProvider],
       useFactory: (config: CrawlerConfig, authenticationDetailsProvider: SimpleAuthenticationDetailsProvider) => {
-        const toQueue = (queueId: string, endpoint: string): OciQueue => {
-          const client = new QueueClient({ authenticationDetailsProvider })
-          client.endpoint = endpoint
-          return new OciQueue(client, queueId)
-        }
-
         return new CrawlEnvironments(config.environments.map((environment) => {
           return new CrawlEnvironment(
             environment.name,
-            toQueue(environment.requestQueueId, environment.requestQueueEndpoint),
-            toQueue(environment.resultQueueId, environment.resultQueueEndpoint),
+            OciQueue.of(authenticationDetailsProvider, environment.requestQueueId, environment.requestQueueEndpoint),
+            OciQueue.of(authenticationDetailsProvider, environment.resultQueueId, environment.resultQueueEndpoint),
             environment.bucketName
           )
         }))

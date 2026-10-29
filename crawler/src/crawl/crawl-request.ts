@@ -1,3 +1,5 @@
+import { HttpUrl } from "./http-url.ts"
+
 /**
  * 백엔드 스케줄러가 요청 큐에 넣는 크롤링 요청
  *
@@ -14,28 +16,15 @@ export class CrawlRequest {
 
   /** @return 형식이 맞지 않거나 http(s) 가 아닌 URL 이면 undefined */
   static from(content: string): CrawlRequest | undefined {
-    let message: unknown
-    try {
-      message = JSON.parse(content)
-    } catch {
+    const message = CrawlRequest.parseJson(content)
+    if (!CrawlRequest.isObject(message)) {
       return undefined
     }
 
-    if (typeof message !== "object" || message === null) {
+    const { towerId, url, scheduledAt } = message
+    if (!CrawlRequest.isPositiveInteger(towerId) || !CrawlRequest.isHttpUrl(url) || !CrawlRequest.isDateTime(scheduledAt)) {
       return undefined
     }
-
-    const { towerId, url, scheduledAt } = message as Record<string, unknown>
-    if (typeof towerId !== "number" || !Number.isSafeInteger(towerId) || towerId <= 0) {
-      return undefined
-    }
-    if (typeof url !== "string" || !CrawlRequest.isHttpUrl(url)) {
-      return undefined
-    }
-    if (typeof scheduledAt !== "string" || Number.isNaN(Date.parse(scheduledAt))) {
-      return undefined
-    }
-
     return new CrawlRequest(towerId, url, scheduledAt)
   }
 
@@ -44,11 +33,27 @@ export class CrawlRequest {
     return `towers/${this.towerId}/${this.scheduledAt}.html`
   }
 
-  private static isHttpUrl(value: string): boolean {
-    if (!URL.canParse(value)) {
-      return false
+  private static parseJson(content: string): unknown {
+    try {
+      return JSON.parse(content)
+    } catch {
+      return undefined
     }
-    const { protocol, hostname } = new URL(value)
-    return (protocol === "http:" || protocol === "https:") && hostname !== ""
+  }
+
+  private static isObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null
+  }
+
+  private static isPositiveInteger(value: unknown): value is number {
+    return typeof value === "number" && Number.isSafeInteger(value) && value > 0
+  }
+
+  private static isHttpUrl(value: unknown): value is string {
+    return typeof value === "string" && HttpUrl.from(value) !== undefined
+  }
+
+  private static isDateTime(value: unknown): value is string {
+    return typeof value === "string" && !Number.isNaN(Date.parse(value))
   }
 }

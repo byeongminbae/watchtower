@@ -62,10 +62,14 @@ export class CrawlerConfig {
     if (missingNames.length > 0) {
       throw new Error(`필수 환경변수가 없음: ${missingNames.join(", ")}`)
     }
-    if (!Number.isSafeInteger(config.concurrency) || config.concurrency <= 0) {
+    if (!CrawlerConfig.isPositiveInteger(config.concurrency)) {
       throw new Error("CRAWLER_CONCURRENCY 는 1 이상의 정수여야 함")
     }
 
     return config
+  }
+
+  private static isPositiveInteger(value: number): boolean {
+    return Number.isSafeInteger(value) && value > 0
   }
 }

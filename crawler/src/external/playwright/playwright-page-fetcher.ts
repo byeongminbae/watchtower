@@ -1,5 +1,5 @@
 import { Injectable, type OnApplicationShutdown } from "@nestjs/common"
-import { type Browser, type Request, type Response, chromium, errors } from "playwright"
+import { type Browser, type BrowserContext, type Page, type Request, type Response, type Route, chromium, errors } from "playwright"
 import { CrawlError } from "../../crawl/crawl-error.ts"
 import { CrawlPolicy } from "../../crawl/crawl-policy.ts"
 import type { PageFetcher, PageFetchOutcome } from "../../crawl/crawl.service.ts"
@@ -22,56 +22,18 @@ export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown
   async fetchPage(url: string): Promise<PageFetchOutcome> {
     const browser = await this.getBrowser()
     const hostCheck = new HostCheck(this.dnsResolver)
-    const context = await browser.newContext({ serviceWorkers: "block", acceptDownloads: false })
+    const requestFilter = new RequestFilter(hostCheck)
+    const context = await this.openContext(browser, requestFilter)
 
     try {
-      let isMainNavigationBlocked = false
-      await context.routeWebSocket(/.*/, (webSocket) => webSocket.close())
-      await context.route("**/*", async (route) => {
-        const request = route.request()
-        if (CrawlPolicy.SKIPPED_RESOURCE_TYPES.has(request.resourceType())) {
-          return route.abort("blockedbyclient")
-        }
-        if (!(await hostCheck.isAllowedUrl(request.url()))) {
-          isMainNavigationBlocked ||= request.isNavigationRequest() && request.frame().parentFrame() === null
-          return route.abort("blockedbyclient")
-        }
-        return route.continue()
-      })
-
       const page = await context.newPage()
       let response: Response | null
       try {
         response = await page.goto(url, { waitUntil: "load", timeout: CrawlPolicy.NAVIGATION_TIMEOUT_MILLIS })
       } catch (error) {
-        if (isMainNavigationBlocked) {
-          return { kind: "failed", error: CrawlError.URL_NOT_ALLOWED }
-        }
-        if (error instanceof errors.TimeoutError) {
-          return { kind: "failed", error: CrawlError.NAVIGATION_TIMEOUT }
-        }
-        if (!browser.isConnected()) {
-          throw error
-        }
-        return { kind: "failed", error: CrawlError.NAVIGATION_FAILED }
+        return { kind: "failed", error: this.toNavigationFailure(error, browser, requestFilter) }
       }
-
-      if (response === null) {
-        return { kind: "failed", error: CrawlError.NAVIGATION_FAILED }
-      }
-      if (!(await this.isRedirectChainAllowed(response, hostCheck))) {
-        return { kind: "failed", error: CrawlError.URL_NOT_ALLOWED }
-      }
-
-      const html = await page.content()
-      if (Buffer.byteLength(html) > CrawlPolicy.MAX_HTML_BYTES) {
-        return { kind: "failed", error: CrawlError.HTML_TOO_LARGE }
-      }
-
-      return {
-        kind: "fetched",
-        page: { httpStatusCode: response.status(), finalUrl: page.url(), html }
-      }
+      return await this.toOutcome(page, response, hostCheck)
     } finally {
       await context.close()
     }
@@ -83,31 +45,97 @@ export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown
     await (await browser)?.close()
   }
 
-  /** 브라우저가 죽었으면 다음 크롤링에서 새로 띄움 */
+  private async openContext(browser: Browser, requestFilter: RequestFilter): Promise<BrowserContext> {
+    const context = await browser.newContext({ serviceWorkers: "block", acceptDownloads: false })
+    await context.routeWebSocket(/.*/, (webSocket) => webSocket.close())
+    await context.route("**/*", (route) => requestFilter.handle(route))
+    return context
+  }
+
+  /** 브라우저가 죽은 경우만 일시적인 오류로 보고 예외를 던져 메시지를 다시 전달받음 */
+  private toNavigationFailure(error: unknown, browser: Browser, requestFilter: RequestFilter): CrawlError {
+    if (requestFilter.isMainNavigationBlocked) {
+      return CrawlError.URL_NOT_ALLOWED
+    }
+    if (error instanceof errors.TimeoutError) {
+      return CrawlError.NAVIGATION_TIMEOUT
+    }
+    if (!browser.isConnected()) {
+      throw error
+    }
+    return CrawlError.NAVIGATION_FAILED
+  }
+
+  private async toOutcome(page: Page, response: Response | null, hostCheck: HostCheck): Promise<PageFetchOutcome> {
+    if (response === null) {
+      return { kind: "failed", error: CrawlError.NAVIGATION_FAILED }
+    }
+    if (!(await PlaywrightPageFetcher.isRedirectChainAllowed(response, hostCheck))) {
+      return { kind: "failed", error: CrawlError.URL_NOT_ALLOWED }
+    }
+
+    const html = await page.content()
+    if (PlaywrightPageFetcher.exceedsHtmlLimit(html)) {
+      return { kind: "failed", error: CrawlError.HTML_TOO_LARGE }
+    }
+    return { kind: "fetched", page: { httpStatusCode: response.status(), finalUrl: page.url(), html } }
+  }
+
   private getBrowser(): Promise<Browser> {
     if (this.browser === undefined) {
       const browser = chromium.launch()
-      browser.then(
-        (launched) => launched.on("disconnected", () => {
-          if (this.browser === browser) {
-            this.browser = undefined
-          }
-        }),
-        () => {
-          this.browser = undefined
-        }
-      )
+      this.forgetWhenDisconnected(browser)
       this.browser = browser
     }
     return this.browser
   }
 
-  private async isRedirectChainAllowed(response: Response, hostCheck: HostCheck): Promise<boolean> {
+  private forgetWhenDisconnected(browser: Promise<Browser>): void {
+    const forget = (): void => {
+      if (this.browser === browser) {
+        this.browser = undefined
+      }
+    }
+    browser.then((launched) => launched.on("disconnected", forget), forget)
+  }
+
+  private static async isRedirectChainAllowed(response: Response, hostCheck: HostCheck): Promise<boolean> {
     for (let request: Request | null = response.request(); request !== null; request = request.redirectedFrom()) {
       if (!(await hostCheck.isAllowedUrl(request.url()))) {
         return false
       }
     }
     return true
+  }
+
+  private static exceedsHtmlLimit(html: string): boolean {
+    return Buffer.byteLength(html) > CrawlPolicy.MAX_HTML_BYTES
+  }
+}
+
+/** 크롤링 한 건 동안 브라우저가 보내는 요청을 걸러내고, 메인 페이지 탐색이 막혔는지 기억함 */
+class RequestFilter {
+  isMainNavigationBlocked = false
+
+  constructor(private readonly hostCheck: HostCheck) {}
+
+  async handle(route: Route): Promise<void> {
+    const request = route.request()
+    if (RequestFilter.isSkippedResource(request)) {
+      return route.abort("blockedbyclient")
+    }
+    if (!(await this.hostCheck.isAllowedUrl(request.url()))) {
+      this.isMainNavigationBlocked ||= RequestFilter.isMainFrameNavigation(request)
+      return route.abort("blockedbyclient")
+    }
+    return route.continue()
+  }
+
+  private static isSkippedResource(request: Request): boolean {
+    return CrawlPolicy.SKIPPED_RESOURCE_TYPES.has(request.resourceType())
+  }
+
+  private static isMainFrameNavigation(request: Request): boolean {
+    return request.isNavigationRequest() && request.frame().parentFrame() === null
   }
 }

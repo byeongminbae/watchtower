@@ -43,7 +43,7 @@ export class CrawlWorker implements BeforeApplicationShutdown {
     this.isStopping = true
     await this.consuming
     await Promise.allSettled(this.inFlight)
-    await Promise.all([...this.batchers.values()].map((batcher) => batcher.close()))
+    await this.closeBatchers()
   }
 
   /** 예외를 밖으로 던지지 않음. 완료 처리하지 않은 메시지는 큐가 다시 전달함 */
@@ -76,8 +76,7 @@ export class CrawlWorker implements BeforeApplicationShutdown {
 
       let messages: ReceivedMessage[]
       try {
-        const limit = Math.min(Math.max(this.limiter.availableSlots, 1), CrawlPolicy.QUEUE_BATCH_SIZE)
-        messages = await environment.requestQueue.receive(limit)
+        messages = await environment.requestQueue.receive(this.receiveLimit())
       } catch (error) {
         console.error(`[${environment.name}] 크롤링 요청 수신 실패`, error)
         await sleep(CrawlPolicy.QUEUE_RETRY_DELAY_MILLIS)
@@ -90,13 +89,26 @@ export class CrawlWorker implements BeforeApplicationShutdown {
       }
 
       for (const message of messages) {
-        const release = await this.limiter.acquire()
-        const task = this.handle(environment, message).finally(() => {
-          release()
-          this.inFlight.delete(task)
-        })
-        this.inFlight.add(task)
+        await this.dispatch(environment, message)
       }
     }
+  }
+
+  private receiveLimit(): number {
+    return Math.min(Math.max(this.limiter.availableSlots, 1), CrawlPolicy.QUEUE_BATCH_SIZE)
+  }
+
+  /** 자리가 날 때까지 기다린 뒤 처리를 시작하고, 끝날 때까지 기다리지는 않음 */
+  private async dispatch(environment: CrawlEnvironment, message: ReceivedMessage): Promise<void> {
+    const release = await this.limiter.acquire()
+    const task = this.handle(environment, message).finally(() => {
+      release()
+      this.inFlight.delete(task)
+    })
+    this.inFlight.add(task)
+  }
+
+  private async closeBatchers(): Promise<void> {
+    await Promise.all([...this.batchers.values()].map((batcher) => batcher.close()))
   }
 }

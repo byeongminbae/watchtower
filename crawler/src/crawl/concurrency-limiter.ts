@@ -16,14 +16,29 @@ export class ConcurrencyLimiter {
     return this.available
   }
 
-  /** @return 자리를 돌려주는 함수. 여러 번 호출해도 한 번만 돌려줌 */
+  /** @return 자리를 돌려주는 함수 */
   async acquire(): Promise<() => void> {
-    if (this.available > 0) {
+    if (this.hasAvailableSlot()) {
       this.available--
     } else {
       await new Promise<void>((resolve) => this.acquirers.push(resolve))
     }
+    return this.releaseOnce()
+  }
 
+  /** 자리를 차지하지 않고 빈 자리가 생길 때까지만 기다림 */
+  async whenAvailable(): Promise<void> {
+    if (this.hasAvailableSlot()) {
+      return
+    }
+    await new Promise<void>((resolve) => this.observers.push(resolve))
+  }
+
+  private hasAvailableSlot(): boolean {
+    return this.available > 0
+  }
+
+  private releaseOnce(): () => void {
     let isReleased = false
     return () => {
       if (!isReleased) {
@@ -33,22 +48,21 @@ export class ConcurrencyLimiter {
     }
   }
 
-  /** 자리를 차지하지 않고 빈 자리가 생길 때까지만 기다림 */
-  async whenAvailable(): Promise<void> {
-    if (this.available > 0) {
+  private release(): void {
+    if (this.handOverToNextAcquirer()) {
       return
     }
-    await new Promise<void>((resolve) => this.observers.push(resolve))
+    this.available++
+    this.notifyObservers()
   }
 
-  private release(): void {
+  private handOverToNextAcquirer(): boolean {
     const nextAcquirer = this.acquirers.shift()
-    if (nextAcquirer !== undefined) {
-      nextAcquirer()
-      return
-    }
+    nextAcquirer?.()
+    return nextAcquirer !== undefined
+  }
 
-    this.available++
+  private notifyObservers(): void {
     this.observers.splice(0).forEach((notify) => notify())
   }
 }
