@@ -1,14 +1,25 @@
 import { ConfigLoader } from './config.js';
 
 describe('ConfigLoader', () => {
-  it('Vault ID 가 없으면 Vault 를 읽기 전에 실패함', async () => {
+  it('CRAWLER_PROFILE 이 없으면 인증 파일을 읽기 전에 실패함', () => {
     // given
-    const env = { CRAWLER_VAULT_ID: '' };
+    const env = {};
 
     // when
-    const loading = ConfigLoader.load(env);
+    const loading = () => ConfigLoader.load(env);
 
     // then
-    await expect(loading).rejects.toThrow('CRAWLER_VAULT_ID');
+    expect(loading).toThrow('CRAWLER_PROFILE');
+  });
+
+  it('없는 프로필을 지정하면 인증 파일을 읽기 전에 실패함', () => {
+    // given
+    const env = { CRAWLER_PROFILE: 'prod' };
+
+    // when
+    const loading = () => ConfigLoader.load(env);
+
+    // then
+    expect(loading).toThrow('CRAWLER_PROFILE');
   });
 });

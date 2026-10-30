@@ -4,11 +4,11 @@ import { ConfigService } from '@nestjs/config';
 import { Semaphore } from 'async-mutex';
 import type { Config } from '../config/config.js';
 import { Policy } from '../config/policy.js';
-import { type CrawlEnvironment, CrawlEnvironments } from './crawl-environment.js';
-import { CrawlRequest } from './crawl-request.js';
-import { CrawlService } from './crawl.service.js';
+import { type CrawlEnvironment, CrawlEnvironments } from './crawl-environment.model.js';
+import { CrawlRequestMessage } from './dto/crawl-request-message.dto.js';
+import { CrawlService } from './service/crawl.service.js';
 import type { ReceivedMessage } from './interfaces/queue.interface.js';
-import { ResultBatcher } from './result-batcher.js';
+import { CrawlResultBatchProcessor } from './crawl-result-batch.processor.js';
 
 /**
  * 환경마다 요청 큐 수신 루프를 하나씩 돌리고, 동시 처리 한도는 모든 환경이 함께 씀
@@ -21,7 +21,7 @@ import { ResultBatcher } from './result-batcher.js';
 export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShutdown {
   private readonly logger = new Logger(CrawlWorker.name);
   private readonly semaphore: Semaphore;
-  private readonly batchers: Map<CrawlEnvironment, ResultBatcher>;
+  private readonly batchers: Map<CrawlEnvironment, CrawlResultBatchProcessor>;
   private readonly inFlight = new Set<Promise<void>>();
   private consuming: Promise<unknown> = Promise.resolve();
   private isStopping = false;
@@ -34,7 +34,7 @@ export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShu
     this.semaphore = new Semaphore(configService.get('concurrency', { infer: true }));
     this.batchers = new Map(
       environments.all.map((environment) => {
-        return [environment, new ResultBatcher(environment.resultQueue, environment.requestQueue)];
+        return [environment, new CrawlResultBatchProcessor(environment.requestQueue, environment.resultQueue)];
       })
     );
   }
@@ -53,7 +53,7 @@ export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShu
 
   /** 예외를 밖으로 던지지 않음. 완료 처리하지 않은 메시지는 큐가 다시 전달함 */
   private async handle(environment: CrawlEnvironment, message: ReceivedMessage): Promise<void> {
-    const request = CrawlRequest.from(message.content);
+    const request = CrawlRequestMessage.from(message.content);
     if (request === undefined) {
       this.logger.error(
         `[${environment.name}] 형식이 잘못된 크롤링 요청. dead letter queue 로 이동할 때까지 완료 처리하지 않음`,

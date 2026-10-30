@@ -2,18 +2,20 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { Logger } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { CrawlModule } from '../src/crawl/crawl.module.js';
-import { CrawlEnvironment, CrawlEnvironments } from '../src/crawl/crawl-environment.js';
-import { HTML_STORAGE, type HtmlStorage } from '../src/crawl/interfaces/html-storage.interface.js';
-import { PAGE_FETCHER, type PageFetcher } from '../src/crawl/interfaces/page-fetcher.interface.js';
-import type { ReceivedMessage, RequestQueue, ResultQueue } from '../src/crawl/interfaces/queue.interface.js';
+import { CrawlModule } from '../src/crawl/module/crawl.module.js';
+import { CrawlEnvironment, CrawlEnvironments } from '../src/crawl/crawl-environment.model.js';
+import { HtmlStorage } from '../src/crawl/interfaces/html-storage.interface.js';
+import { PageFetcher } from '../src/crawl/interfaces/page-fetcher.interface.js';
+import { type ReceivedMessage, RequestQueue, ResultQueue } from '../src/crawl/interfaces/queue.interface.js';
 
-class InMemoryRequestQueue implements RequestQueue {
+class InMemoryRequestQueue extends RequestQueue {
   readonly completedReceipts: string[] = [];
 
-  constructor(private readonly messages: ReceivedMessage[]) {}
+  constructor(private readonly messages: ReceivedMessage[]) {
+    super();
+  }
 
-  async receive(limit: number): Promise<ReceivedMessage[]> {
+  override async receive(limit: number): Promise<ReceivedMessage[]> {
     if (this.messages.length === 0) {
       await sleep(10);
       return [];
@@ -21,15 +23,15 @@ class InMemoryRequestQueue implements RequestQueue {
     return this.messages.splice(0, limit);
   }
 
-  async completeAll(receipts: string[]): Promise<void> {
+  override async completeAll(receipts: string[]): Promise<void> {
     this.completedReceipts.push(...receipts);
   }
 }
 
-class InMemoryResultQueue implements ResultQueue {
+class InMemoryResultQueue extends ResultQueue {
   readonly published: string[] = [];
 
-  async publishAll(contents: string[]): Promise<void> {
+  override async publishAll(contents: string[]): Promise<void> {
     this.published.push(...contents);
   }
 }
@@ -73,9 +75,9 @@ describe('크롤러 (e2e)', () => {
     moduleRef = await Test.createTestingModule({
       imports: [ConfigModule.forRoot({ isGlobal: true, load: [() => ({ concurrency: 2 })] }), CrawlModule]
     })
-      .overrideProvider(PAGE_FETCHER)
+      .overrideProvider(PageFetcher)
       .useValue(pageFetcher)
-      .overrideProvider(HTML_STORAGE)
+      .overrideProvider(HtmlStorage)
       .useValue(htmlStorage)
       .overrideProvider(CrawlEnvironments)
       .useValue(

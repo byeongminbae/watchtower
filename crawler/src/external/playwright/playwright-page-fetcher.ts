@@ -9,10 +9,10 @@ import {
   chromium,
   errors
 } from 'playwright';
-import { CrawlError } from '../../crawl/crawl-result.js';
+import { CrawlError } from '../../crawl/dto/crawl-result-message.dto.js';
 import { Policy } from '../../config/policy.js';
-import type { PageFetcher, PageFetchOutcome } from '../../crawl/interfaces/page-fetcher.interface.js';
-import { HostCheck } from '../../crawl/host-check.js';
+import { PageFetcher, type PageFetchOutcome } from '../../crawl/interfaces/page-fetcher.interface.js';
+import { CrawlHostValidator } from '../../crawl/validator/crawl-host.validator.js';
 import { DnsResolver } from '../dns/dns-resolver.js';
 
 /**
@@ -23,17 +23,19 @@ import { DnsResolver } from '../dns/dns-resolver.js';
  * 요청 자체가 내부망에 도달하는 것은 크롤러 서버의 망 격리로 막아야 함
  */
 @Injectable()
-export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown {
+export class PlaywrightPageFetcher extends PageFetcher implements OnApplicationShutdown {
   /** 기본값은 크롤러의 환경변수 전체라, 브라우저가 장악되면 OCI 개인키 같은 비밀값까지 읽힘 */
   private static readonly BROWSER_ENV = { HOME: '/tmp', PATH: '/usr/local/bin:/usr/bin:/bin' };
   private browser: Promise<Browser> | undefined;
 
-  constructor(private readonly dnsResolver: DnsResolver) {}
+  constructor(private readonly dnsResolver: DnsResolver) {
+    super();
+  }
 
-  async fetchPage(url: string): Promise<PageFetchOutcome> {
+  override async fetchPage(url: string): Promise<PageFetchOutcome> {
     const browser = await this.getBrowser();
-    const hostCheck = new HostCheck(this.dnsResolver);
-    const requestFilter = new RequestFilter(hostCheck);
+    const hostValidator = new CrawlHostValidator(this.dnsResolver);
+    const requestFilter = new RequestFilter(hostValidator);
     const context = await this.openContext(browser, requestFilter);
 
     try {
@@ -44,7 +46,7 @@ export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown
       } catch (error) {
         return { kind: 'failed', error: this.toNavigationFailure(error, browser, requestFilter) };
       }
-      return await this.toOutcome(page, response, hostCheck);
+      return await this.toOutcome(page, response, hostValidator);
     } finally {
       await context.close();
     }
@@ -77,11 +79,15 @@ export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown
     return CrawlError.NAVIGATION_FAILED;
   }
 
-  private async toOutcome(page: Page, response: Response | null, hostCheck: HostCheck): Promise<PageFetchOutcome> {
+  private async toOutcome(
+    page: Page,
+    response: Response | null,
+    hostValidator: CrawlHostValidator
+  ): Promise<PageFetchOutcome> {
     if (response === null) {
       return { kind: 'failed', error: CrawlError.NAVIGATION_FAILED };
     }
-    if (!(await PlaywrightPageFetcher.isRedirectChainAllowed(response, hostCheck))) {
+    if (!(await PlaywrightPageFetcher.isRedirectChainAllowed(response, hostValidator))) {
       return { kind: 'failed', error: CrawlError.URL_NOT_ALLOWED };
     }
 
@@ -110,9 +116,9 @@ export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown
     browser.then((launched) => launched.on('disconnected', forget), forget);
   }
 
-  private static async isRedirectChainAllowed(response: Response, hostCheck: HostCheck): Promise<boolean> {
+  private static async isRedirectChainAllowed(response: Response, hostValidator: CrawlHostValidator): Promise<boolean> {
     for (let request: Request | null = response.request(); request !== null; request = request.redirectedFrom()) {
-      if (!(await hostCheck.isAllowedUrl(request.url()))) {
+      if (!(await hostValidator.isAllowedUrl(request.url()))) {
         return false;
       }
     }
@@ -128,7 +134,7 @@ export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown
 class RequestFilter {
   private mainNavigationBlocked = false;
 
-  constructor(private readonly hostCheck: HostCheck) {}
+  constructor(private readonly hostValidator: CrawlHostValidator) {}
 
   get isMainNavigationBlocked(): boolean {
     return this.mainNavigationBlocked;
@@ -139,7 +145,7 @@ class RequestFilter {
     if (RequestFilter.isSkippedResource(request)) {
       return route.abort('blockedbyclient');
     }
-    if (!(await this.hostCheck.isAllowedUrl(request.url()))) {
+    if (!(await this.hostValidator.isAllowedUrl(request.url()))) {
       this.mainNavigationBlocked ||= RequestFilter.isMainFrameNavigation(request);
       return route.abort('blockedbyclient');
     }

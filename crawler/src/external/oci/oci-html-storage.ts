@@ -1,13 +1,15 @@
 import type { ObjectStorageClient } from 'oci-objectstorage';
-import type { HtmlStorage } from '../../crawl/interfaces/html-storage.interface.js';
+import { HtmlStorage } from '../../crawl/interfaces/html-storage.interface.js';
 
-export class OciHtmlStorage implements HtmlStorage {
+export class OciHtmlStorage extends HtmlStorage {
   constructor(
     private readonly client: ObjectStorageClient,
     private readonly namespaceName: string
-  ) {}
+  ) {
+    super();
+  }
 
-  async saveHtml(bucketName: string, objectName: string, html: string): Promise<void> {
+  override async saveHtml(bucketName: string, objectName: string, html: string): Promise<void> {
     await this.client.putObject({
       namespaceName: this.namespaceName,
       bucketName,

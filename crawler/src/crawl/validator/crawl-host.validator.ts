@@ -1,5 +1,5 @@
 import { BlockList, isIP } from 'node:net';
-import type { DnsResolver } from '../external/dns/dns-resolver.js';
+import type { DnsResolver } from '../../external/dns/dns-resolver.js';
 
 /**
  * 크롤링 한 건 동안 접근하려는 주소가 외부 주소인지 검사함. 같은 호스트는 한 번만 조회함
@@ -7,7 +7,7 @@ import type { DnsResolver } from '../external/dns/dns-resolver.js';
  * 조회한 주소와 브라우저가 실제로 접속하는 주소가 같다는 보장이 없어서 DNS rebinding 을 막지는 못함
  * 크롤러 서버를 내부망과 분리하는 것이 1차 방어이고, 이 검사는 그 설정이 잘못됐을 때를 대비한 보조 방어임
  */
-export class HostCheck {
+export class CrawlHostValidator {
   private readonly verdicts = new Map<string, Promise<boolean>>();
 
   constructor(private readonly dnsResolver: DnsResolver) {}
@@ -27,8 +27,8 @@ export class HostCheck {
   }
 
   private async resolvesOnlyToExternalAddresses(host: string): Promise<boolean> {
-    const addresses = await this.dnsResolver.resolveAll(HostCheck.stripIpv6Brackets(host));
-    return addresses.length > 0 && addresses.every((address) => HostCheck.isExternalIpAddress(address));
+    const addresses = await this.dnsResolver.resolveAll(CrawlHostValidator.stripIpv6Brackets(host));
+    return addresses.length > 0 && addresses.every((address) => CrawlHostValidator.isExternalIpAddress(address));
   }
 
   private static isExternalIpAddress(address: string): boolean {
@@ -41,7 +41,7 @@ export class HostCheck {
   }
 }
 
-/** http(s) 스킴과 호스트를 가진 절대 URL. 외부 주소 여부는 HostCheck 로 따로 검사해야 함 */
+/** http(s) 스킴과 호스트를 가진 절대 URL. 외부 주소 여부는 CrawlHostValidator 로 따로 검사해야 함 */
 export class HttpUrl {
   private constructor(readonly host: string) {}
 

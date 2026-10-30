@@ -1,4 +1,4 @@
-import { CrawlRequest } from './crawl-request.js';
+import { CrawlRequestMessage } from './crawl-request-message.dto.js';
 
 describe('CrawlRequest.from', () => {
   it('타워 ID, http(s) URL, 예정 시각이 모두 올바르면 요청으로 인정함', () => {
@@ -10,7 +10,7 @@ describe('CrawlRequest.from', () => {
     });
 
     // when
-    const request = CrawlRequest.from(content);
+    const request = CrawlRequestMessage.from(content);
 
     // then
     expect(request).toMatchObject({
@@ -30,8 +30,8 @@ describe('CrawlRequest.from', () => {
 
     // when
     const objectNames = [
-      CrawlRequest.from(content)?.toHtmlObjectName(),
-      CrawlRequest.from(content)?.toHtmlObjectName()
+      CrawlRequestMessage.from(content)?.toHtmlObjectName(),
+      CrawlRequestMessage.from(content)?.toHtmlObjectName()
     ];
 
     // then
@@ -44,7 +44,7 @@ describe('CrawlRequest.from', () => {
       const content = JSON.stringify({ towerId: 1, url, scheduledAt: '2026-10-30T00:00:00.000Z' });
 
       // when
-      const request = CrawlRequest.from(content);
+      const request = CrawlRequestMessage.from(content);
 
       // then
       expect(request, url).toBeUndefined();
@@ -61,7 +61,7 @@ describe('CrawlRequest.from', () => {
       JSON.stringify({ towerId: 1, url: 'https://example.com', scheduledAt: '어제' })
     ]) {
       // given, when
-      const request = CrawlRequest.from(content);
+      const request = CrawlRequestMessage.from(content);
 
       // then
       expect(request, content).toBeUndefined();

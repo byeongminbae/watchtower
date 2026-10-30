@@ -1,10 +1,10 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Config } from '../config/config.js';
-import { CrawlEnvironment, CrawlEnvironments } from './crawl-environment.js';
-import { CrawlError, type CrawlResult, FailedCrawlResult } from './crawl-result.js';
-import { CrawlRequest } from './crawl-request.js';
-import type { CrawlService } from './crawl.service.js';
+import { CrawlEnvironment, CrawlEnvironments } from './crawl-environment.model.js';
+import { CrawlError, type CrawlResult, CrawlFailedResultMessage } from './dto/crawl-result-message.dto.js';
+import { CrawlRequestMessage } from './dto/crawl-request-message.dto.js';
+import type { CrawlService } from './service/crawl.service.js';
 import { CrawlWorker } from './crawl.worker.js';
 import type { ReceivedMessage, RequestQueue } from './interfaces/queue.interface.js';
 
@@ -14,8 +14,8 @@ const message: ReceivedMessage = {
   deliveryCount: 1
 };
 
-const result: CrawlResult = FailedCrawlResult.of(
-  CrawlRequest.from(message.content)!,
+const result: CrawlResult = CrawlFailedResultMessage.of(
+  CrawlRequestMessage.from(message.content)!,
   new Date('2026-10-30T00:00:01.000Z'),
   new Date('2026-10-30T00:00:02.000Z'),
   CrawlError.NAVIGATION_TIMEOUT

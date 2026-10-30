@@ -1,5 +1,3 @@
-export const HTML_STORAGE = Symbol('HtmlStorage');
-
-export interface HtmlStorage {
-  saveHtml(bucketName: string, objectName: string, html: string): Promise<void>;
+export abstract class HtmlStorage {
+  abstract saveHtml(bucketName: string, objectName: string, html: string): Promise<void>;
 }

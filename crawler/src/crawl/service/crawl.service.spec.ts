@@ -1,11 +1,11 @@
-import { TimeProvider } from '../common/time-provider.js';
-import { CrawlError } from './crawl-result.js';
-import { CrawlRequest } from './crawl-request.js';
+import { TimeProvider } from '../../common/time-provider.js';
+import { CrawlError } from '../dto/crawl-result-message.dto.js';
+import { CrawlRequestMessage } from '../dto/crawl-request-message.dto.js';
 import { CrawlService } from './crawl.service.js';
-import type { HtmlStorage } from './interfaces/html-storage.interface.js';
-import type { PageFetcher } from './interfaces/page-fetcher.interface.js';
+import type { HtmlStorage } from '../interfaces/html-storage.interface.js';
+import type { PageFetcher } from '../interfaces/page-fetcher.interface.js';
 
-const request = CrawlRequest.from(
+const request = CrawlRequestMessage.from(
   JSON.stringify({ towerId: 7, url: 'https://example.com', scheduledAt: '2026-10-30T00:00:00.000Z' })
 )!;
 const startedAt = new Date('2026-10-30T00:00:01.000Z');
@@ -44,8 +44,8 @@ describe('CrawlService', () => {
       towerId: 7,
       url: 'https://example.com',
       scheduledAt: '2026-10-30T00:00:00.000Z',
-      startedAt: startedAt.toISOString(),
-      endedAt: endedAt.toISOString(),
+      crawlStartedAt: startedAt.toISOString(),
+      crawlEndedAt: endedAt.toISOString(),
       outcome: 'FETCHED',
       httpStatusCode: 404,
       finalUrl: 'https://example.com/',
