@@ -61,6 +61,38 @@ describe('CrawlHostValidator', () => {
     expect(result).toBe(false);
   });
 
+  it('내부 IPv4 를 감쌀 수 있는 NAT64, 6to4, Teredo 주소와 예약 대역으로 조회되는 호스트는 접근을 허용하지 않음', async () => {
+    for (const address of [
+      '64:ff9b::a9fe:a9fe',
+      '2002:a9fe:a9fe::1',
+      '2001::1',
+      '198.18.0.1',
+      '240.0.0.1',
+      '192.0.0.1',
+      '2001:db8::1'
+    ]) {
+      // given
+      const hostValidator = new CrawlHostValidator(createDnsResolver({ 'target.example': [address] }));
+
+      // when
+      const result = await hostValidator.isAllowedUrl('https://target.example/');
+
+      // then
+      expect(result, address).toBe(false);
+    }
+  });
+
+  it('IPv6 형식으로 감싼 외부 IPv4 주소로 조회되는 호스트는 접근을 허용함', async () => {
+    // given
+    const hostValidator = new CrawlHostValidator(createDnsResolver({ 'target.example': ['::ffff:93.184.216.34'] }));
+
+    // when
+    const result = await hostValidator.isAllowedUrl('https://target.example/');
+
+    // then
+    expect(result).toBe(true);
+  });
+
   it('IP 형식이 아닌 조회 결과는 판단할 수 없으므로 접근을 허용하지 않음', async () => {
     // given
     const hostValidator = new CrawlHostValidator(createDnsResolver({ 'target.example': ['not-an-ip'] }));
