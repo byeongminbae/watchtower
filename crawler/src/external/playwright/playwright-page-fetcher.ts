@@ -11,7 +11,7 @@ import {
 } from 'playwright';
 import { CrawlError } from '../../crawl/dto/crawl-result-message.dto.js';
 import { Policy } from '../../config/policy.js';
-import { PageFetcher, type PageFetchOutcome } from '../../crawl/interfaces/page-fetcher.interface.js';
+import type { PageFetcher, PageFetchOutcome } from '../../crawl/interfaces/page-fetcher.interface.js';
 import { CrawlHostValidator } from '../../crawl/validator/crawl-host.validator.js';
 import { DnsResolver } from '../dns/dns-resolver.js';
 
@@ -23,16 +23,14 @@ import { DnsResolver } from '../dns/dns-resolver.js';
  * 요청 자체가 내부망에 도달하는 것은 크롤러 서버의 망 격리로 막아야 함
  */
 @Injectable()
-export class PlaywrightPageFetcher extends PageFetcher implements OnApplicationShutdown {
+export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown {
   /** 기본값은 크롤러의 환경변수 전체라, 브라우저가 장악되면 OCI 개인키 같은 비밀값까지 읽힘 */
   private static readonly BROWSER_ENV = { HOME: '/tmp', PATH: '/usr/local/bin:/usr/bin:/bin' };
   private browser: Promise<Browser> | undefined;
 
-  constructor(private readonly dnsResolver: DnsResolver) {
-    super();
-  }
+  constructor(private readonly dnsResolver: DnsResolver) {}
 
-  override async fetchPage(url: string): Promise<PageFetchOutcome> {
+  async fetchPage(url: string): Promise<PageFetchOutcome> {
     const browser = await this.getBrowser();
     const hostValidator = new CrawlHostValidator(this.dnsResolver);
     const requestFilter = new RequestFilter(hostValidator);

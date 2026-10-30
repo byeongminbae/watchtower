@@ -3,14 +3,14 @@ import { ConfigService } from '@nestjs/config';
 import { ObjectStorageClient } from 'oci-objectstorage';
 import type { Config } from '../../config/config.js';
 import { CrawlEnvironment, CrawlEnvironments } from '../../crawl/crawl-environment.model.js';
-import { HtmlStorage } from '../../crawl/interfaces/html-storage.interface.js';
+import { HTML_STORAGE } from '../../crawl/interfaces/html-storage.interface.js';
 import { OciHtmlStorage } from './oci-html-storage.js';
-import { OciRequestQueue, OciResultQueue } from './oci-queue.js';
+import { OciQueue } from './oci-queue.js';
 
 @Module({
   providers: [
     {
-      provide: HtmlStorage,
+      provide: HTML_STORAGE,
       inject: [ConfigService],
       useFactory: (configService: ConfigService<Config, true>) => {
         return new OciHtmlStorage(
@@ -30,16 +30,8 @@ import { OciRequestQueue, OciResultQueue } from './oci-queue.js';
           configService.get('environments', { infer: true }).map((environment) => {
             return new CrawlEnvironment(
               environment.name,
-              OciRequestQueue.of(
-                authenticationDetailsProvider,
-                environment.requestQueueId,
-                environment.requestQueueEndpoint
-              ),
-              OciResultQueue.of(
-                authenticationDetailsProvider,
-                environment.resultQueueId,
-                environment.resultQueueEndpoint
-              ),
+              OciQueue.of(authenticationDetailsProvider, environment.requestQueueId, environment.requestQueueEndpoint),
+              OciQueue.of(authenticationDetailsProvider, environment.resultQueueId, environment.resultQueueEndpoint),
               environment.bucketName
             );
           })
@@ -47,6 +39,6 @@ import { OciRequestQueue, OciResultQueue } from './oci-queue.js';
       }
     }
   ],
-  exports: [HtmlStorage, CrawlEnvironments]
+  exports: [HTML_STORAGE, CrawlEnvironments]
 })
 export class OciModule {}

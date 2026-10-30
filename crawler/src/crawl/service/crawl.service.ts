@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { TimeProvider } from '../../common/time-provider.js';
 import type { CrawlRequestMessage } from '../dto/crawl-request-message.dto.js';
 import {
@@ -6,14 +6,14 @@ import {
   CrawlFailedResultMessage,
   CrawlSuccessResultMessage
 } from '../dto/crawl-result-message.dto.js';
-import { HtmlStorage } from '../interfaces/html-storage.interface.js';
-import { PageFetcher } from '../interfaces/page-fetcher.interface.js';
+import { HTML_STORAGE, type HtmlStorage } from '../interfaces/html-storage.interface.js';
+import { PAGE_FETCHER, type PageFetcher } from '../interfaces/page-fetcher.interface.js';
 
 @Injectable()
 export class CrawlService {
   constructor(
-    private readonly pageFetcher: PageFetcher,
-    private readonly htmlStorage: HtmlStorage,
+    @Inject(PAGE_FETCHER) private readonly pageFetcher: PageFetcher,
+    @Inject(HTML_STORAGE) private readonly htmlStorage: HtmlStorage,
     private readonly timeProvider: TimeProvider
   ) {}
 

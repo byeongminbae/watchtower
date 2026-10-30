@@ -4,18 +4,16 @@ import { ConfigModule } from '@nestjs/config';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { CrawlModule } from '../src/crawl/module/crawl.module.js';
 import { CrawlEnvironment, CrawlEnvironments } from '../src/crawl/crawl-environment.model.js';
-import { HtmlStorage } from '../src/crawl/interfaces/html-storage.interface.js';
-import { PageFetcher } from '../src/crawl/interfaces/page-fetcher.interface.js';
-import { type ReceivedMessage, RequestQueue, ResultQueue } from '../src/crawl/interfaces/queue.interface.js';
+import { HTML_STORAGE, type HtmlStorage } from '../src/crawl/interfaces/html-storage.interface.js';
+import { PAGE_FETCHER, type PageFetcher } from '../src/crawl/interfaces/page-fetcher.interface.js';
+import type { ReceivedMessage, RequestQueue, ResultQueue } from '../src/crawl/interfaces/queue.interface.js';
 
-class InMemoryRequestQueue extends RequestQueue {
+class InMemoryRequestQueue implements RequestQueue {
   readonly completedReceipts: string[] = [];
 
-  constructor(private readonly messages: ReceivedMessage[]) {
-    super();
-  }
+  constructor(private readonly messages: ReceivedMessage[]) {}
 
-  override async receive(limit: number): Promise<ReceivedMessage[]> {
+  async receive(limit: number): Promise<ReceivedMessage[]> {
     if (this.messages.length === 0) {
       await sleep(10);
       return [];
@@ -23,15 +21,15 @@ class InMemoryRequestQueue extends RequestQueue {
     return this.messages.splice(0, limit);
   }
 
-  override async completeAll(receipts: string[]): Promise<void> {
+  async completeAll(receipts: string[]): Promise<void> {
     this.completedReceipts.push(...receipts);
   }
 }
 
-class InMemoryResultQueue extends ResultQueue {
+class InMemoryResultQueue implements ResultQueue {
   readonly published: string[] = [];
 
-  override async publishAll(contents: string[]): Promise<void> {
+  async publishAll(contents: string[]): Promise<void> {
     this.published.push(...contents);
   }
 }
@@ -75,9 +73,9 @@ describe('크롤러 (e2e)', () => {
     moduleRef = await Test.createTestingModule({
       imports: [ConfigModule.forRoot({ isGlobal: true, load: [() => ({ concurrency: 2 })] }), CrawlModule]
     })
-      .overrideProvider(PageFetcher)
+      .overrideProvider(PAGE_FETCHER)
       .useValue(pageFetcher)
-      .overrideProvider(HtmlStorage)
+      .overrideProvider(HTML_STORAGE)
       .useValue(htmlStorage)
       .overrideProvider(CrawlEnvironments)
       .useValue(
