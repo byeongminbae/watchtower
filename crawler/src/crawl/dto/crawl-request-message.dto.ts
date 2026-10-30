@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { HttpUrl } from '../validator/crawl-host.validator.js';
+import { HttpUrl } from '../vo/http-url.vo.js';
 
 /**
  * 백엔드 스케줄러가 요청 큐에 넣는 크롤링 요청
