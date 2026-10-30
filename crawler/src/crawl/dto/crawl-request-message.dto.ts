@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { HttpUrl } from '../validator/crawl-host.validator.js';
 
 /**
@@ -8,6 +9,12 @@ import { HttpUrl } from '../validator/crawl-host.validator.js';
  * @property scheduledAt 백엔드가 정한 실행 예정 시각(ISO 8601, UTC). towerId 와 함께 결과의 중복 반영을 막는 키로 쓰임
  */
 export class CrawlRequestMessage {
+  private static readonly SCHEMA = z.object({
+    towerId: z.int().positive(),
+    url: z.string().refine((value) => HttpUrl.from(value) !== undefined),
+    scheduledAt: z.iso.datetime()
+  });
+
   private constructor(
     readonly towerId: number,
     readonly url: string,
@@ -16,22 +23,12 @@ export class CrawlRequestMessage {
 
   /** @return 형식이 맞지 않거나 http(s) 가 아닌 URL 이면 undefined */
   static from(content: string): CrawlRequestMessage | undefined {
-    const message = CrawlRequestMessage.parseJson(content);
-    if (typeof message !== 'object' || message === null) {
+    const parsed = CrawlRequestMessage.SCHEMA.safeParse(CrawlRequestMessage.parseJson(content));
+    if (!parsed.success) {
       return undefined;
     }
 
-    const { towerId, url, scheduledAt } = message as Record<string, unknown>;
-    if (typeof towerId !== 'number' || typeof url !== 'string' || typeof scheduledAt !== 'string') {
-      return undefined;
-    }
-    if (
-      !CrawlRequestMessage.isPositiveInteger(towerId) ||
-      !CrawlRequestMessage.isHttpUrl(url) ||
-      !CrawlRequestMessage.isDateTime(scheduledAt)
-    ) {
-      return undefined;
-    }
+    const { towerId, url, scheduledAt } = parsed.data;
     return new CrawlRequestMessage(towerId, url, scheduledAt);
   }
 
@@ -46,17 +43,5 @@ export class CrawlRequestMessage {
     } catch {
       return undefined;
     }
-  }
-
-  private static isPositiveInteger(value: number): boolean {
-    return Number.isSafeInteger(value) && value > 0;
-  }
-
-  private static isHttpUrl(value: string): boolean {
-    return HttpUrl.from(value) !== undefined;
-  }
-
-  private static isDateTime(value: string): boolean {
-    return !Number.isNaN(Date.parse(value));
   }
 }
