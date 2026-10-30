@@ -8,31 +8,34 @@ import type { DnsResolver } from '../../external/dns/dns-resolver.js';
  * 크롤러 서버를 내부망과 분리하는 것이 1차 방어이고, 이 검사는 그 설정이 잘못됐을 때를 대비한 보조 방어임
  */
 export class CrawlHostValidator {
-  private readonly verdicts = new Map<string, Promise<boolean>>();
+  private readonly hostCheckCache = new Map<string, Promise<boolean>>();
 
   constructor(private readonly dnsResolver: DnsResolver) {}
 
   async isAllowedUrl(url: string): Promise<boolean> {
-    const httpUrl = HttpUrl.from(url);
-    return httpUrl !== undefined && (await this.isAllowedHost(httpUrl.host));
+    const parsedUrl = HttpUrl.from(url);
+    return parsedUrl !== undefined && (await this.isAllowedHost(parsedUrl.host));
   }
 
   private isAllowedHost(host: string): Promise<boolean> {
-    let verdict = this.verdicts.get(host);
-    if (verdict === undefined) {
-      verdict = this.resolvesOnlyToExternalAddresses(host);
-      this.verdicts.set(host, verdict);
+    let hostCheck = this.hostCheckCache.get(host);
+    if (hostCheck === undefined) {
+      hostCheck = this.resolvesOnlyToPublicIpAddresses(host);
+      this.hostCheckCache.set(host, hostCheck);
     }
-    return verdict;
+    return hostCheck;
   }
 
-  private async resolvesOnlyToExternalAddresses(host: string): Promise<boolean> {
-    const addresses = await this.dnsResolver.resolveAll(CrawlHostValidator.stripIpv6Brackets(host));
-    return addresses.length > 0 && addresses.every((address) => CrawlHostValidator.isExternalIpAddress(address));
+  private async resolvesOnlyToPublicIpAddresses(host: string): Promise<boolean> {
+    const resolvedIpAddresses = await this.dnsResolver.resolveAll(CrawlHostValidator.stripIpv6Brackets(host));
+    return (
+      resolvedIpAddresses.length > 0 &&
+      resolvedIpAddresses.every((ipAddress) => CrawlHostValidator.isPublicIpAddress(ipAddress))
+    );
   }
 
-  private static isExternalIpAddress(address: string): boolean {
-    return ipaddr.isValid(address) && ipaddr.process(address).range() === 'unicast';
+  private static isPublicIpAddress(ipAddress: string): boolean {
+    return ipaddr.isValid(ipAddress) && ipaddr.process(ipAddress).range() === 'unicast';
   }
 
   private static stripIpv6Brackets(host: string): string {
@@ -45,11 +48,11 @@ export class HttpUrl {
   private constructor(readonly host: string) {}
 
   /** @return URL 형식이 아니거나 http(s) 가 아니면 undefined */
-  static from(value: string): HttpUrl | undefined {
-    if (!URL.canParse(value)) {
+  static from(url: string): HttpUrl | undefined {
+    if (!URL.canParse(url)) {
       return undefined;
     }
-    const { protocol, hostname } = new URL(value);
+    const { protocol, hostname } = new URL(url);
     if (!HttpUrl.isHttpProtocol(protocol) || hostname === '') {
       return undefined;
     }
