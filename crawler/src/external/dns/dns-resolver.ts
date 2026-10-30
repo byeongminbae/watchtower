@@ -7,7 +7,7 @@ export class DnsResolver {
   /** @return 조회에 실패하면 빈 배열 */
   async resolveAll(host: string): Promise<string[]> {
     try {
-      const addresses = await lookup(host, { all: true, verbatim: true });
+      const addresses = await lookup(host, { all: true, order: 'verbatim' });
       return addresses.map(({ address }) => address);
     } catch {
       return [];
