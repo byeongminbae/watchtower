@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import type { RequestQueue, ResultQueue } from './interfaces/queue.interface.js';
-import { CrawlPolicy } from './crawl-policy.js';
+import { Policy } from '../config/policy.js';
 import { ResultBatcher } from './result-batcher.js';
 
 describe('ResultBatcher', () => {
@@ -23,15 +23,15 @@ describe('ResultBatcher', () => {
     const batcher = new ResultBatcher(resultQueue, requestQueue);
 
     // when
-    for (let index = 0; index < CrawlPolicy.QUEUE_BATCH_SIZE; index++) {
+    for (let index = 0; index < Policy.QUEUE_BATCH_SIZE; index++) {
       batcher.add(`result-${index}`, `receipt-${index}`);
     }
     await vi.waitFor(() => expect(requestQueue.completeAll).toHaveBeenCalled());
 
     // then
     expect(resultQueue.publishAll).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(resultQueue.publishAll).mock.calls[0]?.[0]).toHaveLength(CrawlPolicy.QUEUE_BATCH_SIZE);
-    expect(vi.mocked(requestQueue.completeAll).mock.calls[0]?.[0]).toHaveLength(CrawlPolicy.QUEUE_BATCH_SIZE);
+    expect(vi.mocked(resultQueue.publishAll).mock.calls[0]?.[0]).toHaveLength(Policy.QUEUE_BATCH_SIZE);
+    expect(vi.mocked(requestQueue.completeAll).mock.calls[0]?.[0]).toHaveLength(Policy.QUEUE_BATCH_SIZE);
   });
 
   it('배치 크기에 못 미쳐도 대기 시간이 지나면 모인 만큼 발행함', async () => {
@@ -40,7 +40,7 @@ describe('ResultBatcher', () => {
     batcher.add('result-1', 'receipt-1');
 
     // when
-    await vi.advanceTimersByTimeAsync(CrawlPolicy.RESULT_FLUSH_DELAY_MILLIS);
+    await vi.advanceTimersByTimeAsync(Policy.RESULT_FLUSH_DELAY_MILLIS);
 
     // then
     expect(resultQueue.publishAll).toHaveBeenCalledWith(['result-1']);

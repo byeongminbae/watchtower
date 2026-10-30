@@ -10,7 +10,7 @@ import {
   errors
 } from 'playwright';
 import { CrawlError } from '../../crawl/crawl-result.js';
-import { CrawlPolicy } from '../../crawl/crawl-policy.js';
+import { Policy } from '../../config/policy.js';
 import type { PageFetcher, PageFetchOutcome } from '../../crawl/interfaces/page-fetcher.interface.js';
 import { HostCheck } from '../../crawl/host-check.js';
 import { DnsResolver } from '../dns/dns-resolver.js';
@@ -40,7 +40,7 @@ export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown
       const page = await context.newPage();
       let response: Response | null;
       try {
-        response = await page.goto(url, { waitUntil: 'load', timeout: CrawlPolicy.NAVIGATION_TIMEOUT_MILLIS });
+        response = await page.goto(url, { waitUntil: 'load', timeout: Policy.NAVIGATION_TIMEOUT_MILLIS });
       } catch (error) {
         return { kind: 'failed', error: this.toNavigationFailure(error, browser, requestFilter) };
       }
@@ -120,7 +120,7 @@ export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown
   }
 
   private static exceedsHtmlLimit(html: string): boolean {
-    return Buffer.byteLength(html) > CrawlPolicy.MAX_HTML_BYTES;
+    return Buffer.byteLength(html) > Policy.MAX_HTML_BYTES;
   }
 }
 
@@ -147,7 +147,7 @@ class RequestFilter {
   }
 
   private static isSkippedResource(request: Request): boolean {
-    return CrawlPolicy.SKIPPED_RESOURCE_TYPES.has(request.resourceType());
+    return Policy.SKIPPED_RESOURCE_TYPES.has(request.resourceType());
   }
 
   private static isMainFrameNavigation(request: Request): boolean {

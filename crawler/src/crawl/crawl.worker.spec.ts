@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { CrawlerConfig } from '../config/crawler-config.js';
+import type { Config } from '../config/config.js';
 import { CrawlEnvironment, CrawlEnvironments } from './crawl-environment.js';
 import { CrawlError, type CrawlResult, FailedCrawlResult } from './crawl-result.js';
 import { CrawlRequest } from './crawl-request.js';
@@ -21,7 +21,7 @@ const result: CrawlResult = FailedCrawlResult.of(
   CrawlError.NAVIGATION_TIMEOUT
 );
 
-const configService = new ConfigService<CrawlerConfig, true>({ concurrency: 2 });
+const configService = new ConfigService<Config, true>({ concurrency: 2 });
 
 /** 처음 한 번만 주어진 메시지를 돌려주고, 이후에는 메시지가 없는 큐처럼 동작함 */
 function createRequestQueue(messages: ReceivedMessage[]): RequestQueue {

@@ -1,4 +1,4 @@
-export class CrawlPolicy {
+export class Policy {
   static readonly NAVIGATION_TIMEOUT_MILLIS = 30_000;
   static readonly MAX_HTML_BYTES = 5 * 1024 * 1024;
   /** 크롤링 한 건이 끝나기 전에 다른 소비자에게 다시 보이지 않도록 탐색 제한 시간보다 넉넉하게 잡음 */

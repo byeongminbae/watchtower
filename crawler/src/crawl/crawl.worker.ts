@@ -2,9 +2,9 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { type BeforeApplicationShutdown, Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Semaphore } from 'async-mutex';
-import type { CrawlerConfig } from '../config/crawler-config.js';
+import type { Config } from '../config/config.js';
+import { Policy } from '../config/policy.js';
 import { type CrawlEnvironment, CrawlEnvironments } from './crawl-environment.js';
-import { CrawlPolicy } from './crawl-policy.js';
 import { CrawlRequest } from './crawl-request.js';
 import { CrawlService } from './crawl.service.js';
 import type { ReceivedMessage } from './interfaces/queue.interface.js';
@@ -28,7 +28,7 @@ export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShu
 
   constructor(
     private readonly environments: CrawlEnvironments,
-    configService: ConfigService<CrawlerConfig, true>,
+    configService: ConfigService<Config, true>,
     private readonly crawlService: CrawlService
   ) {
     this.semaphore = new Semaphore(configService.get('concurrency', { infer: true }));
@@ -84,7 +84,7 @@ export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShu
         messages = await environment.requestQueue.receive(this.receiveLimit());
       } catch (error) {
         this.logger.error(`[${environment.name}] 크롤링 요청 수신 실패`, error);
-        await sleep(CrawlPolicy.QUEUE_RETRY_DELAY_MILLIS);
+        await sleep(Policy.QUEUE_RETRY_DELAY_MILLIS);
         continue;
       }
 
@@ -100,7 +100,7 @@ export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShu
   }
 
   private receiveLimit(): number {
-    return Math.min(Math.max(this.semaphore.getValue(), 1), CrawlPolicy.QUEUE_BATCH_SIZE);
+    return Math.min(Math.max(this.semaphore.getValue(), 1), Policy.QUEUE_BATCH_SIZE);
   }
 
   /** 자리가 날 때까지 기다린 뒤 처리를 시작하고, 끝날 때까지 기다리지는 않음 */

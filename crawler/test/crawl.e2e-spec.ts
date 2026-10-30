@@ -1,8 +1,8 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { Logger } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { SimpleAuthenticationDetailsProvider } from 'oci-common';
-import { AppModule } from '../src/app.module.js';
+import { CrawlModule } from '../src/crawl/crawl.module.js';
 import { CrawlEnvironment, CrawlEnvironments } from '../src/crawl/crawl-environment.js';
 import { HTML_STORAGE, type HtmlStorage } from '../src/crawl/interfaces/html-storage.interface.js';
 import { PAGE_FETCHER, type PageFetcher } from '../src/crawl/interfaces/page-fetcher.interface.js';
@@ -70,9 +70,9 @@ describe('크롤러 (e2e)', () => {
       }
     };
 
-    moduleRef = await Test.createTestingModule({ imports: [AppModule] })
-      .overrideProvider(SimpleAuthenticationDetailsProvider)
-      .useValue({})
+    moduleRef = await Test.createTestingModule({
+      imports: [ConfigModule.forRoot({ isGlobal: true, load: [() => ({ concurrency: 2 })] }), CrawlModule]
+    })
       .overrideProvider(PAGE_FETCHER)
       .useValue(pageFetcher)
       .overrideProvider(HTML_STORAGE)

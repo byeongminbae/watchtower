@@ -1,4 +1,3 @@
-import type { CrawlEnvironmentName } from '../config/crawler-config.js';
 import type { RequestQueue, ResultQueue } from './interfaces/queue.interface.js';
 
 /**
@@ -8,7 +7,7 @@ import type { RequestQueue, ResultQueue } from './interfaces/queue.interface.js'
  */
 export class CrawlEnvironment {
   constructor(
-    readonly name: CrawlEnvironmentName,
+    readonly name: string,
     readonly requestQueue: RequestQueue,
     readonly resultQueue: ResultQueue,
     readonly bucketName: string

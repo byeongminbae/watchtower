@@ -87,8 +87,7 @@ jobs:
 
       - name: Verify image health
         run: |
-          CI_OCI_PRIVATE_KEY="$(openssl genrsa 2048 2>/dev/null)" \
-            docker compose --file .github/ci/compose.yml --profile "$SERVICE" up --detach --wait --wait-timeout 300
+          docker compose --file .github/ci/compose.yml --profile "$SERVICE" up --detach --wait --wait-timeout 300
 
       - name: Show container logs
         if: failure()

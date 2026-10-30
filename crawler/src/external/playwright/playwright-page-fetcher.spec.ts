@@ -1,7 +1,7 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { CrawlError } from '../../crawl/crawl-result.js';
-import { CrawlPolicy } from '../../crawl/crawl-policy.js';
+import { Policy } from '../../config/policy.js';
 import { DnsResolver } from '../dns/dns-resolver.js';
 import { PlaywrightPageFetcher } from './playwright-page-fetcher.js';
 
@@ -39,7 +39,7 @@ beforeAll(async () => {
         response.writeHead(302, { location: blockedSecretUrl }).end();
         return;
       case '/large':
-        response.end(`<html><body>${'a'.repeat(CrawlPolicy.MAX_HTML_BYTES)}</body></html>`);
+        response.end(`<html><body>${'a'.repeat(Policy.MAX_HTML_BYTES)}</body></html>`);
         return;
       default:
         response.end('<html><body>내부 비밀</body></html>');

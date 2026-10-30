@@ -1,8 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Region, SimpleAuthenticationDetailsProvider } from 'oci-common';
 import { ObjectStorageClient } from 'oci-objectstorage';
-import type { CrawlerConfig } from '../../config/crawler-config.js';
+import type { Config } from '../../config/config.js';
 import { CrawlEnvironment, CrawlEnvironments } from '../../crawl/crawl-environment.js';
 import { HTML_STORAGE } from '../../crawl/interfaces/html-storage.interface.js';
 import { OciHtmlStorage } from './oci-html-storage.js';
@@ -11,39 +10,22 @@ import { OciQueue } from './oci-queue.js';
 @Module({
   providers: [
     {
-      provide: SimpleAuthenticationDetailsProvider,
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService<CrawlerConfig, true>) => {
-        return new SimpleAuthenticationDetailsProvider(
-          configService.get('ociTenancyId', { infer: true }),
-          configService.get('ociUserId', { infer: true }),
-          configService.get('ociFingerprint', { infer: true }),
-          configService.get('ociPrivateKey', { infer: true }),
-          null,
-          Region.fromRegionId(configService.get('ociRegion', { infer: true }))
-        );
-      }
-    },
-    {
       provide: HTML_STORAGE,
-      inject: [ConfigService, SimpleAuthenticationDetailsProvider],
-      useFactory: (
-        configService: ConfigService<CrawlerConfig, true>,
-        authenticationDetailsProvider: SimpleAuthenticationDetailsProvider
-      ) => {
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService<Config, true>) => {
         return new OciHtmlStorage(
-          new ObjectStorageClient({ authenticationDetailsProvider }),
+          new ObjectStorageClient({
+            authenticationDetailsProvider: configService.get('ociAuthentication', { infer: true })
+          }),
           configService.get('objectStorageNamespace', { infer: true })
         );
       }
     },
     {
       provide: CrawlEnvironments,
-      inject: [ConfigService, SimpleAuthenticationDetailsProvider],
-      useFactory: (
-        configService: ConfigService<CrawlerConfig, true>,
-        authenticationDetailsProvider: SimpleAuthenticationDetailsProvider
-      ) => {
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService<Config, true>) => {
+        const authenticationDetailsProvider = configService.get('ociAuthentication', { infer: true });
         return new CrawlEnvironments(
           configService.get('environments', { infer: true }).map((environment) => {
             return new CrawlEnvironment(

@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
-import type { SimpleAuthenticationDetailsProvider } from 'oci-common';
+import type { AuthenticationDetailsProvider } from 'oci-common';
 import { QueueClient, type models } from 'oci-queue';
-import { CrawlPolicy } from '../../crawl/crawl-policy.js';
+import { Policy } from '../../config/policy.js';
 import type { ReceivedMessage, RequestQueue, ResultQueue } from '../../crawl/interfaces/queue.interface.js';
 
 /** 큐 하나에 대한 메시지 수신, 발행, 완료 처리. 큐마다 메시지 엔드포인트가 다를 수 있어 클라이언트를 따로 둠 */
@@ -13,11 +13,7 @@ export class OciQueue implements RequestQueue, ResultQueue {
     private readonly queueId: string
   ) {}
 
-  static of(
-    authenticationDetailsProvider: SimpleAuthenticationDetailsProvider,
-    queueId: string,
-    endpoint: string
-  ): OciQueue {
+  static of(authenticationDetailsProvider: AuthenticationDetailsProvider, queueId: string, endpoint: string): OciQueue {
     const client = new QueueClient({ authenticationDetailsProvider });
     client.endpoint = endpoint;
     return new OciQueue(client, queueId);
@@ -27,8 +23,8 @@ export class OciQueue implements RequestQueue, ResultQueue {
     const response = await this.client.getMessages({
       queueId: this.queueId,
       limit,
-      visibilityInSeconds: CrawlPolicy.MESSAGE_VISIBILITY_SECONDS,
-      timeoutInSeconds: CrawlPolicy.QUEUE_POLLING_TIMEOUT_SECONDS
+      visibilityInSeconds: Policy.MESSAGE_VISIBILITY_SECONDS,
+      timeoutInSeconds: Policy.QUEUE_POLLING_TIMEOUT_SECONDS
     });
     return response.getMessages.messages.map(({ content, receipt, deliveryCount }) => {
       return { content, receipt, deliveryCount };

@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { CrawlPolicy } from './crawl-policy.js';
+import { Policy } from '../config/policy.js';
 import type { RequestQueue, ResultQueue } from './interfaces/queue.interface.js';
 
 /**
@@ -37,11 +37,11 @@ export class ResultBatcher {
   }
 
   private isBatchFull(): boolean {
-    return this.contents.length >= CrawlPolicy.QUEUE_BATCH_SIZE;
+    return this.contents.length >= Policy.QUEUE_BATCH_SIZE;
   }
 
   private scheduleFlush(): void {
-    this.flushTimer ??= setTimeout(() => this.flush(), CrawlPolicy.RESULT_FLUSH_DELAY_MILLIS);
+    this.flushTimer ??= setTimeout(() => this.flush(), Policy.RESULT_FLUSH_DELAY_MILLIS);
   }
 
   private flush(): void {
@@ -56,8 +56,8 @@ export class ResultBatcher {
 
   private takeBatch(): { contents: string[]; receipts: string[] } {
     return {
-      contents: this.contents.splice(0, CrawlPolicy.QUEUE_BATCH_SIZE),
-      receipts: this.receipts.splice(0, CrawlPolicy.QUEUE_BATCH_SIZE)
+      contents: this.contents.splice(0, Policy.QUEUE_BATCH_SIZE),
+      receipts: this.receipts.splice(0, Policy.QUEUE_BATCH_SIZE)
     };
   }
 

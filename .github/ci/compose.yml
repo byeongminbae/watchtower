@@ -36,25 +36,8 @@ services:
   crawler:
     profiles: [crawler]
     image: ${IMAGE_URI}
-    environment:
-      OCI_REGION: ap-osaka-1
-      OCI_TENANCY_ID: ci
-      OCI_USER_ID: ci
-      OCI_FINGERPRINT: ci
-      OCI_PRIVATE_KEY: ${CI_OCI_PRIVATE_KEY}
-      OBJECT_STORAGE_NAMESPACE: ci
-      CRAWLER_CONCURRENCY: "1"
-      CRAWL_REQUEST_QUEUE_ID_DEV: ci
-      CRAWL_REQUEST_QUEUE_ENDPOINT_DEV: http://127.0.0.1:9
-      CRAWL_RESULT_QUEUE_ID_DEV: ci
-      CRAWL_RESULT_QUEUE_ENDPOINT_DEV: http://127.0.0.1:9
-      OBJECT_STORAGE_BUCKET_DEV: ci
-      CRAWL_REQUEST_QUEUE_ID_PROD: ci
-      CRAWL_REQUEST_QUEUE_ENDPOINT_PROD: http://127.0.0.1:9
-      CRAWL_RESULT_QUEUE_ID_PROD: ci
-      CRAWL_RESULT_QUEUE_ENDPOINT_PROD: http://127.0.0.1:9
-      OBJECT_STORAGE_BUCKET_PROD: ci
+    command: ["sleep", "infinity"]
     healthcheck:
-      test: ["CMD", "true"]
+      test: ["CMD", "node", "--input-type=module", "--eval", "await import('/app/dist/app.module.js')"]
       interval: 10s
       retries: 1
