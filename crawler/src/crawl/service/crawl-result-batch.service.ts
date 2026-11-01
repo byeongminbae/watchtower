@@ -6,7 +6,8 @@ import type { RequestQueue, ResultQueue } from '../interfaces/queue.interface.js
 type PendingResult = { resultContent: string; requestReceipt: string };
 
 /**
- * 결과를 모아 한 번에 발행하고, 발행에 성공한 결과의 요청만 한 번에 완료 처리함
+ * OCI Queue 는 API 요청 횟수가 곧 비용이라, 크롤링 결과를 모아 결과 큐에 한 번에 발행하고 발행에 성공한 요청 메시지만 한 번에 완료 처리(삭제)함
+ * 환경마다 결과 큐가 달라서 [EnvironmentResource] 가 환경마다 하나씩 가짐
  *
  * 발행에 실패하면 요청을 완료 처리하지 않으므로 큐가 다시 전달함. 결과가 유실되지 않는 대신 중복될 수 있음
  */

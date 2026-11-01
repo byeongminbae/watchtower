@@ -21,7 +21,7 @@ export type RunModeConfig = {
 export type RuntimeConfig = RunModeConfig & { ociAuthentication: AuthenticationDetailsProvider };
 
 /**
- * 환경변수로 CRAWLER_RUN_MODE 를 설정하면 해당하는 실행 모드로 운영
+ * 환경변수 CRAWLER_RUN_MODE 로 고른 실행 모드(server, local)의 설정에 OCI 인증 정보를 붙여 크롤러 설정을 만듦
  * 크롤러 서버는 인스턴스 메타데이터 접근을 막아야 해서 Instance Principal 대신 ~/.oci/config 의 API 키로 인증함
  */
 export class ConfigLoader {

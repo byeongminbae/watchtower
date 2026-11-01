@@ -12,8 +12,9 @@ import { CrawlHostValidator } from '../../crawl/validator/crawl-host.validator.j
 import { DnsResolver } from '../dns/dns-resolver.js';
 
 /**
- * 크롤링마다 브라우저를 새로 띄워 쿠키, 저장소, 브라우저 프로세스가 다른 크롤링과 섞이지 않게 함
+ * Playwright 로 URL 의 페이지를 열어 HTML 을 받아옴. 내부망 같은 허용되지 않는 주소에 접근하려 하면 HTML 을 버리고 실패로 돌려줌
  *
+ * 크롤링마다 브라우저를 새로 띄워 쿠키, 저장소, 브라우저 프로세스가 다른 크롤링과 섞이지 않게 함
  * 리다이렉트로 이어진 요청은 route 핸들러를 거치지 않아서 요청 전에 막을 수 없음(직접 확인함)
  * 그래서 탐색이 끝난 뒤 리다이렉트를 거친 모든 주소를 다시 검사하고, 하나라도 허용되지 않으면 HTML 을 버림
  * 요청 자체가 내부망에 도달하는 것은 크롤러 서버의 망 격리로 막아야 함
