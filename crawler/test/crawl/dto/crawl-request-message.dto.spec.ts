@@ -1,6 +1,6 @@
-import { CrawlRequestMessage } from './crawl-request-message.dto.js';
+import { CrawlRequestMessage } from '../../../src/crawl/dto/crawl-request-message.dto.js';
 
-describe('CrawlRequest.from', () => {
+describe('CrawlRequestMessage.from', () => {
   it('타워 ID, http(s) URL, 예정 시각이 모두 올바르면 요청으로 인정함', () => {
     // given
     const content = JSON.stringify({

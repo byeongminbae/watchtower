@@ -5,7 +5,7 @@ import type { RequestQueue, ResultQueue } from './interfaces/queue.interface.js'
  *
  * 환경은 메시지 내용이 아니라 요청을 받은 큐로 정함. 메시지에 환경을 적게 하면 dev 의 실수가 prod 타워에 반영될 수 있음
  */
-export class EnvironmentResources {
+export class EnvironmentResource {
   constructor(
     readonly name: string,
     readonly requestQueue: RequestQueue,
@@ -14,6 +14,6 @@ export class EnvironmentResources {
   ) {}
 }
 
-export class EnvironmentResourcesList {
-  constructor(readonly all: EnvironmentResources[]) {}
+export class EnvironmentResources {
+  constructor(readonly all: EnvironmentResource[]) {}
 }

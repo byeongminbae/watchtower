@@ -2,13 +2,13 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { type BeforeApplicationShutdown, Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Semaphore } from 'async-mutex';
-import type { RuntimeConfig } from '../config/config.js';
-import { Policy } from '../config/policy.js';
-import { type EnvironmentResources, EnvironmentResourcesList } from './environment-resources.model.js';
-import { CrawlRequestMessage } from './dto/crawl-request-message.dto.js';
-import { CrawlService } from './service/crawl.service.js';
-import type { ReceivedMessage } from './interfaces/queue.interface.js';
-import { CrawlResultBatchProcessor } from './crawl-result-batch.processor.js';
+import type { RuntimeConfig } from '../../config/config.js';
+import { Policy } from '../../config/policy.js';
+import { type EnvironmentResource, EnvironmentResources } from '../environment-resources.js';
+import { CrawlRequestMessage } from '../dto/crawl-request-message.dto.js';
+import { CrawlService } from './crawl.service.js';
+import type { ReceivedMessage } from '../interfaces/queue.interface.js';
+import { CrawlResultBatchService } from './crawl-result-batch.service.js';
 
 /**
  * 환경마다 요청 큐 수신 루프를 하나씩 돌리고, 동시 처리 한도는 모든 환경이 함께 씀
@@ -18,23 +18,23 @@ import { CrawlResultBatchProcessor } from './crawl-result-batch.processor.js';
  * 기다리는 시간은 크롤링 한두 건 수준이라 메시지 visibility 시간 안에 끝남
  */
 @Injectable()
-export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShutdown {
-  private readonly logger = new Logger(CrawlWorker.name);
+export class CrawlWorkerService implements OnApplicationBootstrap, BeforeApplicationShutdown {
+  private readonly logger = new Logger(CrawlWorkerService.name);
   private readonly crawlConcurrencyLimit: Semaphore;
-  private readonly resultBatchProcessorByEnvironment: Map<EnvironmentResources, CrawlResultBatchProcessor>;
+  private readonly resultBatchServiceByEnvironment: Map<EnvironmentResource, CrawlResultBatchService>;
   private readonly runningCrawls = new Set<Promise<void>>();
   private receiveLoops: Promise<unknown> = Promise.resolve();
   private isShuttingDown = false;
 
   constructor(
-    private readonly environments: EnvironmentResourcesList,
-    configService: ConfigService<RuntimeConfig, true>,
+    private readonly environments: EnvironmentResources,
+    private readonly configService: ConfigService<RuntimeConfig, true>,
     private readonly crawlService: CrawlService
   ) {
     this.crawlConcurrencyLimit = new Semaphore(configService.get('concurrency', { infer: true }));
-    this.resultBatchProcessorByEnvironment = new Map(
+    this.resultBatchServiceByEnvironment = new Map(
       environments.all.map((environment) => {
-        return [environment, new CrawlResultBatchProcessor(environment.requestQueue, environment.resultQueue)];
+        return [environment, new CrawlResultBatchService(environment.requestQueue, environment.resultQueue)];
       })
     );
   }
@@ -45,7 +45,7 @@ export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShu
     );
   }
 
-  private async runMessageReceiveLoop(environment: EnvironmentResources): Promise<void> {
+  private async runMessageReceiveLoop(environment: EnvironmentResource): Promise<void> {
     while (!this.isShuttingDown) {
       await this.crawlConcurrencyLimit.waitForUnlock();
 
@@ -75,7 +75,7 @@ export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShu
 
   /** 자리가 날 때까지 기다린 뒤 처리를 시작하고, 끝날 때까지 기다리지는 않음 */
   private async startProcessingWhenSlotFree(
-    environment: EnvironmentResources,
+    environment: EnvironmentResource,
     receivedMessage: ReceivedMessage
   ): Promise<void> {
     const [, releaseSlot] = await this.crawlConcurrencyLimit.acquire();
@@ -87,7 +87,7 @@ export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShu
   }
 
   /** 예외를 밖으로 던지지 않음. 완료 처리하지 않은 메시지는 큐가 다시 전달함 */
-  private async processMessage(environment: EnvironmentResources, receivedMessage: ReceivedMessage): Promise<void> {
+  private async processMessage(environment: EnvironmentResource, receivedMessage: ReceivedMessage): Promise<void> {
     const crawlRequest = CrawlRequestMessage.from(receivedMessage.content);
     if (crawlRequest === undefined) {
       this.logger.error(
@@ -99,9 +99,7 @@ export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShu
 
     try {
       const crawlResult = await this.crawlService.crawl(crawlRequest, environment.bucketName);
-      this.resultBatchProcessorByEnvironment
-        .get(environment)
-        ?.add(JSON.stringify(crawlResult), receivedMessage.receipt);
+      this.resultBatchServiceByEnvironment.get(environment)?.add(JSON.stringify(crawlResult), receivedMessage.receipt);
     } catch (error) {
       this.logger.error(`[${environment.name}] 크롤링 실패. 재전달 후 다시 처리함`, {
         towerId: crawlRequest.towerId,
@@ -122,7 +120,7 @@ export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShu
 
   private async publishRemainingResults(): Promise<void> {
     await Promise.all(
-      [...this.resultBatchProcessorByEnvironment.values()].map((resultBatchProcessor) => resultBatchProcessor.close())
+      [...this.resultBatchServiceByEnvironment.values()].map((resultBatchService) => resultBatchService.close())
     );
   }
 }

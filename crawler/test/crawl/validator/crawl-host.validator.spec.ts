@@ -1,5 +1,5 @@
-import { CrawlHostValidator } from './crawl-host.validator.js';
-import { DnsResolver } from '../../external/dns/dns-resolver.js';
+import { CrawlHostValidator } from '../../../src/crawl/validator/crawl-host.validator.js';
+import { DnsResolver } from '../../../src/external/dns/dns-resolver.js';
 
 function createDnsResolver(records: Record<string, string[]>): DnsResolver {
   const dnsResolver = new DnsResolver();

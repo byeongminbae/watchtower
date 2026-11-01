@@ -1,9 +1,9 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { CrawlError } from '../../crawl/dto/crawl-result-message.dto.js';
-import { Policy } from '../../config/policy.js';
-import { DnsResolver } from '../dns/dns-resolver.js';
-import { PlaywrightPageFetcher } from './playwright-page-fetcher.js';
+import { CrawlError } from '../../../src/crawl/dto/crawl-result-message.dto.js';
+import { Policy } from '../../../src/config/policy.js';
+import { DnsResolver } from '../../../src/external/dns/dns-resolver.js';
+import { PlaywrightPageFetcher } from '../../../src/external/playwright/playwright-page-fetcher.js';
 
 /** 127.0.0.1 은 외부 주소로 조회되게 하고 localhost 는 그대로 두어, 같은 테스트 서버로 허용과 차단을 모두 재현함 */
 class TestDnsResolver extends DnsResolver {

@@ -1,4 +1,4 @@
-import { ConfigLoader } from './config.js';
+import { ConfigLoader } from '../../src/config/config.js';
 
 describe('ConfigLoader', () => {
   it('CRAWLER_PROFILE 이 없으면 인증 파일을 읽기 전에 실패함', () => {

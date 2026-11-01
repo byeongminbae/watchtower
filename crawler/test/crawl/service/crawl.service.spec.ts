@@ -1,9 +1,9 @@
-import { TimeProvider } from '../../common/time-provider.js';
-import { CrawlError } from '../dto/crawl-result-message.dto.js';
-import { CrawlRequestMessage } from '../dto/crawl-request-message.dto.js';
-import { CrawlService } from './crawl.service.js';
-import type { HtmlStorage } from '../interfaces/html-storage.interface.js';
-import type { PageFetcher } from '../interfaces/page-fetcher.interface.js';
+import { TimeProvider } from '../../../src/common/time-provider.js';
+import { CrawlError } from '../../../src/crawl/dto/crawl-result-message.dto.js';
+import { CrawlRequestMessage } from '../../../src/crawl/dto/crawl-request-message.dto.js';
+import { CrawlService } from '../../../src/crawl/service/crawl.service.js';
+import type { HtmlStorage } from '../../../src/crawl/interfaces/html-storage.interface.js';
+import type { PageFetcher } from '../../../src/crawl/interfaces/page-fetcher.interface.js';
 
 const request = CrawlRequestMessage.from(
   JSON.stringify({ towerId: 7, url: 'https://example.com', scheduledAt: '2026-10-30T00:00:00.000Z' })

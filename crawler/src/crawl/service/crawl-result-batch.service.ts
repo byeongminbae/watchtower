@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { bufferTime, filter, lastValueFrom, mergeMap, Subject } from 'rxjs';
-import { Policy } from '../config/policy.js';
-import type { RequestQueue, ResultQueue } from './interfaces/queue.interface.js';
+import { Policy } from '../../config/policy.js';
+import type { RequestQueue, ResultQueue } from '../interfaces/queue.interface.js';
 
 type PendingResult = { resultContent: string; requestReceipt: string };
 
@@ -10,8 +10,8 @@ type PendingResult = { resultContent: string; requestReceipt: string };
  *
  * 발행에 실패하면 요청을 완료 처리하지 않으므로 큐가 다시 전달함. 결과가 유실되지 않는 대신 중복될 수 있음
  */
-export class CrawlResultBatchProcessor {
-  private readonly logger = new Logger(CrawlResultBatchProcessor.name);
+export class CrawlResultBatchService {
+  private readonly logger = new Logger(CrawlResultBatchService.name);
   private readonly pendingResults = new Subject<PendingResult>();
   private readonly allBatchesHandled: Promise<void>;
 

@@ -1,12 +1,16 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { RuntimeConfig } from '../config/config.js';
-import { EnvironmentResources, EnvironmentResourcesList } from './environment-resources.model.js';
-import { CrawlError, type CrawlResult, CrawlFailedResultMessage } from './dto/crawl-result-message.dto.js';
-import { CrawlRequestMessage } from './dto/crawl-request-message.dto.js';
-import type { CrawlService } from './service/crawl.service.js';
-import { CrawlWorker } from './crawl.worker.js';
-import type { ReceivedMessage, RequestQueue } from './interfaces/queue.interface.js';
+import type { RuntimeConfig } from '../../../src/config/config.js';
+import { EnvironmentResource, EnvironmentResources } from '../../../src/crawl/environment-resources.js';
+import {
+  CrawlError,
+  type CrawlResult,
+  CrawlFailedResultMessage
+} from '../../../src/crawl/dto/crawl-result-message.dto.js';
+import { CrawlRequestMessage } from '../../../src/crawl/dto/crawl-request-message.dto.js';
+import type { CrawlService } from '../../../src/crawl/service/crawl.service.js';
+import { CrawlWorkerService } from '../../../src/crawl/service/crawl-worker.service.js';
+import type { ReceivedMessage, RequestQueue } from '../../../src/crawl/interfaces/queue.interface.js';
 
 const message: ReceivedMessage = {
   content: JSON.stringify({ towerId: 1, url: 'https://example.com', scheduledAt: '2026-10-30T00:00:00.000Z' }),
@@ -37,8 +41,8 @@ function createRequestQueue(messages: ReceivedMessage[]): RequestQueue {
   };
 }
 
-function createEnvironment(name: EnvironmentResources['name'], messages: ReceivedMessage[] = []): EnvironmentResources {
-  return new EnvironmentResources(
+function createEnvironment(name: EnvironmentResource['name'], messages: ReceivedMessage[] = []): EnvironmentResource {
+  return new EnvironmentResource(
     name,
     createRequestQueue(messages),
     { publishAll: vi.fn(async () => {}) },
@@ -46,7 +50,7 @@ function createEnvironment(name: EnvironmentResources['name'], messages: Receive
   );
 }
 
-describe('CrawlWorker', () => {
+describe('CrawlWorkerService', () => {
   beforeEach(() => {
     vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
   });
@@ -56,7 +60,7 @@ describe('CrawlWorker', () => {
     const dev = createEnvironment('dev');
     const prod = createEnvironment('prod', [message]);
     const crawlService = { crawl: vi.fn(async () => result) } as unknown as CrawlService;
-    const worker = new CrawlWorker(new EnvironmentResourcesList([dev, prod]), configService, crawlService);
+    const worker = new CrawlWorkerService(new EnvironmentResources([dev, prod]), configService, crawlService);
 
     // when
     worker.onApplicationBootstrap();
@@ -81,7 +85,7 @@ describe('CrawlWorker', () => {
         throw new Error('Object Storage 장애');
       })
     } as unknown as CrawlService;
-    const worker = new CrawlWorker(new EnvironmentResourcesList([dev]), configService, crawlService);
+    const worker = new CrawlWorkerService(new EnvironmentResources([dev]), configService, crawlService);
 
     // when
     worker.onApplicationBootstrap();
@@ -97,7 +101,7 @@ describe('CrawlWorker', () => {
     // given
     const dev = createEnvironment('dev', [{ ...message, content: 'not json' }]);
     const crawlService = { crawl: vi.fn(async () => result) } as unknown as CrawlService;
-    const worker = new CrawlWorker(new EnvironmentResourcesList([dev]), configService, crawlService);
+    const worker = new CrawlWorkerService(new EnvironmentResources([dev]), configService, crawlService);
 
     // when
     worker.onApplicationBootstrap();
@@ -127,7 +131,7 @@ describe('CrawlWorker', () => {
         return result;
       })
     } as unknown as CrawlService;
-    const worker = new CrawlWorker(new EnvironmentResourcesList([dev, prod]), configService, crawlService);
+    const worker = new CrawlWorkerService(new EnvironmentResources([dev, prod]), configService, crawlService);
 
     // when
     worker.onApplicationBootstrap();
