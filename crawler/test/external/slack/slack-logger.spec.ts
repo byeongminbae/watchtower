@@ -54,7 +54,7 @@ describe('SlackLogger', () => {
     // given
     const slackLogger = createSlackLogger();
     Logger.overrideLogger(slackLogger);
-    const classLogger = new Logger('CrawlResultBatchService');
+    const classLogger = new Logger('CrawlQueueBatch');
 
     // when
     classLogger.error('결과 3건 발행 실패. 요청을 다시 전달받아 처리함', new Error('큐 응답 없음'));
@@ -63,7 +63,7 @@ describe('SlackLogger', () => {
 
     // then
     const [text] = sentTexts();
-    expect(text).toContain('CrawlResultBatchService');
+    expect(text).toContain('CrawlQueueBatch');
     expect(text).toContain('결과 3건 발행 실패');
     expect(text).toContain('Error: 큐 응답 없음');
   });

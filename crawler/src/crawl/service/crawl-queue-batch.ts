@@ -3,7 +3,7 @@ import { bufferTime, filter, lastValueFrom, mergeMap, Subject } from 'rxjs';
 import { Policy } from '../../config/policy.js';
 import type { RequestQueue, ResultQueue } from '../interfaces/queue.interface.js';
 
-type PendingResult = { resultContent: string; requestReceipt: string };
+type BatchItem = { resultContent: string; requestReceipt: string };
 
 /**
  * OCI Queue 는 API 요청 횟수가 곧 비용이라, 크롤링 결과를 모아 결과 큐에 한 번에 발행하고 발행에 성공한 요청 메시지만 한 번에 완료 처리(삭제)함
@@ -11,9 +11,9 @@ type PendingResult = { resultContent: string; requestReceipt: string };
  *
  * 발행에 실패하면 요청을 완료 처리하지 않으므로 큐가 다시 전달함. 결과가 유실되지 않는 대신 중복될 수 있음
  */
-export class CrawlResultBatchService {
-  private readonly logger = new Logger(CrawlResultBatchService.name);
-  private readonly pendingResults = new Subject<PendingResult>();
+export class CrawlQueueBatch {
+  private readonly logger = new Logger(CrawlQueueBatch.name);
+  private readonly batchItems = new Subject<BatchItem>();
   private readonly allBatchesHandled: Promise<void>;
 
   constructor(
@@ -21,7 +21,7 @@ export class CrawlResultBatchService {
     private readonly resultQueue: ResultQueue
   ) {
     this.allBatchesHandled = lastValueFrom(
-      this.pendingResults.pipe(
+      this.batchItems.pipe(
         bufferTime(Policy.RESULT_FLUSH_DELAY_MILLIS, null, Policy.QUEUE_BATCH_SIZE),
         filter((resultBatch) => resultBatch.length > 0),
         mergeMap((resultBatch) => this.publishResultsThenCompleteRequests(resultBatch))
@@ -30,7 +30,7 @@ export class CrawlResultBatchService {
     );
   }
 
-  private async publishResultsThenCompleteRequests(resultBatch: PendingResult[]): Promise<void> {
+  private async publishResultsThenCompleteRequests(resultBatch: BatchItem[]): Promise<void> {
     try {
       await this.resultQueue.publishAll(resultBatch.map(({ resultContent }) => resultContent));
     } catch (error) {
@@ -47,12 +47,12 @@ export class CrawlResultBatchService {
 
   add(resultContent: string, requestReceipt: string): void {
     // Subject 에 넣기만 하고 바로 발행하지 않음. 생성자의 bufferTime 이 QUEUE_BATCH_SIZE 만큼 모이거나 RESULT_FLUSH_DELAY_MILLIS 가 지나면 모아서 발행함
-    this.pendingResults.next({ resultContent, requestReceipt });
+    this.batchItems.next({ resultContent, requestReceipt });
   }
 
   /** 남은 결과를 모두 발행하고 해당 요청을 완료 처리할 때까지 기다림 */
   async close(): Promise<void> {
-    this.pendingResults.complete();
+    this.batchItems.complete();
     await this.allBatchesHandled;
   }
 }
