@@ -30,16 +30,6 @@ export class CrawlResultBatchService {
     );
   }
 
-  add(resultContent: string, requestReceipt: string): void {
-    this.pendingResults.next({ resultContent, requestReceipt });
-  }
-
-  /** 남은 결과를 모두 발행하고 해당 요청을 완료 처리할 때까지 기다림 */
-  async close(): Promise<void> {
-    this.pendingResults.complete();
-    await this.allBatchesHandled;
-  }
-
   private async publishResultsThenCompleteRequests(resultBatch: PendingResult[]): Promise<void> {
     try {
       await this.resultQueue.publishAll(resultBatch.map(({ resultContent }) => resultContent));
@@ -53,5 +43,16 @@ export class CrawlResultBatchService {
     } catch (error) {
       this.logger.error(`요청 ${resultBatch.length}건 완료 처리 실패. 같은 결과가 다시 발행될 수 있음`, error);
     }
+  }
+
+  add(resultContent: string, requestReceipt: string): void {
+    // Subject 에 넣기만 하고 바로 발행하지 않음. 생성자의 bufferTime 이 QUEUE_BATCH_SIZE 만큼 모이거나 RESULT_FLUSH_DELAY_MILLIS 가 지나면 모아서 발행함
+    this.pendingResults.next({ resultContent, requestReceipt });
+  }
+
+  /** 남은 결과를 모두 발행하고 해당 요청을 완료 처리할 때까지 기다림 */
+  async close(): Promise<void> {
+    this.pendingResults.complete();
+    await this.allBatchesHandled;
   }
 }

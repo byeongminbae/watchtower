@@ -120,6 +120,38 @@ describe('CrawlRequestConsumer', () => {
     expect(dev.requestQueue.completeAll).not.toHaveBeenCalled();
   });
 
+  it('종료하면 진행 중인 크롤링이 끝나고 그 결과를 발행한 뒤에 종료가 끝남', async () => {
+    // given
+    const dev = createEnvironment('dev', [message]);
+    let finishCrawl: () => void = () => {};
+    const crawlService = {
+      crawl: vi.fn(async () => {
+        await new Promise<void>((resolve) => {
+          finishCrawl = resolve;
+        });
+        return result;
+      })
+    } as unknown as CrawlService;
+    const requestConsumer = new CrawlRequestConsumer(new EnvironmentResources([dev]), configService, crawlService);
+    requestConsumer.onApplicationBootstrap();
+    await vi.waitFor(() => expect(crawlService.crawl).toHaveBeenCalled());
+
+    // when
+    let isShutdownFinished = false;
+    const shutdown = requestConsumer.beforeApplicationShutdown().then(() => {
+      isShutdownFinished = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const isFinishedBeforeCrawlEnds = isShutdownFinished;
+    finishCrawl();
+    await shutdown;
+
+    // then
+    expect(isFinishedBeforeCrawlEnds).toBe(false);
+    expect(dev.resultQueue.publishAll).toHaveBeenCalledTimes(1);
+    expect(dev.requestQueue.completeAll).toHaveBeenCalledWith([message.receipt]);
+  });
+
   it('모든 환경의 큐를 받되 동시 처리 한도는 환경끼리 함께 씀', async () => {
     // given
     const dev = createEnvironment('dev', [

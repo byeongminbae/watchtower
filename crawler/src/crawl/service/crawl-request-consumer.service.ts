@@ -20,8 +20,8 @@ import type { ReceivedMessage } from '../interfaces/queue.interface.js';
 @Injectable()
 export class CrawlRequestConsumer implements OnApplicationBootstrap, BeforeApplicationShutdown {
   private readonly logger = new Logger(CrawlRequestConsumer.name);
+  private readonly crawlConcurrency: number;
   private readonly crawlConcurrencyLimit: Semaphore;
-  private readonly runningCrawls = new Set<Promise<void>>();
   private receiveLoops: Promise<unknown> = Promise.resolve();
   private isShuttingDown = false;
 
@@ -30,7 +30,8 @@ export class CrawlRequestConsumer implements OnApplicationBootstrap, BeforeAppli
     private readonly configService: ConfigService<RuntimeConfig, true>,
     private readonly crawlService: CrawlService
   ) {
-    this.crawlConcurrencyLimit = new Semaphore(configService.get('concurrency', { infer: true }));
+    this.crawlConcurrency = configService.get('concurrency', { infer: true });
+    this.crawlConcurrencyLimit = new Semaphore(this.crawlConcurrency);
   }
 
   onApplicationBootstrap(): void {
@@ -44,6 +45,7 @@ export class CrawlRequestConsumer implements OnApplicationBootstrap, BeforeAppli
       await this.crawlConcurrencyLimit.waitForUnlock();
       const receivableMessageCount = this.countReceivableMessages();
       // waitForUnlock 은 세마포어를 획득하지 않고 기다리기만 해서, 그사이 다른 환경이 남은 세마포어를 먼저 획득하면 0 이 됨
+      // 밑에 await 에서 양보되면 위에 await 에서 기다리던 dev나 prod중 하나가 내려오면서 receivableMessageCount 가 1이 될 수 있음
       if (receivableMessageCount === 0) {
         continue;
       }
@@ -81,20 +83,17 @@ export class CrawlRequestConsumer implements OnApplicationBootstrap, BeforeAppli
 
   /** 세마포어를 획득할 때까지 기다린 뒤 크롤링을 시작함. 수신 루프가 다음 메시지로 넘어갈 수 있게 크롤링이 끝날 때까지는 기다리지 않음 */
   private async startProcessingWhenSlotFree(
-    environment: EnvironmentResource,
+    environmentResource: EnvironmentResource,
     receivedMessage: ReceivedMessage
   ): Promise<void> {
-    const [, releaseSlot] = await this.crawlConcurrencyLimit.acquire();
-    const runningCrawl = this.processMessage(environment, receivedMessage).finally(() => {
-      releaseSlot();
-      this.runningCrawls.delete(runningCrawl);
-    });
-    this.runningCrawls.add(runningCrawl);
+    const [, releaseLimit] = await this.crawlConcurrencyLimit.acquire();
+    void this.crawlAndBatchResult(environmentResource, receivedMessage).finally(releaseLimit);
   }
 
   /** 요청 메시지 한 건을 크롤링하고 결과를 결과 배치에 넘김. 실패하면 로그만 남기고 완료 처리하지 않으므로 큐가 다시 전달함 */
-  private async processMessage(environment: EnvironmentResource, receivedMessage: ReceivedMessage): Promise<void> {
+  private async crawlAndBatchResult(environment: EnvironmentResource, receivedMessage: ReceivedMessage): Promise<void> {
     const crawlRequest = CrawlRequestMessage.from(receivedMessage.content);
+
     if (crawlRequest === undefined) {
       this.logger.error(
         `[${environment.deploymentEnvironment}] 형식이 잘못된 크롤링 요청. dead letter queue 로 이동할 때까지 완료 처리하지 않음`,
@@ -105,7 +104,7 @@ export class CrawlRequestConsumer implements OnApplicationBootstrap, BeforeAppli
 
     try {
       const crawlResult = await this.crawlService.crawl(crawlRequest, environment.bucketName);
-      environment.resultBatch.add(JSON.stringify(crawlResult), receivedMessage.receipt);
+      environment.crawlResultBatchService.add(JSON.stringify(crawlResult), receivedMessage.receipt);
     } catch (error) {
       this.logger.error(`[${environment.deploymentEnvironment}] 크롤링 실패. 재전달 후 다시 처리함`, {
         towerId: crawlRequest.towerId,
@@ -120,11 +119,11 @@ export class CrawlRequestConsumer implements OnApplicationBootstrap, BeforeAppli
   async beforeApplicationShutdown(): Promise<void> {
     this.isShuttingDown = true;
     await this.receiveLoops;
-    await Promise.allSettled(this.runningCrawls);
+    await this.crawlConcurrencyLimit.waitForUnlock(this.crawlConcurrency);
     await this.publishRemainingResults();
   }
 
   private async publishRemainingResults(): Promise<void> {
-    await Promise.all(this.environments.all.map((environment) => environment.resultBatch.close()));
+    await Promise.all(this.environments.all.map((environment) => environment.crawlResultBatchService.close()));
   }
 }
