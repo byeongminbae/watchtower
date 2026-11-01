@@ -23,25 +23,25 @@ export class CrawlQueueBatch {
     this.allBatchesHandled = lastValueFrom(
       this.batchItems.pipe(
         bufferTime(Policy.RESULT_FLUSH_DELAY_MILLIS, null, Policy.QUEUE_BATCH_SIZE),
-        filter((resultBatch) => resultBatch.length > 0),
-        mergeMap((resultBatch) => this.publishResultsThenCompleteRequests(resultBatch))
+        filter((batchItems) => batchItems.length > 0),
+        mergeMap((batchItems) => this.publishResultsThenCompleteRequests(batchItems))
       ),
       { defaultValue: undefined }
     );
   }
 
-  private async publishResultsThenCompleteRequests(resultBatch: BatchItem[]): Promise<void> {
+  private async publishResultsThenCompleteRequests(batchItems: BatchItem[]): Promise<void> {
     try {
-      await this.resultQueue.publishAll(resultBatch.map(({ resultContent }) => resultContent));
+      await this.resultQueue.publishAll(batchItems.map(({ resultContent }) => resultContent));
     } catch (error) {
-      this.logger.error(`결과 ${resultBatch.length}건 발행 실패. 요청을 다시 전달받아 처리함`, error);
+      this.logger.error(`결과 ${batchItems.length}건 발행 실패. 요청을 다시 전달받아 처리함`, error);
       return;
     }
 
     try {
-      await this.requestQueue.completeAll(resultBatch.map(({ requestReceipt }) => requestReceipt));
+      await this.requestQueue.completeAll(batchItems.map(({ requestReceipt }) => requestReceipt));
     } catch (error) {
-      this.logger.error(`요청 ${resultBatch.length}건 완료 처리 실패. 같은 결과가 다시 발행될 수 있음`, error);
+      this.logger.error(`요청 ${batchItems.length}건 완료 처리 실패. 같은 결과가 다시 발행될 수 있음`, error);
     }
   }
 
