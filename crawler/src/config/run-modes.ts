@@ -1,9 +1,9 @@
-import type { EnvironmentConfig, ProfileConfig } from './config.js';
+import type { EnvironmentConfig, RunModeConfig } from './config.js';
 
 const QUEUE_ENDPOINT = 'https://cell-1.queue.messaging.ap-osaka-1.oci.oraclecloud.com';
 
 const dev: EnvironmentConfig = {
-  name: 'dev',
+  deploymentEnvironment: 'dev',
   requestQueueId: 'ocid1.queue.oc1.ap-osaka-1.amaaaaaaw36r47iaur3pqw4olpn2yhkhhhjyjzqpf26asmegj7rbyuhful2a',
   requestQueueEndpoint: QUEUE_ENDPOINT,
   resultQueueId: 'ocid1.queue.oc1.ap-osaka-1.amaaaaaaw36r47iaodfs4xklavbthpbpaamu5jta5ovojxbv2rvvit2ele4q',
@@ -12,7 +12,7 @@ const dev: EnvironmentConfig = {
 };
 
 const prod: EnvironmentConfig = {
-  name: 'prod',
+  deploymentEnvironment: 'prod',
   requestQueueId: 'ocid1.queue.oc1.ap-osaka-1.amaaaaaaw36r47iasrufpfd2x7pvibd3ouxe3tocsfiht3znod4rxb4ap7hq',
   requestQueueEndpoint: QUEUE_ENDPOINT,
   resultQueueId: 'ocid1.queue.oc1.ap-osaka-1.amaaaaaaw36r47iakszih55zlhcigegkju6bnyzawtb4iqdvgzamywqzrjja',
@@ -20,7 +20,7 @@ const prod: EnvironmentConfig = {
   bucketName: 'watchtower-snapshot-prod'
 };
 
-export const PROFILES: Record<string, ProfileConfig> = {
+export const RUN_MODES: Record<string, RunModeConfig> = {
   server: {
     objectStorageNamespace: 'ax7wkezrucld',
     concurrency: 2,

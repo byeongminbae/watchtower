@@ -1,7 +1,7 @@
 import { ConfigLoader } from '../../src/config/config.js';
 
 describe('ConfigLoader', () => {
-  it('CRAWLER_PROFILE 이 없으면 인증 파일을 읽기 전에 실패함', () => {
+  it('CRAWLER_RUN_MODE 가 없으면 인증 파일을 읽기 전에 실패함', () => {
     // given
     const env = {};
 
@@ -9,17 +9,17 @@ describe('ConfigLoader', () => {
     const loading = () => ConfigLoader.load(env);
 
     // then
-    expect(loading).toThrow('CRAWLER_PROFILE');
+    expect(loading).toThrow('CRAWLER_RUN_MODE');
   });
 
-  it('없는 프로필을 지정하면 인증 파일을 읽기 전에 실패함', () => {
+  it('없는 실행 모드를 지정하면 인증 파일을 읽기 전에 실패함', () => {
     // given
-    const env = { CRAWLER_PROFILE: 'prod' };
+    const env = { CRAWLER_RUN_MODE: 'prod' };
 
     // when
     const loading = () => ConfigLoader.load(env);
 
     // then
-    expect(loading).toThrow('CRAWLER_PROFILE');
+    expect(loading).toThrow('CRAWLER_RUN_MODE');
   });
 });

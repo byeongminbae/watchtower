@@ -1,3 +1,4 @@
+import type { DeploymentEnvironment } from '../config/config.js';
 import type { RequestQueue, ResultQueue } from './interfaces/queue.interface.js';
 
 /**
@@ -7,7 +8,7 @@ import type { RequestQueue, ResultQueue } from './interfaces/queue.interface.js'
  */
 export class EnvironmentResource {
   constructor(
-    readonly name: string,
+    readonly deploymentEnvironment: DeploymentEnvironment,
     readonly requestQueue: RequestQueue,
     readonly resultQueue: ResultQueue,
     readonly bucketName: string

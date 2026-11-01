@@ -53,7 +53,7 @@ export class CrawlRequestConsumer implements OnApplicationBootstrap, BeforeAppli
       try {
         receivedMessages = await environment.requestQueue.receive(this.countReceivableMessages());
       } catch (error) {
-        this.logger.error(`[${environment.name}] 크롤링 요청 수신 실패`, error);
+        this.logger.error(`[${environment.deploymentEnvironment}] 크롤링 요청 수신 실패`, error);
         await sleep(Policy.QUEUE_RETRY_DELAY_MILLIS);
         continue;
       }
@@ -91,7 +91,7 @@ export class CrawlRequestConsumer implements OnApplicationBootstrap, BeforeAppli
     const crawlRequest = CrawlRequestMessage.from(receivedMessage.content);
     if (crawlRequest === undefined) {
       this.logger.error(
-        `[${environment.name}] 형식이 잘못된 크롤링 요청. dead letter queue 로 이동할 때까지 완료 처리하지 않음`,
+        `[${environment.deploymentEnvironment}] 형식이 잘못된 크롤링 요청. dead letter queue 로 이동할 때까지 완료 처리하지 않음`,
         { content: receivedMessage.content, deliveryCount: receivedMessage.deliveryCount }
       );
       return;
@@ -101,7 +101,7 @@ export class CrawlRequestConsumer implements OnApplicationBootstrap, BeforeAppli
       const crawlResult = await this.crawlService.crawl(crawlRequest, environment.bucketName);
       this.resultBatchServiceByEnvironment.get(environment)?.add(JSON.stringify(crawlResult), receivedMessage.receipt);
     } catch (error) {
-      this.logger.error(`[${environment.name}] 크롤링 실패. 재전달 후 다시 처리함`, {
+      this.logger.error(`[${environment.deploymentEnvironment}] 크롤링 실패. 재전달 후 다시 처리함`, {
         towerId: crawlRequest.towerId,
         scheduledAt: crawlRequest.scheduledAt,
         deliveryCount: receivedMessage.deliveryCount,

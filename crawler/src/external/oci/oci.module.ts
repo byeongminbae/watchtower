@@ -29,7 +29,7 @@ import { OciQueue } from './oci-queue.js';
         return new EnvironmentResources(
           configService.get('environments', { infer: true }).map((environmentConfig) => {
             return new EnvironmentResource(
-              environmentConfig.name,
+              environmentConfig.deploymentEnvironment,
               OciQueue.of(
                 authenticationDetailsProvider,
                 environmentConfig.requestQueueId,

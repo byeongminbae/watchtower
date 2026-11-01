@@ -41,12 +41,15 @@ function createRequestQueue(messages: ReceivedMessage[]): RequestQueue {
   };
 }
 
-function createEnvironment(name: EnvironmentResource['name'], messages: ReceivedMessage[] = []): EnvironmentResource {
+function createEnvironment(
+  deploymentEnvironment: EnvironmentResource['deploymentEnvironment'],
+  messages: ReceivedMessage[] = []
+): EnvironmentResource {
   return new EnvironmentResource(
-    name,
+    deploymentEnvironment,
     createRequestQueue(messages),
     { publishAll: vi.fn(async () => {}) },
-    `watchtower-snapshot-${name}`
+    `watchtower-snapshot-${deploymentEnvironment}`
   );
 }
 
