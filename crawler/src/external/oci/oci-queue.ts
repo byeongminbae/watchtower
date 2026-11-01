@@ -9,20 +9,20 @@ export class OciQueue implements RequestQueue, ResultQueue {
   private static readonly logger = new Logger(OciQueue.name);
 
   private constructor(
-    private readonly client: QueueClient,
+    private readonly queueClient: QueueClient,
     private readonly queueId: string
   ) {}
 
   static of(authenticationDetailsProvider: AuthenticationDetailsProvider, queueId: string, endpoint: string): OciQueue {
-    const client = new QueueClient({ authenticationDetailsProvider });
-    client.endpoint = endpoint;
-    return new OciQueue(client, queueId);
+    const queueClient = new QueueClient({ authenticationDetailsProvider });
+    queueClient.endpoint = endpoint;
+    return new OciQueue(queueClient, queueId);
   }
 
-  async receive(limit: number): Promise<ReceivedMessage[]> {
-    const response = await this.client.getMessages({
+  async receive(maxMessageCount: number): Promise<ReceivedMessage[]> {
+    const response = await this.queueClient.getMessages({
       queueId: this.queueId,
-      limit,
+      limit: maxMessageCount,
       visibilityInSeconds: Policy.MESSAGE_VISIBILITY_SECONDS,
       timeoutInSeconds: Policy.QUEUE_POLLING_TIMEOUT_SECONDS
     });
@@ -31,34 +31,34 @@ export class OciQueue implements RequestQueue, ResultQueue {
     });
   }
 
-  async publishAll(contents: string[]): Promise<void> {
-    if (contents.length === 0) {
+  async publishAll(messageContents: string[]): Promise<void> {
+    if (messageContents.length === 0) {
       return;
     }
-    await this.client.putMessages({
+    await this.queueClient.putMessages({
       queueId: this.queueId,
-      putMessagesDetails: { messages: contents.map((content) => ({ content })) }
+      putMessagesDetails: { messages: messageContents.map((content) => ({ content })) }
     });
   }
 
-  async completeAll(receipts: string[]): Promise<void> {
-    if (receipts.length === 0) {
+  async completeAll(messageReceipts: string[]): Promise<void> {
+    if (messageReceipts.length === 0) {
       return;
     }
-    const response = await this.client.deleteMessages({
+    const response = await this.queueClient.deleteMessages({
       queueId: this.queueId,
-      deleteMessagesDetails: { entries: receipts.map((receipt) => ({ receipt })) }
+      deleteMessagesDetails: { entries: messageReceipts.map((receipt) => ({ receipt })) }
     });
-    OciQueue.logFailedDeletes(response.deleteMessagesResult);
+    OciQueue.logFailedCompletions(response.deleteMessagesResult);
   }
 
-  private static logFailedDeletes(result: models.DeleteMessagesResult): void {
-    const failedCount = result.serverFailures + result.clientFailures;
+  private static logFailedCompletions(deleteResult: models.DeleteMessagesResult): void {
+    const failedCount = deleteResult.serverFailures + deleteResult.clientFailures;
     if (failedCount === 0) {
       return;
     }
     OciQueue.logger.error(`요청 ${failedCount}건 완료 처리 실패. 같은 결과가 다시 발행될 수 있음`, {
-      errors: result.entries.filter((entry) => entry.errorCode !== undefined)
+      errors: deleteResult.entries.filter((entry) => entry.errorCode !== undefined)
     });
   }
 }

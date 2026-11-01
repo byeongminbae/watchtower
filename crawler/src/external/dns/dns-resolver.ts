@@ -1,7 +1,7 @@
 import { lookup } from 'node:dns/promises';
 import { Injectable } from '@nestjs/common';
 
-/** DNS 주소에 등록된 IP 주소를 조회하는 클래스 */
+/** 호스트 이름에 등록된 IP 주소를 DNS 로 조회함 */
 @Injectable()
 export class DnsResolver {
   /** @return 조회에 실패하면 빈 배열 */

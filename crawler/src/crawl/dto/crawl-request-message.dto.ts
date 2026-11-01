@@ -23,12 +23,12 @@ export class CrawlRequestMessage {
 
   /** @return 형식이 맞지 않거나 http(s) 가 아닌 URL 이면 undefined */
   static from(content: string): CrawlRequestMessage | undefined {
-    const parsed = CrawlRequestMessage.SCHEMA.safeParse(CrawlRequestMessage.parseJson(content));
-    if (!parsed.success) {
+    const parseResult = CrawlRequestMessage.SCHEMA.safeParse(CrawlRequestMessage.parseJson(content));
+    if (!parseResult.success) {
       return undefined;
     }
 
-    const { towerId, url, scheduledAt } = parsed.data;
+    const { towerId, url, scheduledAt } = parseResult.data;
     return new CrawlRequestMessage(towerId, url, scheduledAt);
   }
 

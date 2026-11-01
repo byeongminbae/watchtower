@@ -25,46 +25,46 @@ import { DnsResolver } from '../dns/dns-resolver.js';
 @Injectable()
 export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown {
   /** 기본값은 크롤러의 환경변수 전체라, 브라우저가 장악되면 OCI 개인키 같은 비밀값까지 읽힘 */
-  private static readonly BROWSER_ENV = { HOME: '/tmp', PATH: '/usr/local/bin:/usr/bin:/bin' };
-  private browser: Promise<Browser> | undefined;
+  private static readonly BROWSER_ENVIRONMENT_VARIABLES = { HOME: '/tmp', PATH: '/usr/local/bin:/usr/bin:/bin' };
+  private sharedBrowser: Promise<Browser> | undefined;
 
   constructor(private readonly dnsResolver: DnsResolver) {}
 
   async fetchPage(url: string): Promise<PageFetchOutcome> {
-    const browser = await this.getBrowser();
+    const browser = await this.getOrLaunchBrowser();
     const hostValidator = new CrawlHostValidator(this.dnsResolver);
     const requestFilter = new RequestFilter(hostValidator);
-    const context = await this.openContext(browser, requestFilter);
+    const browserContext = await this.openIsolatedContext(browser, requestFilter);
 
     try {
-      const page = await context.newPage();
-      let response: Response | null;
+      const page = await browserContext.newPage();
+      let mainResponse: Response | null;
       try {
-        response = await page.goto(url, { waitUntil: 'load', timeout: Policy.NAVIGATION_TIMEOUT_MILLIS });
+        mainResponse = await page.goto(url, { waitUntil: 'load', timeout: Policy.NAVIGATION_TIMEOUT_MILLIS });
       } catch (error) {
-        return { kind: 'failed', error: this.toNavigationFailure(error, browser, requestFilter) };
+        return { kind: 'failed', error: this.toNavigationCrawlError(error, browser, requestFilter) };
       }
-      return await this.toOutcome(page, response, hostValidator);
+      return await this.toFetchOutcome(page, mainResponse, hostValidator);
     } finally {
-      await context.close();
+      await browserContext.close();
     }
   }
 
   async onApplicationShutdown(): Promise<void> {
-    const browser = this.browser;
-    this.browser = undefined;
-    await (await browser)?.close();
+    const launchingBrowser = this.sharedBrowser;
+    this.sharedBrowser = undefined;
+    await (await launchingBrowser)?.close();
   }
 
-  private async openContext(browser: Browser, requestFilter: RequestFilter): Promise<BrowserContext> {
-    const context = await browser.newContext({ serviceWorkers: 'block', acceptDownloads: false });
-    await context.routeWebSocket(/.*/, (webSocket) => webSocket.close());
-    await context.route('**/*', (route) => requestFilter.handle(route));
-    return context;
+  private async openIsolatedContext(browser: Browser, requestFilter: RequestFilter): Promise<BrowserContext> {
+    const browserContext = await browser.newContext({ serviceWorkers: 'block', acceptDownloads: false });
+    await browserContext.routeWebSocket(/.*/, (webSocket) => webSocket.close());
+    await browserContext.route('**/*', (route) => requestFilter.allowOrBlock(route));
+    return browserContext;
   }
 
   /** 브라우저가 죽은 경우만 일시적인 오류로 보고 예외를 던져 메시지를 다시 전달받음 */
-  private toNavigationFailure(error: unknown, browser: Browser, requestFilter: RequestFilter): CrawlError {
+  private toNavigationCrawlError(error: unknown, browser: Browser, requestFilter: RequestFilter): CrawlError {
     if (requestFilter.isMainNavigationBlocked) {
       return CrawlError.URL_NOT_ALLOWED;
     }
@@ -77,53 +77,60 @@ export class PlaywrightPageFetcher implements PageFetcher, OnApplicationShutdown
     return CrawlError.NAVIGATION_FAILED;
   }
 
-  private async toOutcome(
+  private async toFetchOutcome(
     page: Page,
-    response: Response | null,
+    mainResponse: Response | null,
     hostValidator: CrawlHostValidator
   ): Promise<PageFetchOutcome> {
-    if (response === null) {
+    if (mainResponse === null) {
       return { kind: 'failed', error: CrawlError.NAVIGATION_FAILED };
     }
-    if (!(await PlaywrightPageFetcher.isRedirectChainAllowed(response, hostValidator))) {
+    if (!(await PlaywrightPageFetcher.isEveryRedirectUrlAllowed(mainResponse, hostValidator))) {
       return { kind: 'failed', error: CrawlError.URL_NOT_ALLOWED };
     }
 
     const html = await page.content();
-    if (PlaywrightPageFetcher.exceedsHtmlLimit(html)) {
+    if (PlaywrightPageFetcher.exceedsMaxHtmlBytes(html)) {
       return { kind: 'failed', error: CrawlError.HTML_TOO_LARGE };
     }
-    return { kind: 'fetched', page: { httpStatusCode: response.status(), finalUrl: page.url(), html } };
+    return { kind: 'fetched', page: { httpStatusCode: mainResponse.status(), finalUrl: page.url(), html } };
   }
 
-  private getBrowser(): Promise<Browser> {
-    if (this.browser === undefined) {
-      const browser = chromium.launch({ env: PlaywrightPageFetcher.BROWSER_ENV });
-      this.forgetWhenDisconnected(browser);
-      this.browser = browser;
+  private getOrLaunchBrowser(): Promise<Browser> {
+    if (this.sharedBrowser === undefined) {
+      const launchingBrowser = chromium.launch({ env: PlaywrightPageFetcher.BROWSER_ENVIRONMENT_VARIABLES });
+      this.clearBrowserWhenDisconnected(launchingBrowser);
+      this.sharedBrowser = launchingBrowser;
     }
-    return this.browser;
+    return this.sharedBrowser;
   }
 
-  private forgetWhenDisconnected(browser: Promise<Browser>): void {
-    const forget = (): void => {
-      if (this.browser === browser) {
-        this.browser = undefined;
+  private clearBrowserWhenDisconnected(launchingBrowser: Promise<Browser>): void {
+    const clearBrowser = (): void => {
+      if (this.sharedBrowser === launchingBrowser) {
+        this.sharedBrowser = undefined;
       }
     };
-    browser.then((launched) => launched.on('disconnected', forget), forget);
+    launchingBrowser.then((launchedBrowser) => launchedBrowser.on('disconnected', clearBrowser), clearBrowser);
   }
 
-  private static async isRedirectChainAllowed(response: Response, hostValidator: CrawlHostValidator): Promise<boolean> {
-    for (let request: Request | null = response.request(); request !== null; request = request.redirectedFrom()) {
-      if (!(await hostValidator.isAllowedUrl(request.url()))) {
+  private static async isEveryRedirectUrlAllowed(
+    mainResponse: Response,
+    hostValidator: CrawlHostValidator
+  ): Promise<boolean> {
+    for (
+      let redirectedRequest: Request | null = mainResponse.request();
+      redirectedRequest !== null;
+      redirectedRequest = redirectedRequest.redirectedFrom()
+    ) {
+      if (!(await hostValidator.isAllowedUrl(redirectedRequest.url()))) {
         return false;
       }
     }
     return true;
   }
 
-  private static exceedsHtmlLimit(html: string): boolean {
+  private static exceedsMaxHtmlBytes(html: string): boolean {
     return Buffer.byteLength(html) > Policy.MAX_HTML_BYTES;
   }
 }
@@ -138,9 +145,9 @@ class RequestFilter {
     return this.mainNavigationBlocked;
   }
 
-  async handle(route: Route): Promise<void> {
+  async allowOrBlock(route: Route): Promise<void> {
     const request = route.request();
-    if (RequestFilter.isSkippedResource(request)) {
+    if (RequestFilter.isSkippedResourceType(request)) {
       return route.abort('blockedbyclient');
     }
     if (!(await this.hostValidator.isAllowedUrl(request.url()))) {
@@ -150,7 +157,7 @@ class RequestFilter {
     return route.continue();
   }
 
-  private static isSkippedResource(request: Request): boolean {
+  private static isSkippedResourceType(request: Request): boolean {
     return Policy.SKIPPED_RESOURCE_TYPES.has(request.resourceType());
   }
 

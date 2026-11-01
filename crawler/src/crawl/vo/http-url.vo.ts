@@ -1,4 +1,4 @@
-/** http(s) 스킴과 호스트를 가진 절대 URL. 외부 주소 여부는 CrawlHostValidator 로 따로 검사해야 함 */
+/** http(s) 스킴과 호스트를 가진 절대 URL. 공인 주소 여부는 CrawlHostValidator 로 따로 검사해야 함 */
 export class HttpUrl {
   private constructor(readonly host: string) {}
 

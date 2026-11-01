@@ -58,15 +58,15 @@ export class CrawlSuccessResultMessage extends CrawlResultMessage {
     request: CrawlRequestMessage,
     startedAt: Date,
     endedAt: Date,
-    page: { httpStatusCode: number; finalUrl: string },
+    fetchedPage: { httpStatusCode: number; finalUrl: string },
     htmlObjectName: string
   ): CrawlSuccessResultMessage {
     return new CrawlSuccessResultMessage(
       request,
       startedAt,
       endedAt,
-      page.httpStatusCode,
-      page.finalUrl,
+      fetchedPage.httpStatusCode,
+      fetchedPage.finalUrl,
       htmlObjectName
     );
   }

@@ -3,12 +3,12 @@ import type { HtmlStorage } from '../../crawl/interfaces/html-storage.interface.
 
 export class OciHtmlStorage implements HtmlStorage {
   constructor(
-    private readonly client: ObjectStorageClient,
+    private readonly objectStorageClient: ObjectStorageClient,
     private readonly namespaceName: string
   ) {}
 
   async saveHtml(bucketName: string, objectName: string, html: string): Promise<void> {
-    await this.client.putObject({
+    await this.objectStorageClient.putObject({
       namespaceName: this.namespaceName,
       bucketName,
       objectName,

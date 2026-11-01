@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { Config } from '../config/config.js';
-import { CrawlEnvironment, CrawlEnvironments } from './crawl-environment.model.js';
+import type { RuntimeConfig } from '../config/config.js';
+import { EnvironmentResources, EnvironmentResourcesList } from './environment-resources.model.js';
 import { CrawlError, type CrawlResult, CrawlFailedResultMessage } from './dto/crawl-result-message.dto.js';
 import { CrawlRequestMessage } from './dto/crawl-request-message.dto.js';
 import type { CrawlService } from './service/crawl.service.js';
@@ -21,7 +21,7 @@ const result: CrawlResult = CrawlFailedResultMessage.of(
   CrawlError.NAVIGATION_TIMEOUT
 );
 
-const configService = new ConfigService<Config, true>({ concurrency: 2 });
+const configService = new ConfigService<RuntimeConfig, true>({ concurrency: 2 });
 
 /** 처음 한 번만 주어진 메시지를 돌려주고, 이후에는 메시지가 없는 큐처럼 동작함 */
 function createRequestQueue(messages: ReceivedMessage[]): RequestQueue {
@@ -37,8 +37,8 @@ function createRequestQueue(messages: ReceivedMessage[]): RequestQueue {
   };
 }
 
-function createEnvironment(name: CrawlEnvironment['name'], messages: ReceivedMessage[] = []): CrawlEnvironment {
-  return new CrawlEnvironment(
+function createEnvironment(name: EnvironmentResources['name'], messages: ReceivedMessage[] = []): EnvironmentResources {
+  return new EnvironmentResources(
     name,
     createRequestQueue(messages),
     { publishAll: vi.fn(async () => {}) },
@@ -56,7 +56,7 @@ describe('CrawlWorker', () => {
     const dev = createEnvironment('dev');
     const prod = createEnvironment('prod', [message]);
     const crawlService = { crawl: vi.fn(async () => result) } as unknown as CrawlService;
-    const worker = new CrawlWorker(new CrawlEnvironments([dev, prod]), configService, crawlService);
+    const worker = new CrawlWorker(new EnvironmentResourcesList([dev, prod]), configService, crawlService);
 
     // when
     worker.onApplicationBootstrap();
@@ -81,7 +81,7 @@ describe('CrawlWorker', () => {
         throw new Error('Object Storage 장애');
       })
     } as unknown as CrawlService;
-    const worker = new CrawlWorker(new CrawlEnvironments([dev]), configService, crawlService);
+    const worker = new CrawlWorker(new EnvironmentResourcesList([dev]), configService, crawlService);
 
     // when
     worker.onApplicationBootstrap();
@@ -97,7 +97,7 @@ describe('CrawlWorker', () => {
     // given
     const dev = createEnvironment('dev', [{ ...message, content: 'not json' }]);
     const crawlService = { crawl: vi.fn(async () => result) } as unknown as CrawlService;
-    const worker = new CrawlWorker(new CrawlEnvironments([dev]), configService, crawlService);
+    const worker = new CrawlWorker(new EnvironmentResourcesList([dev]), configService, crawlService);
 
     // when
     worker.onApplicationBootstrap();
@@ -127,7 +127,7 @@ describe('CrawlWorker', () => {
         return result;
       })
     } as unknown as CrawlService;
-    const worker = new CrawlWorker(new CrawlEnvironments([dev, prod]), configService, crawlService);
+    const worker = new CrawlWorker(new EnvironmentResourcesList([dev, prod]), configService, crawlService);
 
     // when
     worker.onApplicationBootstrap();

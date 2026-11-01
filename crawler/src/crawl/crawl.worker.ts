@@ -2,9 +2,9 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { type BeforeApplicationShutdown, Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Semaphore } from 'async-mutex';
-import type { Config } from '../config/config.js';
+import type { RuntimeConfig } from '../config/config.js';
 import { Policy } from '../config/policy.js';
-import { type CrawlEnvironment, CrawlEnvironments } from './crawl-environment.model.js';
+import { type EnvironmentResources, EnvironmentResourcesList } from './environment-resources.model.js';
 import { CrawlRequestMessage } from './dto/crawl-request-message.dto.js';
 import { CrawlService } from './service/crawl.service.js';
 import type { ReceivedMessage } from './interfaces/queue.interface.js';
@@ -20,19 +20,19 @@ import { CrawlResultBatchProcessor } from './crawl-result-batch.processor.js';
 @Injectable()
 export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShutdown {
   private readonly logger = new Logger(CrawlWorker.name);
-  private readonly semaphore: Semaphore;
-  private readonly batchers: Map<CrawlEnvironment, CrawlResultBatchProcessor>;
-  private readonly inFlight = new Set<Promise<void>>();
-  private consuming: Promise<unknown> = Promise.resolve();
-  private isStopping = false;
+  private readonly crawlConcurrencyLimit: Semaphore;
+  private readonly resultBatchProcessorByEnvironment: Map<EnvironmentResources, CrawlResultBatchProcessor>;
+  private readonly runningCrawls = new Set<Promise<void>>();
+  private receiveLoops: Promise<unknown> = Promise.resolve();
+  private isShuttingDown = false;
 
   constructor(
-    private readonly environments: CrawlEnvironments,
-    configService: ConfigService<Config, true>,
+    private readonly environments: EnvironmentResourcesList,
+    configService: ConfigService<RuntimeConfig, true>,
     private readonly crawlService: CrawlService
   ) {
-    this.semaphore = new Semaphore(configService.get('concurrency', { infer: true }));
-    this.batchers = new Map(
+    this.crawlConcurrencyLimit = new Semaphore(configService.get('concurrency', { infer: true }));
+    this.resultBatchProcessorByEnvironment = new Map(
       environments.all.map((environment) => {
         return [environment, new CrawlResultBatchProcessor(environment.requestQueue, environment.resultQueue)];
       })
@@ -40,48 +40,18 @@ export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShu
   }
 
   onApplicationBootstrap(): void {
-    this.consuming = Promise.all(this.environments.all.map((environment) => this.consume(environment)));
+    this.receiveLoops = Promise.all(
+      this.environments.all.map((environment) => this.runMessageReceiveLoop(environment))
+    );
   }
 
-  /** 새 메시지를 받지 않고, 처리 중인 크롤링과 모아둔 결과 발행이 끝날 때까지 기다림 */
-  async beforeApplicationShutdown(): Promise<void> {
-    this.isStopping = true;
-    await this.consuming;
-    await Promise.allSettled(this.inFlight);
-    await this.closeBatchers();
-  }
+  private async runMessageReceiveLoop(environment: EnvironmentResources): Promise<void> {
+    while (!this.isShuttingDown) {
+      await this.crawlConcurrencyLimit.waitForUnlock();
 
-  /** 예외를 밖으로 던지지 않음. 완료 처리하지 않은 메시지는 큐가 다시 전달함 */
-  private async handle(environment: CrawlEnvironment, message: ReceivedMessage): Promise<void> {
-    const request = CrawlRequestMessage.from(message.content);
-    if (request === undefined) {
-      this.logger.error(
-        `[${environment.name}] 형식이 잘못된 크롤링 요청. dead letter queue 로 이동할 때까지 완료 처리하지 않음`,
-        { content: message.content, deliveryCount: message.deliveryCount }
-      );
-      return;
-    }
-
-    try {
-      const result = await this.crawlService.crawl(request, environment.bucketName);
-      this.batchers.get(environment)?.add(JSON.stringify(result), message.receipt);
-    } catch (error) {
-      this.logger.error(`[${environment.name}] 크롤링 실패. 재전달 후 다시 처리함`, {
-        towerId: request.towerId,
-        scheduledAt: request.scheduledAt,
-        deliveryCount: message.deliveryCount,
-        error
-      });
-    }
-  }
-
-  private async consume(environment: CrawlEnvironment): Promise<void> {
-    while (!this.isStopping) {
-      await this.semaphore.waitForUnlock();
-
-      let messages: ReceivedMessage[];
+      let receivedMessages: ReceivedMessage[];
       try {
-        messages = await environment.requestQueue.receive(this.receiveLimit());
+        receivedMessages = await environment.requestQueue.receive(this.countReceivableMessages());
       } catch (error) {
         this.logger.error(`[${environment.name}] 크롤링 요청 수신 실패`, error);
         await sleep(Policy.QUEUE_RETRY_DELAY_MILLIS);
@@ -89,31 +59,70 @@ export class CrawlWorker implements OnApplicationBootstrap, BeforeApplicationShu
       }
 
       // 중지 중에 받은 메시지는 처리하지 않음. visibility 시간이 지나면 다시 전달됨
-      if (this.isStopping) {
+      if (this.isShuttingDown) {
         return;
       }
 
-      for (const message of messages) {
-        await this.dispatch(environment, message);
+      for (const receivedMessage of receivedMessages) {
+        await this.startProcessingWhenSlotFree(environment, receivedMessage);
       }
     }
   }
 
-  private receiveLimit(): number {
-    return Math.min(Math.max(this.semaphore.getValue(), 1), Policy.QUEUE_BATCH_SIZE);
+  private countReceivableMessages(): number {
+    return Math.min(Math.max(this.crawlConcurrencyLimit.getValue(), 1), Policy.QUEUE_BATCH_SIZE);
   }
 
   /** 자리가 날 때까지 기다린 뒤 처리를 시작하고, 끝날 때까지 기다리지는 않음 */
-  private async dispatch(environment: CrawlEnvironment, message: ReceivedMessage): Promise<void> {
-    const [, release] = await this.semaphore.acquire();
-    const task = this.handle(environment, message).finally(() => {
-      release();
-      this.inFlight.delete(task);
+  private async startProcessingWhenSlotFree(
+    environment: EnvironmentResources,
+    receivedMessage: ReceivedMessage
+  ): Promise<void> {
+    const [, releaseSlot] = await this.crawlConcurrencyLimit.acquire();
+    const runningCrawl = this.processMessage(environment, receivedMessage).finally(() => {
+      releaseSlot();
+      this.runningCrawls.delete(runningCrawl);
     });
-    this.inFlight.add(task);
+    this.runningCrawls.add(runningCrawl);
   }
 
-  private async closeBatchers(): Promise<void> {
-    await Promise.all([...this.batchers.values()].map((batcher) => batcher.close()));
+  /** 예외를 밖으로 던지지 않음. 완료 처리하지 않은 메시지는 큐가 다시 전달함 */
+  private async processMessage(environment: EnvironmentResources, receivedMessage: ReceivedMessage): Promise<void> {
+    const crawlRequest = CrawlRequestMessage.from(receivedMessage.content);
+    if (crawlRequest === undefined) {
+      this.logger.error(
+        `[${environment.name}] 형식이 잘못된 크롤링 요청. dead letter queue 로 이동할 때까지 완료 처리하지 않음`,
+        { content: receivedMessage.content, deliveryCount: receivedMessage.deliveryCount }
+      );
+      return;
+    }
+
+    try {
+      const crawlResult = await this.crawlService.crawl(crawlRequest, environment.bucketName);
+      this.resultBatchProcessorByEnvironment
+        .get(environment)
+        ?.add(JSON.stringify(crawlResult), receivedMessage.receipt);
+    } catch (error) {
+      this.logger.error(`[${environment.name}] 크롤링 실패. 재전달 후 다시 처리함`, {
+        towerId: crawlRequest.towerId,
+        scheduledAt: crawlRequest.scheduledAt,
+        deliveryCount: receivedMessage.deliveryCount,
+        error
+      });
+    }
+  }
+
+  /** 새 메시지를 받지 않고, 처리 중인 크롤링과 모아둔 결과 발행이 끝날 때까지 기다림 */
+  async beforeApplicationShutdown(): Promise<void> {
+    this.isShuttingDown = true;
+    await this.receiveLoops;
+    await Promise.allSettled(this.runningCrawls);
+    await this.publishRemainingResults();
+  }
+
+  private async publishRemainingResults(): Promise<void> {
+    await Promise.all(
+      [...this.resultBatchProcessorByEnvironment.values()].map((resultBatchProcessor) => resultBatchProcessor.close())
+    );
   }
 }

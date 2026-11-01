@@ -3,7 +3,7 @@ import { Logger } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { CrawlModule } from '../src/crawl/module/crawl.module.js';
-import { CrawlEnvironment, CrawlEnvironments } from '../src/crawl/crawl-environment.model.js';
+import { EnvironmentResources, EnvironmentResourcesList } from '../src/crawl/environment-resources.model.js';
 import { HTML_STORAGE, type HtmlStorage } from '../src/crawl/interfaces/html-storage.interface.js';
 import { PAGE_FETCHER, type PageFetcher } from '../src/crawl/interfaces/page-fetcher.interface.js';
 import type { ReceivedMessage, RequestQueue, ResultQueue } from '../src/crawl/interfaces/queue.interface.js';
@@ -77,11 +77,11 @@ describe('크롤러 (e2e)', () => {
       .useValue(pageFetcher)
       .overrideProvider(HTML_STORAGE)
       .useValue(htmlStorage)
-      .overrideProvider(CrawlEnvironments)
+      .overrideProvider(EnvironmentResourcesList)
       .useValue(
-        new CrawlEnvironments([
-          new CrawlEnvironment('dev', devRequestQueue, devResultQueue, 'watchtower-snapshot-dev'),
-          new CrawlEnvironment('prod', prodRequestQueue, prodResultQueue, 'watchtower-snapshot-prod')
+        new EnvironmentResourcesList([
+          new EnvironmentResources('dev', devRequestQueue, devResultQueue, 'watchtower-snapshot-dev'),
+          new EnvironmentResources('prod', prodRequestQueue, prodResultQueue, 'watchtower-snapshot-prod')
         ])
       )
       .compile();

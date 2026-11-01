@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ObjectStorageClient } from 'oci-objectstorage';
-import type { Config } from '../../config/config.js';
-import { CrawlEnvironment, CrawlEnvironments } from '../../crawl/crawl-environment.model.js';
+import type { RuntimeConfig } from '../../config/config.js';
+import { EnvironmentResources, EnvironmentResourcesList } from '../../crawl/environment-resources.model.js';
 import { HTML_STORAGE } from '../../crawl/interfaces/html-storage.interface.js';
 import { OciHtmlStorage } from './oci-html-storage.js';
 import { OciQueue } from './oci-queue.js';
@@ -12,7 +12,7 @@ import { OciQueue } from './oci-queue.js';
     {
       provide: HTML_STORAGE,
       inject: [ConfigService],
-      useFactory: (configService: ConfigService<Config, true>) => {
+      useFactory: (configService: ConfigService<RuntimeConfig, true>) => {
         return new OciHtmlStorage(
           new ObjectStorageClient({
             authenticationDetailsProvider: configService.get('ociAuthentication', { infer: true })
@@ -22,23 +22,31 @@ import { OciQueue } from './oci-queue.js';
       }
     },
     {
-      provide: CrawlEnvironments,
+      provide: EnvironmentResourcesList,
       inject: [ConfigService],
-      useFactory: (configService: ConfigService<Config, true>) => {
+      useFactory: (configService: ConfigService<RuntimeConfig, true>) => {
         const authenticationDetailsProvider = configService.get('ociAuthentication', { infer: true });
-        return new CrawlEnvironments(
-          configService.get('environments', { infer: true }).map((environment) => {
-            return new CrawlEnvironment(
-              environment.name,
-              OciQueue.of(authenticationDetailsProvider, environment.requestQueueId, environment.requestQueueEndpoint),
-              OciQueue.of(authenticationDetailsProvider, environment.resultQueueId, environment.resultQueueEndpoint),
-              environment.bucketName
+        return new EnvironmentResourcesList(
+          configService.get('environments', { infer: true }).map((environmentConfig) => {
+            return new EnvironmentResources(
+              environmentConfig.name,
+              OciQueue.of(
+                authenticationDetailsProvider,
+                environmentConfig.requestQueueId,
+                environmentConfig.requestQueueEndpoint
+              ),
+              OciQueue.of(
+                authenticationDetailsProvider,
+                environmentConfig.resultQueueId,
+                environmentConfig.resultQueueEndpoint
+              ),
+              environmentConfig.bucketName
             );
           })
         );
       }
     }
   ],
-  exports: [HTML_STORAGE, CrawlEnvironments]
+  exports: [HTML_STORAGE, EnvironmentResourcesList]
 })
 export class OciModule {}

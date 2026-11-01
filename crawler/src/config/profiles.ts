@@ -1,4 +1,4 @@
-import type { EnvironmentConfig, Settings } from './config.js';
+import type { EnvironmentConfig, ProfileConfig } from './config.js';
 
 const QUEUE_ENDPOINT = 'https://cell-1.queue.messaging.ap-osaka-1.oci.oraclecloud.com';
 
@@ -20,7 +20,7 @@ const prod: EnvironmentConfig = {
   bucketName: 'watchtower-snapshot-prod'
 };
 
-export const PROFILES: Record<string, Settings> = {
+export const PROFILES: Record<string, ProfileConfig> = {
   server: {
     objectStorageNamespace: 'ax7wkezrucld',
     concurrency: 2,

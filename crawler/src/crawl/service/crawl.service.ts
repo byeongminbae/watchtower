@@ -17,16 +17,22 @@ export class CrawlService {
     private readonly timeProvider: TimeProvider
   ) {}
 
-  async crawl(request: CrawlRequestMessage, bucketName: string): Promise<CrawlResult> {
-    const startedAt = this.timeProvider.now();
-    const outcome = await this.pageFetcher.fetchPage(request.url);
+  async crawl(crawlRequest: CrawlRequestMessage, bucketName: string): Promise<CrawlResult> {
+    const crawlStartedAt = this.timeProvider.now();
+    const fetchOutcome = await this.pageFetcher.fetchPage(crawlRequest.url);
 
-    if (outcome.kind === 'failed') {
-      return CrawlFailedResultMessage.of(request, startedAt, this.timeProvider.now(), outcome.error);
+    if (fetchOutcome.kind === 'failed') {
+      return CrawlFailedResultMessage.of(crawlRequest, crawlStartedAt, this.timeProvider.now(), fetchOutcome.error);
     }
 
-    const htmlObjectName = request.toHtmlObjectName();
-    await this.htmlStorage.saveHtml(bucketName, htmlObjectName, outcome.page.html);
-    return CrawlSuccessResultMessage.of(request, startedAt, this.timeProvider.now(), outcome.page, htmlObjectName);
+    const htmlObjectName = crawlRequest.toHtmlObjectName();
+    await this.htmlStorage.saveHtml(bucketName, htmlObjectName, fetchOutcome.page.html);
+    return CrawlSuccessResultMessage.of(
+      crawlRequest,
+      crawlStartedAt,
+      this.timeProvider.now(),
+      fetchOutcome.page,
+      htmlObjectName
+    );
   }
 }
