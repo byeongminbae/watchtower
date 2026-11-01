@@ -18,7 +18,7 @@ const message: ReceivedMessage = {
   deliveryCount: 1
 };
 
-const result: CrawlResult = CrawlFailedResultMessage.of(
+const result: CrawlResult = new CrawlFailedResultMessage(
   CrawlRequestMessage.from(message.content)!,
   new Date('2026-10-30T00:00:01.000Z'),
   new Date('2026-10-30T00:00:02.000Z'),

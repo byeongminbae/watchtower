@@ -4,14 +4,11 @@ export class HttpUrl {
 
   /** @return URL 형식이 아니거나 http(s) 가 아니면 undefined */
   static from(url: string): HttpUrl | undefined {
-    if (!URL.canParse(url)) {
+    const parsedUrl = URL.parse(url);
+    if (parsedUrl === null || !HttpUrl.isHttpProtocol(parsedUrl.protocol) || parsedUrl.hostname === '') {
       return undefined;
     }
-    const { protocol, hostname } = new URL(url);
-    if (!HttpUrl.isHttpProtocol(protocol) || hostname === '') {
-      return undefined;
-    }
-    return new HttpUrl(hostname);
+    return new HttpUrl(parsedUrl.hostname);
   }
 
   private static isHttpProtocol(protocol: string): boolean {

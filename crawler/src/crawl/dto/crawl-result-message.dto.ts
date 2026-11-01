@@ -42,33 +42,19 @@ abstract class CrawlResultMessage {
 
 export class CrawlSuccessResultMessage extends CrawlResultMessage {
   readonly outcome = 'FETCHED';
+  readonly httpStatusCode: number;
+  readonly finalUrl: string;
 
-  private constructor(
-    request: CrawlRequestMessage,
-    startedAt: Date,
-    endedAt: Date,
-    readonly httpStatusCode: number,
-    readonly finalUrl: string,
-    readonly htmlObjectName: string
-  ) {
-    super(request, startedAt, endedAt);
-  }
-
-  static of(
+  constructor(
     request: CrawlRequestMessage,
     startedAt: Date,
     endedAt: Date,
     fetchedPage: { httpStatusCode: number; finalUrl: string },
-    htmlObjectName: string
-  ): CrawlSuccessResultMessage {
-    return new CrawlSuccessResultMessage(
-      request,
-      startedAt,
-      endedAt,
-      fetchedPage.httpStatusCode,
-      fetchedPage.finalUrl,
-      htmlObjectName
-    );
+    readonly htmlObjectName: string
+  ) {
+    super(request, startedAt, endedAt);
+    this.httpStatusCode = fetchedPage.httpStatusCode;
+    this.finalUrl = fetchedPage.finalUrl;
   }
 }
 
@@ -76,12 +62,8 @@ export class CrawlFailedResultMessage extends CrawlResultMessage {
   readonly outcome = 'FAILED';
   readonly errorCode: string;
 
-  private constructor(request: CrawlRequestMessage, startedAt: Date, endedAt: Date, error: CrawlError) {
+  constructor(request: CrawlRequestMessage, startedAt: Date, endedAt: Date, error: CrawlError) {
     super(request, startedAt, endedAt);
     this.errorCode = error.code;
-  }
-
-  static of(request: CrawlRequestMessage, startedAt: Date, endedAt: Date, error: CrawlError): CrawlFailedResultMessage {
-    return new CrawlFailedResultMessage(request, startedAt, endedAt, error);
   }
 }

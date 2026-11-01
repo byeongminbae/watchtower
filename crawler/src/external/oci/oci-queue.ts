@@ -32,9 +32,6 @@ export class OciQueue implements RequestQueue, ResultQueue {
   }
 
   async publishAll(messageContents: string[]): Promise<void> {
-    if (messageContents.length === 0) {
-      return;
-    }
     await this.queueClient.putMessages({
       queueId: this.queueId,
       putMessagesDetails: { messages: messageContents.map((content) => ({ content })) }
@@ -42,9 +39,6 @@ export class OciQueue implements RequestQueue, ResultQueue {
   }
 
   async completeAll(messageReceipts: string[]): Promise<void> {
-    if (messageReceipts.length === 0) {
-      return;
-    }
     const response = await this.queueClient.deleteMessages({
       queueId: this.queueId,
       deleteMessagesDetails: { entries: messageReceipts.map((receipt) => ({ receipt })) }

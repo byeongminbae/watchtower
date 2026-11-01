@@ -51,8 +51,7 @@ beforeAll(async () => {
   blockedOrigin = `http://localhost:${port}`;
 });
 
-afterAll(async () => {
-  await pageFetcher.onApplicationShutdown();
+afterAll(() => {
   server.close();
 });
 
