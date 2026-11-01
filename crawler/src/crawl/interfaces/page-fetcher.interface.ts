@@ -8,7 +8,23 @@ export type FetchedPage = {
   html: string;
 };
 
-export type PageFetchOutcome = { kind: 'fetched'; page: FetchedPage } | { kind: 'failed'; error: CrawlError };
+export class PageFetchSuccess {
+  constructor(readonly page: FetchedPage) {}
+
+  isFailed(): this is PageFetchFailure {
+    return false;
+  }
+}
+
+export class PageFetchFailure {
+  constructor(readonly error: CrawlError) {}
+
+  isFailed(): this is PageFetchFailure {
+    return true;
+  }
+}
+
+export type PageFetchOutcome = PageFetchSuccess | PageFetchFailure;
 
 export interface PageFetcher {
   /** 재시도해도 결과가 같은 실패는 failed 로 돌려주고, 브라우저 종료 같은 일시적인 오류만 예외로 던짐 */

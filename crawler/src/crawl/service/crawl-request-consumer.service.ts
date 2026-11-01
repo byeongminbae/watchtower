@@ -11,15 +11,15 @@ import type { ReceivedMessage } from '../interfaces/queue.interface.js';
 import { CrawlResultBatchService } from './crawl-result-batch.service.js';
 
 /**
- * 환경마다 요청 큐 수신 루프를 하나씩 돌리고, 동시 처리 한도는 모든 환경이 함께 씀
+ * 환경마다 크롤링 요청 큐를 수신하고, 모든 환경이 함께 쓰는 동시 처리 한도 안에서 크롤링한 뒤 결과를 결과 배치에 넘김
  *
  * 받을 때는 자리를 미리 잡지 않음. 메시지가 없는 큐가 폴링하며 자리를 쥐고 있으면 다른 환경이 그만큼 처리하지 못하기 때문
  * 대신 두 루프가 같은 빈 자리를 보고 동시에 받을 수 있어서, 받은 메시지가 자리를 잠깐 기다릴 수 있음
  * 기다리는 시간은 크롤링 한두 건 수준이라 메시지 visibility 시간 안에 끝남
  */
 @Injectable()
-export class CrawlWorkerService implements OnApplicationBootstrap, BeforeApplicationShutdown {
-  private readonly logger = new Logger(CrawlWorkerService.name);
+export class CrawlRequestConsumer implements OnApplicationBootstrap, BeforeApplicationShutdown {
+  private readonly logger = new Logger(CrawlRequestConsumer.name);
   private readonly crawlConcurrencyLimit: Semaphore;
   private readonly resultBatchServiceByEnvironment: Map<EnvironmentResource, CrawlResultBatchService>;
   private readonly runningCrawls = new Set<Promise<void>>();

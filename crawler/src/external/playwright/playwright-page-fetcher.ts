@@ -2,7 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { type Browser, type Page, type Request, type Response, type Route, chromium, errors } from 'playwright';
 import { CrawlError } from '../../crawl/dto/crawl-result-message.dto.js';
 import { Policy } from '../../config/policy.js';
-import type { PageFetcher, PageFetchOutcome } from '../../crawl/interfaces/page-fetcher.interface.js';
+import {
+  type PageFetcher,
+  type PageFetchOutcome,
+  PageFetchFailure,
+  PageFetchSuccess
+} from '../../crawl/interfaces/page-fetcher.interface.js';
 import { CrawlHostValidator } from '../../crawl/validator/crawl-host.validator.js';
 import { DnsResolver } from '../dns/dns-resolver.js';
 
@@ -15,7 +20,7 @@ import { DnsResolver } from '../dns/dns-resolver.js';
  */
 @Injectable()
 export class PlaywrightPageFetcher implements PageFetcher {
-  /** 기본값은 크롤러의 환경변수 전체라, 브라우저가 장악되면 OCI 개인키 같은 비밀값까지 읽힘 */
+  /** 기본값은 크롤러의 환경변수 전체라, 브라우저가 장악되면 OCI 개인키 같은 비밀값까지 읽힘(v8 엔진 공격 등) */
   private static readonly BROWSER_ENVIRONMENT_VARIABLES = { HOME: '/tmp', PATH: '/usr/local/bin:/usr/bin:/bin' };
 
   constructor(private readonly dnsResolver: DnsResolver) {}
@@ -23,7 +28,7 @@ export class PlaywrightPageFetcher implements PageFetcher {
   async fetchPage(url: string): Promise<PageFetchOutcome> {
     const hostValidator = new CrawlHostValidator(this.dnsResolver);
     if (!(await hostValidator.isAllowedUrl(url))) {
-      return { kind: 'failed', error: CrawlError.URL_NOT_ALLOWED };
+      return new PageFetchFailure(CrawlError.URL_NOT_ALLOWED);
     }
 
     const browser = await chromium.launch({ env: PlaywrightPageFetcher.BROWSER_ENVIRONMENT_VARIABLES });
@@ -33,7 +38,7 @@ export class PlaywrightPageFetcher implements PageFetcher {
         .goto(url, { waitUntil: 'load', timeout: Policy.NAVIGATION_TIMEOUT_MILLIS })
         .catch((error: unknown) => PlaywrightPageFetcher.toNavigationCrawlError(error, browser));
       if (mainResponse instanceof CrawlError) {
-        return { kind: 'failed', error: mainResponse };
+        return new PageFetchFailure(mainResponse);
       }
       return await PlaywrightPageFetcher.toFetchOutcome(page, mainResponse, hostValidator);
     } finally {
@@ -69,17 +74,17 @@ export class PlaywrightPageFetcher implements PageFetcher {
     hostValidator: CrawlHostValidator
   ): Promise<PageFetchOutcome> {
     if (mainResponse === null) {
-      return { kind: 'failed', error: CrawlError.NAVIGATION_FAILED };
+      return new PageFetchFailure(CrawlError.NAVIGATION_FAILED);
     }
     if (!(await PlaywrightPageFetcher.isEveryRedirectUrlAllowed(mainResponse, hostValidator))) {
-      return { kind: 'failed', error: CrawlError.URL_NOT_ALLOWED };
+      return new PageFetchFailure(CrawlError.URL_NOT_ALLOWED);
     }
 
     const html = await page.content();
     if (Buffer.byteLength(html) > Policy.MAX_HTML_BYTES) {
-      return { kind: 'failed', error: CrawlError.HTML_TOO_LARGE };
+      return new PageFetchFailure(CrawlError.HTML_TOO_LARGE);
     }
-    return { kind: 'fetched', page: { httpStatusCode: mainResponse.status(), finalUrl: page.url(), html } };
+    return new PageFetchSuccess({ httpStatusCode: mainResponse.status(), finalUrl: page.url(), html });
   }
 
   private static async isEveryRedirectUrlAllowed(

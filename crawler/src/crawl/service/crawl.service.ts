@@ -12,7 +12,7 @@ import { PAGE_FETCHER, type PageFetcher } from '../interfaces/page-fetcher.inter
 /**
  * 크롤링 요청 한 건을 처리함. 페이지를 받아오고, 받아왔으면 HTML 을 저장한 뒤 결과 메시지를 만듦
  *
- * 큐 수신, 동시 처리 한도, 결과 발행과 요청 완료 처리는 CrawlWorkerService 가 맡음
+ * 큐 수신, 동시 처리 한도, 결과 발행과 요청 완료 처리는 CrawlRequestConsumer 가 맡음
  */
 @Injectable()
 export class CrawlService {
@@ -30,7 +30,7 @@ export class CrawlService {
     const crawlStartedAt = this.timeProvider.now();
     const fetchOutcome = await this.pageFetcher.fetchPage(crawlRequest.url);
 
-    if (fetchOutcome.kind === 'failed') {
+    if (fetchOutcome.isFailed()) {
       return new CrawlFailedResultMessage(crawlRequest, crawlStartedAt, this.timeProvider.now(), fetchOutcome.error);
     }
 

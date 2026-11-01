@@ -2,6 +2,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { CrawlError } from '../../../src/crawl/dto/crawl-result-message.dto.js';
 import { Policy } from '../../../src/config/policy.js';
+import { PageFetchFailure } from '../../../src/crawl/interfaces/page-fetcher.interface.js';
 import { DnsResolver } from '../../../src/external/dns/dns-resolver.js';
 import { PlaywrightPageFetcher } from '../../../src/external/playwright/playwright-page-fetcher.js';
 
@@ -65,8 +66,9 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
     const outcome = await pageFetcher.fetchPage(url);
 
     // then
-    expect(outcome).toMatchObject({ kind: 'fetched', page: { httpStatusCode: 200, finalUrl: url } });
-    expect(outcome.kind === 'fetched' && outcome.page.html).toContain('감시 대상');
+    expect(outcome).toMatchObject({
+      page: { httpStatusCode: 200, finalUrl: url, html: expect.stringContaining('감시 대상') }
+    });
     expect(secretRequestCount).toBe(0);
   });
 
@@ -78,7 +80,7 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
     const outcome = await pageFetcher.fetchPage(url);
 
     // then
-    expect(outcome).toMatchObject({ kind: 'fetched', page: { httpStatusCode: 404 } });
+    expect(outcome).toMatchObject({ page: { httpStatusCode: 404 } });
   });
 
   it('내부 주소로 바로 접근하면 허용되지 않은 주소로 실패함', async () => {
@@ -89,7 +91,7 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
     const outcome = await pageFetcher.fetchPage(url);
 
     // then
-    expect(outcome).toEqual({ kind: 'failed', error: CrawlError.URL_NOT_ALLOWED });
+    expect(outcome).toEqual(new PageFetchFailure(CrawlError.URL_NOT_ALLOWED));
   });
 
   it('외부 주소가 내부 주소로 리다이렉트하면 받아온 내부 페이지를 버리고 허용되지 않은 주소로 실패함', async () => {
@@ -100,7 +102,7 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
     const outcome = await pageFetcher.fetchPage(url);
 
     // then
-    expect(outcome).toEqual({ kind: 'failed', error: CrawlError.URL_NOT_ALLOWED });
+    expect(outcome).toEqual(new PageFetchFailure(CrawlError.URL_NOT_ALLOWED));
   });
 
   it('HTML 이 수집 한도를 넘으면 크기 초과로 실패함', async () => {
@@ -111,7 +113,7 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
     const outcome = await pageFetcher.fetchPage(url);
 
     // then
-    expect(outcome).toEqual({ kind: 'failed', error: CrawlError.HTML_TOO_LARGE });
+    expect(outcome).toEqual(new PageFetchFailure(CrawlError.HTML_TOO_LARGE));
   });
 
   it('연결할 수 없는 주소는 탐색 실패로 돌려줌', async () => {
@@ -125,6 +127,6 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
     const outcome = await pageFetcher.fetchPage(`http://127.0.0.1:${port}/`);
 
     // then
-    expect(outcome).toEqual({ kind: 'failed', error: CrawlError.NAVIGATION_FAILED });
+    expect(outcome).toEqual(new PageFetchFailure(CrawlError.NAVIGATION_FAILED));
   });
 });

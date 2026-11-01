@@ -9,7 +9,7 @@ import {
 } from '../../../src/crawl/dto/crawl-result-message.dto.js';
 import { CrawlRequestMessage } from '../../../src/crawl/dto/crawl-request-message.dto.js';
 import type { CrawlService } from '../../../src/crawl/service/crawl.service.js';
-import { CrawlWorkerService } from '../../../src/crawl/service/crawl-worker.service.js';
+import { CrawlRequestConsumer } from '../../../src/crawl/service/crawl-request-consumer.service.js';
 import type { ReceivedMessage, RequestQueue } from '../../../src/crawl/interfaces/queue.interface.js';
 
 const message: ReceivedMessage = {
@@ -50,7 +50,7 @@ function createEnvironment(name: EnvironmentResource['name'], messages: Received
   );
 }
 
-describe('CrawlWorkerService', () => {
+describe('CrawlRequestConsumer', () => {
   beforeEach(() => {
     vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
   });
@@ -60,12 +60,16 @@ describe('CrawlWorkerService', () => {
     const dev = createEnvironment('dev');
     const prod = createEnvironment('prod', [message]);
     const crawlService = { crawl: vi.fn(async () => result) } as unknown as CrawlService;
-    const worker = new CrawlWorkerService(new EnvironmentResources([dev, prod]), configService, crawlService);
+    const requestConsumer = new CrawlRequestConsumer(
+      new EnvironmentResources([dev, prod]),
+      configService,
+      crawlService
+    );
 
     // when
-    worker.onApplicationBootstrap();
+    requestConsumer.onApplicationBootstrap();
     await vi.waitFor(() => expect(crawlService.crawl).toHaveBeenCalled());
-    await worker.beforeApplicationShutdown();
+    await requestConsumer.beforeApplicationShutdown();
 
     // then
     expect(crawlService.crawl).toHaveBeenCalledWith(
@@ -85,12 +89,12 @@ describe('CrawlWorkerService', () => {
         throw new Error('Object Storage 장애');
       })
     } as unknown as CrawlService;
-    const worker = new CrawlWorkerService(new EnvironmentResources([dev]), configService, crawlService);
+    const requestConsumer = new CrawlRequestConsumer(new EnvironmentResources([dev]), configService, crawlService);
 
     // when
-    worker.onApplicationBootstrap();
+    requestConsumer.onApplicationBootstrap();
     await vi.waitFor(() => expect(crawlService.crawl).toHaveBeenCalled());
-    await worker.beforeApplicationShutdown();
+    await requestConsumer.beforeApplicationShutdown();
 
     // then
     expect(dev.resultQueue.publishAll).not.toHaveBeenCalled();
@@ -101,12 +105,12 @@ describe('CrawlWorkerService', () => {
     // given
     const dev = createEnvironment('dev', [{ ...message, content: 'not json' }]);
     const crawlService = { crawl: vi.fn(async () => result) } as unknown as CrawlService;
-    const worker = new CrawlWorkerService(new EnvironmentResources([dev]), configService, crawlService);
+    const requestConsumer = new CrawlRequestConsumer(new EnvironmentResources([dev]), configService, crawlService);
 
     // when
-    worker.onApplicationBootstrap();
+    requestConsumer.onApplicationBootstrap();
     await vi.waitFor(() => expect(vi.mocked(dev.requestQueue.receive).mock.calls.length).toBeGreaterThanOrEqual(2));
-    await worker.beforeApplicationShutdown();
+    await requestConsumer.beforeApplicationShutdown();
 
     // then
     expect(crawlService.crawl).not.toHaveBeenCalled();
@@ -131,12 +135,16 @@ describe('CrawlWorkerService', () => {
         return result;
       })
     } as unknown as CrawlService;
-    const worker = new CrawlWorkerService(new EnvironmentResources([dev, prod]), configService, crawlService);
+    const requestConsumer = new CrawlRequestConsumer(
+      new EnvironmentResources([dev, prod]),
+      configService,
+      crawlService
+    );
 
     // when
-    worker.onApplicationBootstrap();
+    requestConsumer.onApplicationBootstrap();
     await vi.waitFor(() => expect(crawlService.crawl).toHaveBeenCalledTimes(3));
-    await worker.beforeApplicationShutdown();
+    await requestConsumer.beforeApplicationShutdown();
 
     // then
     expect(maxRunning).toBe(configService.get('concurrency', { infer: true }));
