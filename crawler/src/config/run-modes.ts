@@ -24,11 +24,15 @@ export const RUN_MODES: Record<string, RunModeConfig> = {
   server: {
     objectStorageNamespace: 'ax7wkezrucld',
     concurrency: 2,
-    environments: [dev, prod]
+    environments: [dev, prod],
+    secretVaultId:
+      'ocid1.vault.oc1.ap-osaka-1.fzvog2tkaadhq.abvwsljrjjhqqmg4rbn7dmzbn6sgar56lkn6yvav53mjgykufzgr7e6qbw7q'
   },
   local: {
     objectStorageNamespace: 'ax7wkezrucld',
     concurrency: 1,
-    environments: [dev]
+    environments: [dev],
+    secretVaultId:
+      'ocid1.vault.oc1.ap-osaka-1.fzvog2tgaafqy.abvwsljrjnlwob4t4xlgkhpprljovqbqz3kxpc552xfkocpn466xnscnq5oa'
   }
 };

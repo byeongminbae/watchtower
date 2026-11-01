@@ -22,4 +22,6 @@ export class Policy {
   static readonly RESULT_FLUSH_DELAY_MILLIS = 1_000;
   /** 페이지를 열 때 요청하지 않는 리소스 종류. HTML 수집에 필요 없어서 받지 않고 메모리와 대역폭을 아낌 */
   static readonly SKIPPED_RESOURCE_TYPES: ReadonlySet<string> = new Set(['image', 'media', 'font']);
+  /** 같은 로그를 Slack 으로 다시 보내지 않는 시간. 큐 장애처럼 같은 오류가 몇 초마다 반복될 때 알림이 쏟아지지 않게 하기 위함 */
+  static readonly SLACK_DUPLICATE_SUPPRESSION_MILLIS = 10 * 60 * 1_000;
 }
