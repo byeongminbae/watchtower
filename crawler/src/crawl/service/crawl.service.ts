@@ -28,19 +28,19 @@ export class CrawlService {
    */
   async crawl(crawlRequest: CrawlRequestMessage, bucketName: string): Promise<CrawlResult> {
     const crawlStartedAt = this.timeProvider.now();
-    const fetchOutcome = await this.pageFetcher.fetchPage(crawlRequest.url);
+    const pageFetchResult = await this.pageFetcher.fetchPage(crawlRequest.url);
 
-    if (fetchOutcome.isFailed()) {
-      return new CrawlFailedResultMessage(crawlRequest, crawlStartedAt, this.timeProvider.now(), fetchOutcome.error);
+    if (pageFetchResult.isFailed()) {
+      return new CrawlFailedResultMessage(crawlRequest, crawlStartedAt, this.timeProvider.now(), pageFetchResult.error);
     }
 
     const htmlObjectName = crawlRequest.toHtmlObjectName();
-    await this.htmlStorage.saveHtml(bucketName, htmlObjectName, fetchOutcome.page.html);
+    await this.htmlStorage.saveHtml(bucketName, htmlObjectName, pageFetchResult.page.html);
     return new CrawlSuccessResultMessage(
       crawlRequest,
       crawlStartedAt,
       this.timeProvider.now(),
-      fetchOutcome.page,
+      pageFetchResult.page,
       htmlObjectName
     );
   }

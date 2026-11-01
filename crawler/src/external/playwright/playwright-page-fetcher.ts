@@ -4,7 +4,7 @@ import { CrawlError } from '../../crawl/dto/crawl-result-message.dto.js';
 import { Policy } from '../../config/policy.js';
 import {
   type PageFetcher,
-  type PageFetchOutcome,
+  type PageFetchResult,
   PageFetchFailure,
   PageFetchSuccess
 } from '../../crawl/interfaces/page-fetcher.interface.js';
@@ -26,7 +26,7 @@ export class PlaywrightPageFetcher implements PageFetcher {
 
   constructor(private readonly dnsResolver: DnsResolver) {}
 
-  async fetchPage(url: string): Promise<PageFetchOutcome> {
+  async fetchPage(url: string): Promise<PageFetchResult> {
     const hostValidator = new CrawlHostValidator(this.dnsResolver);
     if (!(await hostValidator.isAllowedUrl(url))) {
       return new PageFetchFailure(CrawlError.URL_NOT_ALLOWED);
@@ -41,7 +41,7 @@ export class PlaywrightPageFetcher implements PageFetcher {
       if (mainResponse instanceof CrawlError) {
         return new PageFetchFailure(mainResponse);
       }
-      return await PlaywrightPageFetcher.toFetchOutcome(page, mainResponse, hostValidator);
+      return await PlaywrightPageFetcher.toPageFetchResult(page, mainResponse, hostValidator);
     } finally {
       await browser.close();
     }
@@ -69,11 +69,11 @@ export class PlaywrightPageFetcher implements PageFetcher {
     return error instanceof errors.TimeoutError ? CrawlError.NAVIGATION_TIMEOUT : CrawlError.NAVIGATION_FAILED;
   }
 
-  private static async toFetchOutcome(
+  private static async toPageFetchResult(
     page: Page,
     mainResponse: Response | null,
     hostValidator: CrawlHostValidator
-  ): Promise<PageFetchOutcome> {
+  ): Promise<PageFetchResult> {
     if (mainResponse === null) {
       return new PageFetchFailure(CrawlError.NAVIGATION_FAILED);
     }
