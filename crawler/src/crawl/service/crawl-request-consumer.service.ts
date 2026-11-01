@@ -27,7 +27,7 @@ export class CrawlRequestConsumer implements OnApplicationBootstrap, BeforeAppli
 
   constructor(
     private readonly environments: EnvironmentResources,
-    private readonly configService: ConfigService<RuntimeConfig, true>,
+    configService: ConfigService<RuntimeConfig, true>,
     private readonly crawlService: CrawlService
   ) {
     this.crawlConcurrency = configService.get('concurrency', { infer: true });

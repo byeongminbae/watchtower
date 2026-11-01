@@ -5,12 +5,7 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import { CrawlModule } from '../src/crawl/module/crawl.module.js';
 import { EnvironmentResource, EnvironmentResources } from '../src/crawl/environment-resources.js';
 import { HTML_STORAGE, type HtmlStorage } from '../src/crawl/interfaces/html-storage.interface.js';
-import {
-  PAGE_FETCHER,
-  type PageFetcher,
-  PageFetchFailure,
-  PageFetchSuccess
-} from '../src/crawl/interfaces/page-fetcher.interface.js';
+import { PAGE_FETCHER, type PageFetcher, PageFetchSuccess } from '../src/crawl/interfaces/page-fetcher.interface.js';
 import type { ReceivedMessage, RequestQueue, ResultQueue } from '../src/crawl/interfaces/queue.interface.js';
 
 class InMemoryRequestQueue implements RequestQueue {
