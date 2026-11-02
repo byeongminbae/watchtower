@@ -1,18 +1,20 @@
 package kr.byeongmin.watchtower.domain.tower.entity
 
 import jakarta.persistence.*
-import java.time.Duration
-import java.time.LocalDateTime
 import kr.byeongmin.watchtower.domain.member.entity.Member
 import kr.byeongmin.watchtower.domain.tower.dto.TowerCreateRequestDto
-import kr.byeongmin.watchtower.domain.tower.enums.UpdatableTowerStatus
 import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
+import kr.byeongmin.watchtower.domain.tower.enums.UpdatableTowerStatus
+import kr.byeongmin.watchtower.domain.tower.error.TowerError
+import kr.byeongmin.watchtower.external.oci.queue.dto.CrawlResultDto
 import kr.byeongmin.watchtower.global.entity.Base
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.hibernate.annotations.DynamicUpdate
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
+import java.time.Duration
+import java.time.LocalDateTime
 
 /**
  * @property [url] 변경을 허용하게 되면 기존 기록(특히 스냅샷)들과 매칭이 안되므로 불변으로 감
@@ -112,31 +114,60 @@ class Tower private constructor(
         conditions.add(condition)
     }
 
-    fun fetchedAt(now: LocalDateTime) {
-        this.lastFetchedAt = now
+    /**
+     * 크롤링 결과를 반영함. 크롤링 중인 타워만 결과에 따라 [TowerStatus.CRAWLING_READY] 나 [TowerStatus.CRAWLING_ERROR] 로 바뀜
+     *
+     * 페이지를 받아왔고 2xx 로 응답했을 때만 성공으로 봄
+     *
+     * 크롤링 중에 정지된 타워는 정지 상태를 유지하고 수집 시각만 기록함
+     */
+    fun applyCrawlResult(crawlResultDto: CrawlResultDto) {
+        this.lastFetchedAt = crawlResultDto.crawlEndedAt
+        if (status != TowerStatus.CRAWLING) {
+            return
+        }
+
+        val isPageReceived = crawlResultDto.resultStatus == CrawlResultDto.CrawlResultStatus.FETCHED &&
+                crawlResultDto.httpStatusCode in 200..299
+        this.status = if (isPageReceived) TowerStatus.CRAWLING_READY else TowerStatus.CRAWLING_ERROR
+    }
+
+    /** 크롤링에 실패한 타워를 다시 크롤링 중으로 바꿈. 크롤링 요청은 호출하는 쪽에서 큐에 넣어야 함 */
+    fun retryCrawl() {
+        if (status != TowerStatus.CRAWLING_ERROR) {
+            throw BusinessException(TowerError.CRAWL_NOT_RETRYABLE)
+        }
+        this.status = TowerStatus.CRAWLING
     }
 
     fun notifiedAt(now: LocalDateTime) {
         this.lastNotifiedAt = now
     }
 
-    fun pause() {
-        if (status == TowerStatus.RUNNING) {
-            this.status = TowerStatus.PAUSED
-        }
-    }
-
-    /** 어드민 전용 강제 타워 상태 변경 */
+    /** 어드민 전용 강제 타워 상태 변경. [TowerStatus.CRAWLING] 은 크롤링 요청과 함께만 될 수 있어서 바꿔 넣을 수 없음 */
     fun changeStatusByAdmin(status: TowerStatus) {
+        if (status == TowerStatus.CRAWLING) {
+            throw BusinessException(CommonError.INVALID_INPUT_VALUE)
+        }
         this.status = status
     }
 
-    /** 회원 전용 타워 상태 변경 */
+    /**
+     * 회원 전용 타워 상태 변경
+     *
+     * 크롤링 대기로 바꾸는 요청은 일시정지한 타워에만 적용되고, 크롤링 중이거나 실패한 타워는 지금 상태를 유지함
+     * 크롤링 중인 타워를 대기로 바꾸면 들어올 결과가 상태에 반영되지 않고, 실패한 타워는 재시도로만 다시 크롤링하기 때문
+     */
     fun changeStatusByMember(targetStatus: UpdatableTowerStatus) {
         if (!status.isMemberChangeable()) {
             throw BusinessException(CommonError.PERMISSION_DENIED)
         }
-        status = targetStatus.towerStatus
+        when (targetStatus) {
+            UpdatableTowerStatus.USER_PAUSED -> this.status = TowerStatus.USER_PAUSED
+            UpdatableTowerStatus.CRAWLING_READY -> if (status == TowerStatus.USER_PAUSED) {
+                this.status = TowerStatus.CRAWLING_READY
+            }
+        }
     }
 
     /** 현재 조건에 새 조건을 추가해도 이용 중인 플랜의 타워별 조건 한도를 넘지 않는지 검사 */
@@ -157,7 +188,7 @@ class Tower private constructor(
     }
 
     companion object {
-        /** 소유자의 등록 한도는 별도로 검사해야 함 */
+        /** 소유자의 등록 한도는 별도로 검사해야 함. 등록과 함께 첫 크롤링을 요청하므로 크롤링 중 상태로 시작함 */
         fun from(createdBy: Member, towerCreateRequestDto: TowerCreateRequestDto): Tower {
             return Tower(
                 createdBy = createdBy,
@@ -165,7 +196,7 @@ class Tower private constructor(
                 url = towerCreateRequestDto.url.value,
                 fetchInterval = towerCreateRequestDto.fetchInterval,
                 includeInStat = towerCreateRequestDto.includeInStat,
-                status = TowerStatus.RUNNING
+                status = TowerStatus.CRAWLING
             )
         }
     }

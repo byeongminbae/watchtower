@@ -40,7 +40,7 @@ class TowerControllerTest {
         url = "https://example.com/products",
         fetchInterval = Duration.ofMinutes(10),
         includeInStat = true,
-        status = TowerStatus.RUNNING,
+        status = TowerStatus.CRAWLING_READY,
         faviconUrl = "https://example.com/favicon.ico",
         lastFetchedAt = LocalDateTime.of(2026, 10, 20, 12, 34, 56),
         lastNotifiedAt = LocalDateTime.of(2026, 10, 20, 12, 35, 6)
@@ -116,7 +116,7 @@ class TowerControllerTest {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.id").value(7))
             .andExpect(jsonPath("$.data.fetchInterval").value("PT10M"))
-            .andExpect(jsonPath("$.data.status").value(TowerStatus.RUNNING.name))
+            .andExpect(jsonPath("$.data.status").value(TowerStatus.CRAWLING_READY.name))
     }
 
     @Test
@@ -129,7 +129,7 @@ class TowerControllerTest {
                         name = "배송 감시",
                         fetchInterval = Duration.ofMinutes(15),
                         includeInStat = false,
-                        status = TowerStatus.PAUSED
+                        status = TowerStatus.USER_PAUSED
                     )
                 )
             )
@@ -144,7 +144,7 @@ class TowerControllerTest {
                             name = "배송 감시",
                             fetchInterval = Duration.ofMinutes(15),
                             includeInStat = false,
-                            status = UpdatableTowerStatus.PAUSED
+                            status = UpdatableTowerStatus.USER_PAUSED
                         )
                     )
                 )
@@ -155,7 +155,7 @@ class TowerControllerTest {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.name").value("배송 감시"))
             .andExpect(jsonPath("$.data.fetchInterval").value("PT15M"))
-            .andExpect(jsonPath("$.data.status").value(TowerStatus.PAUSED.name))
+            .andExpect(jsonPath("$.data.status").value(TowerStatus.USER_PAUSED.name))
 
         verify(towerService).updateTower(
             memberId = 21L,
@@ -164,7 +164,7 @@ class TowerControllerTest {
                 name = "배송 감시",
                 fetchInterval = Duration.ofMinutes(15),
                 includeInStat = false,
-                status = UpdatableTowerStatus.PAUSED
+                status = UpdatableTowerStatus.USER_PAUSED
             )
         )
     }
@@ -201,6 +201,23 @@ class TowerControllerTest {
             .andExpect(jsonPath("$.isSuccess").value(true))
 
         verify(towerService).sendTestNotification(memberId = 21L, towerId = 7L)
+    }
+
+    @Test
+    fun `크롤링에 실패한 타워를 재시도하면 바뀐 타워 상태를 응답함`() {
+        /** given */
+        whenever(towerService.retryCrawl(21L, 7L))
+            .thenReturn(SuccessDataResponse(towerResponseDto.copy(status = TowerStatus.CRAWLING)))
+
+        /** when */
+        val result = mvc.perform(post("/api/v1/towers/7/crawl-retry"))
+
+        /** then */
+        result
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.status").value(TowerStatus.CRAWLING.name))
+
+        verify(towerService).retryCrawl(memberId = 21L, towerId = 7L)
     }
 
     @Test

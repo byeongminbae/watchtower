@@ -12,6 +12,9 @@ import kr.byeongmin.watchtower.domain.tower.error.TowerError
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
 import kr.byeongmin.watchtower.external.dns.DnsResolver
 import kr.byeongmin.watchtower.external.google.GoogleFaviconClient
+import kr.byeongmin.watchtower.external.oci.queue.client.OciQueueClient
+import kr.byeongmin.watchtower.external.oci.queue.dto.CrawlRequestDto
+import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.dto.SuccessDataResponse
 import kr.byeongmin.watchtower.global.dto.SuccessResponse
 import kr.byeongmin.watchtower.global.error.CommonError
@@ -27,7 +30,9 @@ class TowerService(
     private val memberAccessor: MemberAccessor,
     private val notificationChannelAccessor: NotificationChannelAccessor,
     private val googleFaviconClient: GoogleFaviconClient,
-    private val dnsResolver: DnsResolver
+    private val dnsResolver: DnsResolver,
+    private val ociQueueClient: OciQueueClient,
+    private val timeProvider: TimeProvider
 ) {
     @Transactional
     fun createTower(memberId: Long, towerCreateRequestDto: TowerCreateRequestDto): SuccessResponse {
@@ -36,8 +41,6 @@ class TowerService(
 
         /** 동시성 이슈로 한도가 초과될수도 있어서 락을 검 */
         val member = memberAccessor.getMemberForUpdate(memberId)
-
-        // TODO: 1차적으로 여기서 Playwright 로 URL 접근 가능 여부 검사 필요함(4xx 응답, 빈 페이지)
 
         val newTower = Tower.from(createdBy = member, towerCreateRequestDto = towerCreateRequestDto)
 
@@ -52,11 +55,14 @@ class TowerService(
         // tower.save 전에 채널 아이디가 잘못된건 없는지 검사도됨
         val towerNotificationChannels = buildTowerNotificationChannels(towerCreateRequestDto, memberId, newTower)
 
-        towerAccessor.saveTower(
+        val savedTower = towerAccessor.saveTower(
             tower = newTower,
             conditions = towerConditions,
             notificationChannels = towerNotificationChannels
         )
+
+        // 첫 크롤링 요청을 큐에 넣지 못하면 예외로 트랜잭션을 롤백해 타워 등록도 취소함
+        ociQueueClient.sendCrawlRequest(CrawlRequestDto.from(savedTower, timeProvider.now(), memberId))
 
         return SuccessResponse()
     }
@@ -137,6 +143,17 @@ class TowerService(
         existTower.delete()
         // TODO: S3 객체 삭제 필요
         return SuccessResponse()
+    }
+
+    /** 같은 타워를 동시에 재시도해 크롤링 요청이 두 번 들어가지 않도록 락을 검. 큐에 넣지 못하면 롤백되어 실패 상태로 남음 */
+    @Transactional
+    fun retryCrawl(memberId: Long, towerId: Long): SuccessDataResponse<TowerResponseDto> {
+        val existTower = towerAccessor.getOwnedTowerForUpdate(towerId = towerId, memberId = memberId)
+
+        existTower.retryCrawl()
+        ociQueueClient.sendCrawlRequest(CrawlRequestDto.from(existTower, timeProvider.now(), memberId))
+
+        return SuccessDataResponse(TowerResponseDto.from(existTower))
     }
 
     @Transactional(readOnly = true)

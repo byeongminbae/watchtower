@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test
 import org.mockito.kotlin.*
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
+import kotlin.test.assertSame
 import kotlin.test.assertFailsWith
 
 class TowerAccessorTest {
@@ -31,16 +32,19 @@ class TowerAccessorTest {
     )
 
     @Test
-    fun `타워를 먼저 저장한 뒤 연결한 알림 채널과 감지 조건을 저장함`() {
+    fun `타워를 먼저 저장한 뒤 연결한 알림 채널과 감지 조건을 저장하고 저장된 타워를 돌려줌`() {
         /** given */
         val tower = mock<Tower>()
+        val savedTower = mock<Tower>()
         val conditions = listOf(mock<TowerCondition>())
         val channels = listOf(mock<TowerNotificationChannel>())
+        whenever(towerRepository.save(tower)).thenReturn(savedTower)
 
         /** when */
-        accessor.saveTower(tower, conditions, channels)
+        val result = accessor.saveTower(tower, conditions, channels)
 
         /** then */
+        assertSame(savedTower, result)
         inOrder(towerRepository, towerNotificationChannelRepository, towerConditionRepository) {
             verify(towerRepository).save(tower)
             verify(towerNotificationChannelRepository).saveAll(channels)
@@ -53,6 +57,7 @@ class TowerAccessorTest {
         /** given */
         val tower = mock<Tower>()
         val conditions = listOf(mock<TowerCondition>())
+        whenever(towerRepository.save(tower)).thenReturn(tower)
 
         /** when */
         accessor.saveTower(tower, conditions, emptyList())

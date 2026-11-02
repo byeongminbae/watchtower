@@ -10,3 +10,8 @@ spring:
           - vault-id: ocid1.vault.oc1.ap-osaka-1.fzvog2tiaag56.abvwsljroyn6edhepkv3insz6jsc7vlshmqp5u7zmept5lmyhyptsoxd3qkq
   jpa:
     show-sql: true
+
+watchtower:
+  crawl-queue:
+    request-queue-id: ocid1.queue.oc1.ap-osaka-1.amaaaaaaw36r47iaur3pqw4olpn2yhkhhhjyjzqpf26asmegj7rbyuhful2a
+    result-queue-id: ocid1.queue.oc1.ap-osaka-1.amaaaaaaw36r47iaodfs4xklavbthpbpaamu5jta5ovojxbv2rvvit2ele4q

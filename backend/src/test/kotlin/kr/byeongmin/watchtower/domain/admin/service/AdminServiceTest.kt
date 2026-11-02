@@ -86,12 +86,12 @@ class AdminServiceTest {
         /** when */
         val response = adminService.updateTowerStatus(
             towerId,
-            towerStatusUpdateRequestDto = TowerStatusUpdateRequestDto(TowerStatus.ILLEGAL_SUSPENDED)
+            towerStatusUpdateRequestDto = TowerStatusUpdateRequestDto(TowerStatus.ADMIN_PAUSED)
         )
 
         /** then */
-        assertEquals(TowerStatus.ILLEGAL_SUSPENDED, response.data.status)
-        assertEquals(TowerStatus.ILLEGAL_SUSPENDED, tower.status)
+        assertEquals(TowerStatus.ADMIN_PAUSED, response.data.status)
+        assertEquals(TowerStatus.ADMIN_PAUSED, tower.status)
     }
 
     @Test
@@ -104,7 +104,7 @@ class AdminServiceTest {
         val exception = assertFailsWith<BusinessException> {
             adminService.updateTowerStatus(
                 towerId,
-                towerStatusUpdateRequestDto = TowerStatusUpdateRequestDto(TowerStatus.ILLEGAL_SUSPENDED)
+                towerStatusUpdateRequestDto = TowerStatusUpdateRequestDto(TowerStatus.ADMIN_PAUSED)
             )
         }
 

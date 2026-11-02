@@ -96,7 +96,7 @@ class AdminControllerTest {
                             url = "https://example.com/products",
                             fetchInterval = Duration.ofMinutes(10),
                             includeInStat = true,
-                            status = TowerStatus.ILLEGAL_SUSPENDED,
+                            status = TowerStatus.ADMIN_PAUSED,
                             faviconUrl = null,
                             lastFetchedAt = null,
                             lastNotifiedAt = null
@@ -182,7 +182,7 @@ class AdminControllerTest {
                         url = "https://example.com",
                         fetchInterval = Duration.ofMinutes(10),
                         includeInStat = true,
-                        status = TowerStatus.ILLEGAL_SUSPENDED,
+                        status = TowerStatus.ADMIN_PAUSED,
                         faviconUrl = null,
                         lastFetchedAt = null,
                         lastNotifiedAt = null
@@ -197,7 +197,7 @@ class AdminControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         objectMapper.writeValueAsBytes(
-                            TowerStatusUpdateRequestDto(status = TowerStatus.ILLEGAL_SUSPENDED)
+                            TowerStatusUpdateRequestDto(status = TowerStatus.ADMIN_PAUSED)
                         )
                     )
             )
@@ -205,11 +205,11 @@ class AdminControllerTest {
         /** then */
         result
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.status").value(TowerStatus.ILLEGAL_SUSPENDED.name))
+            .andExpect(jsonPath("$.data.status").value(TowerStatus.ADMIN_PAUSED.name))
 
         verify(adminService).updateTowerStatus(
             towerId = 7L,
-            towerStatusUpdateRequestDto = TowerStatusUpdateRequestDto(status = TowerStatus.ILLEGAL_SUSPENDED)
+            towerStatusUpdateRequestDto = TowerStatusUpdateRequestDto(status = TowerStatus.ADMIN_PAUSED)
         )
     }
 

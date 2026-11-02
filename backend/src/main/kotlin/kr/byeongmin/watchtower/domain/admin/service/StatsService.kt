@@ -19,16 +19,16 @@ class StatsService(
     private val timeProvider: TimeProvider
 ) {
     fun getTowerStats(): SuccessDataResponse<TowerStatsResponseDto> {
-        val runningCount = towerAccessor.countByStatus(TowerStatus.RUNNING)
-        val pausedCount = towerAccessor.countByStatus(TowerStatus.PAUSED)
-        val illegalSuspendedCount = towerAccessor.countByStatus(TowerStatus.ILLEGAL_SUSPENDED)
+        val countByStatus = TowerStatus.entries.associateWith { towerAccessor.countByStatus(it) }
 
         return SuccessDataResponse(
             TowerStatsResponseDto(
-                totalCount = runningCount + pausedCount + illegalSuspendedCount,
-                runningCount = runningCount,
-                pausedCount = pausedCount,
-                illegalSuspendedCount = illegalSuspendedCount
+                totalCount = countByStatus.values.sum(),
+                crawlingReadyCount = countByStatus.getValue(TowerStatus.CRAWLING_READY),
+                crawlingErrorCount = countByStatus.getValue(TowerStatus.CRAWLING_ERROR),
+                crawlingCount = countByStatus.getValue(TowerStatus.CRAWLING),
+                userPausedCount = countByStatus.getValue(TowerStatus.USER_PAUSED),
+                adminPausedCount = countByStatus.getValue(TowerStatus.ADMIN_PAUSED)
             )
         )
     }

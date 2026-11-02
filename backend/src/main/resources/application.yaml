@@ -25,6 +25,12 @@ spring:
         compartment: ocid1.tenancy.oc1..aaaaaaaajrqij5qzv6e6fnfaq2pk2pjexmmgkbgabdwkyglw2kz2a3egbkna
   lifecycle:
     timeout-per-shutdown-phase: 60s
+  task:
+    scheduling:
+      shutdown:
+        # 종료할 때 결과 큐 받기(long polling)와 반영이 끝날 때까지 기다림
+        await-termination: true
+        await-termination-period: 40s
 
   jpa:
     database: POSTGRESQL

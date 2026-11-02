@@ -64,7 +64,7 @@ class MemberControllerTest {
                             url = "https://example.com/products",
                             fetchInterval = Duration.ofMinutes(10),
                             includeInStat = true,
-                            status = TowerStatus.RUNNING,
+                            status = TowerStatus.CRAWLING_READY,
                             faviconUrl = "https://example.com/favicon.ico",
                             lastFetchedAt = null,
                             lastNotifiedAt = null,

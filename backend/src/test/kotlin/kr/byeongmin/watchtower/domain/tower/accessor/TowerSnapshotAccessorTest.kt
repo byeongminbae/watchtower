@@ -1,6 +1,7 @@
 package kr.byeongmin.watchtower.domain.tower.accessor
 
 import kr.byeongmin.watchtower.domain.tower.repository.TowerSnapshotQuerydslRepository
+import kr.byeongmin.watchtower.domain.tower.repository.TowerSnapshotRepository
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.junit.jupiter.api.Test
@@ -12,8 +13,9 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class TowerSnapshotAccessorTest {
+    private val towerSnapshotRepository = mock<TowerSnapshotRepository>()
     private val towerSnapshotQuerydslRepository = mock<TowerSnapshotQuerydslRepository>()
-    private val towerSnapshotAccessor = TowerSnapshotAccessor(towerSnapshotQuerydslRepository)
+    private val towerSnapshotAccessor = TowerSnapshotAccessor(towerSnapshotRepository, towerSnapshotQuerydslRepository)
 
     @Test
     fun `소유한 타워에 스냅샷이 없으면 빈 목록을 조회할 수 있음`() {
