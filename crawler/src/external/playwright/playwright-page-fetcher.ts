@@ -35,7 +35,7 @@ export class PlaywrightPageFetcher implements PageFetcher, OnModuleInit {
     /**
      * Chromium 샌드박스. Playwright 는 기본으로 끄는데, 꺼져 있으면 렌더러의 V8 취약점 하나로 크롤러와 같은 사용자 권한을 얻어
      * ~/.oci 의 API 키 파일과 크롤러 프로세스 메모리까지 읽을 수 있음
-     * Docker 기본 seccomp 가 샌드박스에 필요한 user namespace 생성을 막아서, 컨테이너 seccomp 를 꺼야 함(infra/crawler-sandbox.sh)
+     * 샌드박스에 필요한 user namespace 생성을 Docker 기본 seccomp 와 Ubuntu AppArmor 가 막아서, 호스트에서 둘 다 풀어야 함(infra/crawler-sandbox.sh)
      */
     chromiumSandbox: true,
     /**
