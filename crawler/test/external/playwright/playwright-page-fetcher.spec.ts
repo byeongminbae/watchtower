@@ -1,5 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { WebSocketServer } from 'ws';
 import { CrawlError } from '../../../src/crawl/dto/crawl-result-message.dto.js';
 import { Policy } from '../../../src/config/policy.js';
 import { PageFetchFailure } from '../../../src/crawl/interfaces/page-fetcher.interface.js';
@@ -19,6 +20,7 @@ let server: Server;
 let allowedOrigin: string;
 let blockedOrigin: string;
 let secretRequestCount = 0;
+let webSocketConnectionCount = 0;
 
 beforeAll(async () => {
   server = createServer((request, response) => {
@@ -46,6 +48,12 @@ beforeAll(async () => {
           `<html><body>처음 페이지<script>window.addEventListener('load', () => { location.href = '/redirect-to-blocked'; });</script></body></html>`
         );
         return;
+      case '/web-socket-allowed':
+        response.end(webSocketPage(allowedOrigin));
+        return;
+      case '/web-socket-blocked':
+        response.end(webSocketPage(blockedOrigin));
+        return;
       case '/missing':
         response.writeHead(404).end('<html><body>없음</body></html>');
         return;
@@ -59,11 +67,22 @@ beforeAll(async () => {
         response.end('<html><body>내부 비밀</body></html>');
     }
   });
+  const webSocketServer = new WebSocketServer({ server });
+  webSocketServer.on('connection', (webSocket) => {
+    webSocketConnectionCount++;
+    webSocket.send('WebSocket 으로 받은 감시 대상');
+  });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;
   allowedOrigin = `http://127.0.0.1:${port}`;
   blockedOrigin = `http://localhost:${port}`;
 });
+
+/** 받은 WebSocket 메시지를 본문에 그리는 페이지. origin 의 http 를 ws 로 바꿔 연결함 */
+function webSocketPage(origin: string): string {
+  const webSocketUrl = origin.replace('http:', 'ws:');
+  return `<html><body>처음 페이지<div id="content"></div><script>new WebSocket('${webSocketUrl}').onmessage = (event) => { document.getElementById('content').textContent = event.data; };</script></body></html>`;
+}
 
 afterAll(() => {
   server.close();
@@ -108,6 +127,31 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
     expect(result).toMatchObject({ page: { finalUrl: url, html: expect.stringContaining('처음 페이지') } });
     expect(result).not.toMatchObject({ page: { html: expect.stringContaining('내부 비밀') } });
     expect(secretRequestCount).toBe(0);
+  });
+
+  it('페이지가 공인 주소의 WebSocket 으로 받아 그린 내용도 함께 수집함', async () => {
+    // given
+    const url = `${allowedOrigin}/web-socket-allowed`;
+
+    // when
+    const result = await pageFetcher.fetchPage(url);
+
+    // then
+    expect(result).toMatchObject({ page: { html: expect.stringContaining('WebSocket 으로 받은 감시 대상') } });
+  });
+
+  it('페이지가 내부 주소로 WebSocket 을 연결하려 하면 서버에 연결하지 않고 끊음', async () => {
+    // given
+    const url = `${allowedOrigin}/web-socket-blocked`;
+    webSocketConnectionCount = 0;
+
+    // when
+    const result = await pageFetcher.fetchPage(url);
+
+    // then
+    expect(result).toMatchObject({ page: { html: expect.stringContaining('처음 페이지') } });
+    expect(result).not.toMatchObject({ page: { html: expect.stringContaining('WebSocket 으로 받은 감시 대상') } });
+    expect(webSocketConnectionCount).toBe(0);
   });
 
   it('4xx 응답도 받아온 페이지로 돌려주고 판단은 백엔드에 맡김', async () => {
