@@ -10,7 +10,7 @@
 set -euo pipefail
 
 seccomp_option="--security-opt seccomp=unconfined"
-if ! dokku docker-options:report crawler --docker-options-deploy | grep -qF "$seccomp_option"; then
+if ! dokku docker-options:report crawler --docker-options-deploy | grep -qF -- "$seccomp_option"; then
   dokku docker-options:add crawler deploy "$seccomp_option"
 fi
 
