@@ -217,6 +217,30 @@ class TowerServiceTest {
     }
 
     @Test
+    fun `큐 기능이 꺼진 환경에서는 첫 크롤링을 요청할 수 없어서 타워 등록이 실패함`() {
+        /** given */
+        val queueDisabledTowerService = TowerService(
+            towerAccessor = towerAccessor,
+            towerConditionAccessor = towerConditionAccessor,
+            towerSnapshotAccessor = towerSnapshotAccessor,
+            memberAccessor = memberAccessor,
+            notificationChannelAccessor = notificationChannelAccessor,
+            googleFaviconClient = googleFaviconClient,
+            dnsResolver = dnsResolver,
+            ociQueueClient = null,
+            timeProvider = timeProvider
+        )
+
+        /** when */
+        val exception = assertFailsWith<BusinessException> {
+            queueDisabledTowerService.createTower(ownerId, towerCreateRequest)
+        }
+
+        /** then */
+        assertEquals(CommonError.EXTERNAL_API_ERROR, exception.error)
+    }
+
+    @Test
     fun `타워를 등록할 때 선택한 알림 채널을 연결할 수 있음`() {
         /** given */
         val channelId = 31L

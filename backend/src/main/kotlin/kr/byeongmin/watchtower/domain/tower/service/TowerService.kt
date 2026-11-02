@@ -31,7 +31,8 @@ class TowerService(
     private val notificationChannelAccessor: NotificationChannelAccessor,
     private val googleFaviconClient: GoogleFaviconClient,
     private val dnsResolver: DnsResolver,
-    private val ociQueueClient: OciQueueClient,
+    /** 큐 기능을 끈 환경([OciQueueClient.QUEUE_ENABLED_PROPERTY])에서는 null 이고, 크롤링을 요청하는 기능은 거부함 */
+    private val ociQueueClient: OciQueueClient?,
     private val timeProvider: TimeProvider
 ) {
     @Transactional
@@ -62,9 +63,15 @@ class TowerService(
         )
 
         // 첫 크롤링 요청을 큐에 넣지 못하면 예외로 트랜잭션을 롤백해 타워 등록도 취소함
-        ociQueueClient.sendCrawlRequest(CrawlRequestDto.from(savedTower, timeProvider.now(), memberId))
+        sendCrawlRequest(savedTower, memberId)
 
         return SuccessResponse()
+    }
+
+    /** 첫 크롤링이나 재시도를 요청하지 못하면 타워를 확인할 방법이 없어서, 큐 기능이 꺼져 있으면 요청 자체를 실패시킴 */
+    private fun sendCrawlRequest(tower: Tower, memberId: Long) {
+        val queueClient = ociQueueClient ?: throw BusinessException(CommonError.EXTERNAL_API_ERROR)
+        queueClient.sendCrawlRequest(CrawlRequestDto.from(tower, timeProvider.now(), memberId))
     }
 
     private fun validateIsExternalIp(towerUrl: TowerUrl) {
@@ -151,7 +158,7 @@ class TowerService(
         val existTower = towerAccessor.getOwnedTowerForUpdate(towerId = towerId, memberId = memberId)
 
         existTower.retryCrawl()
-        ociQueueClient.sendCrawlRequest(CrawlRequestDto.from(existTower, timeProvider.now(), memberId))
+        sendCrawlRequest(existTower, memberId)
 
         return SuccessDataResponse(TowerResponseDto.from(existTower))
     }

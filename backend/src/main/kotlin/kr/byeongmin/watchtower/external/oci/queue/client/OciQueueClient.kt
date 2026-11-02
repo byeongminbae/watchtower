@@ -14,11 +14,17 @@ import kr.byeongmin.watchtower.external.oci.queue.dto.QueueResultMessageDto
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
-/** 크롤러와 주고받는 OCI Queue. 큐는 실행 프로파일(local, dev, prod)마다 다름 */
+/**
+ * 크롤러와 주고받는 OCI Queue. 큐는 실행 프로파일(local, dev, prod)마다 다름
+ *
+ * Spring Cloud OCI 의 큐 기능 설정([QUEUE_ENABLED_PROPERTY])을 끈 환경(OCI 자격 증명이 없는 CI 등)에서는 만들지 않음
+ */
 @Component
+@ConditionalOnProperty(name = [OciQueueClient.QUEUE_ENABLED_PROPERTY], havingValue = "true", matchIfMissing = true)
 class OciQueueClient(
     private val queueClient: QueueClient,
     private val objectMapper: ObjectMapper,
@@ -76,6 +82,9 @@ class OciQueueClient(
     }
 
     companion object {
+        /** Spring Cloud OCI 가 큐 자동 설정을 켜고 끄는 설정. 기본값은 true */
+        const val QUEUE_ENABLED_PROPERTY = "spring.cloud.oci.queue.enabled"
+
         /**
          * 큐가 비어 있을 때 받기 요청 하나가 메시지를 기다리는 최대 시간(OCI Queue 최대값). 메시지가 하나라도 있으면 바로 응답함
          *

@@ -21,21 +21,14 @@ services:
         condition: service_healthy
     environment:
       SPRING_CLOUD_OCI_VAULT_ENABLED: "false"
-      # 러너에는 OCI 자격 증명이 없어서, 큐 클라이언트를 만들 수만 있도록 OCI 에 등록하지 않은 일회용 키로 가짜 자격 증명을 줌
-      SPRING_CLOUD_OCI_CONFIG_TYPE: SIMPLE
-      SPRING_CLOUD_OCI_CONFIG_USERID: ci
-      SPRING_CLOUD_OCI_CONFIG_TENANTID: ci
-      SPRING_CLOUD_OCI_CONFIG_FINGERPRINT: ci
-      SPRING_CLOUD_OCI_CONFIG_REGION: ap-osaka-1
-      SPRING_CLOUD_OCI_CONFIG_PRIVATEKEY: /run/ci/oci-key.pem
+      SPRING_CLOUD_OCI_QUEUE_ENABLED: "false"
+      SPRING_AUTOCONFIGURE_EXCLUDE: com.oracle.cloud.spring.autoconfigure.core.CredentialsProviderAutoConfiguration
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/watchtower
       SPRING_DATASOURCE_USERNAME: watchtower
       SPRING_DATASOURCE_PASSWORD: watchtower
       WATCHTOWER_AUTH_NAVER_CLIENT_ID: ci
       WATCHTOWER_AUTH_NAVER_CLIENT_SECRET: ci
       WATCHTOWER_AUTH_NAVER_CALLBACK_URL: http://127.0.0.1:3000/login/callback
-    volumes:
-      - ${CI_OCI_KEY_FILE:-/dev/null}:/run/ci/oci-key.pem:ro
 
   frontend:
     profiles: [frontend]

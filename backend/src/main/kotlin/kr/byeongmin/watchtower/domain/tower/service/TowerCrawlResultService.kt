@@ -10,6 +10,7 @@ import kr.byeongmin.watchtower.domain.tower.entity.TowerSnapshot
 import kr.byeongmin.watchtower.external.oci.queue.client.OciQueueClient
 import kr.byeongmin.watchtower.external.oci.queue.dto.CrawlResultDto
 import kr.byeongmin.watchtower.global.utils.ifNullThrow
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.support.TransactionTemplate
@@ -17,8 +18,9 @@ import tools.jackson.databind.ObjectMapper
 import tools.jackson.module.kotlin.readValue
 import java.util.concurrent.TimeUnit
 
-/** 크롤러가 결과 큐에 보낸 크롤링 결과를 타워에 반영 */
+/** 크롤러가 결과 큐에 보낸 크롤링 결과를 타워에 반영. 큐 기능을 끈 환경에서는 결과 큐를 받지 않음 */
 @Service
+@ConditionalOnProperty(name = [OciQueueClient.QUEUE_ENABLED_PROPERTY], havingValue = "true", matchIfMissing = true)
 class TowerCrawlResultService(
     private val ociQueueClient: OciQueueClient,
     private val towerAccessor: TowerAccessor,
