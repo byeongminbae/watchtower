@@ -17,6 +17,10 @@ import kr.byeongmin.watchtower.domain.tower.error.TowerError
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
 import kr.byeongmin.watchtower.external.dns.DnsResolver
 import kr.byeongmin.watchtower.external.google.GoogleFaviconClient
+import kr.byeongmin.watchtower.external.oci.queue.client.OciQueueClient
+import kr.byeongmin.watchtower.external.oci.queue.dto.CrawlRequestDto
+import kr.byeongmin.watchtower.external.oci.queue.dto.CrawlResultDto
+import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.junit.jupiter.api.BeforeEach
@@ -26,6 +30,7 @@ import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.kotlin.*
 import java.net.InetAddress
 import java.time.Duration
+import java.time.LocalDateTime
 import kotlin.test.*
 
 class TowerServiceTest {
@@ -38,6 +43,11 @@ class TowerServiceTest {
     private val dnsResolver = mock<DnsResolver> {
         on { resolveAll(any()) } doReturn listOf(InetAddress.ofLiteral("8.8.8.8"))
     }
+    private val ociQueueClient = mock<OciQueueClient>()
+    private val now = LocalDateTime.of(2026, 11, 3, 1, 0)
+    private val timeProvider = mock<TimeProvider> {
+        on { now() } doReturn now
+    }
 
     private val towerService = TowerService(
         towerAccessor = towerAccessor,
@@ -46,7 +56,9 @@ class TowerServiceTest {
         memberAccessor = memberAccessor,
         notificationChannelAccessor = notificationChannelAccessor,
         googleFaviconClient = googleFaviconClient,
-        dnsResolver = dnsResolver
+        dnsResolver = dnsResolver,
+        ociQueueClient = ociQueueClient,
+        timeProvider = timeProvider
     )
 
     private val ownerId = 21L
@@ -71,14 +83,32 @@ class TowerServiceTest {
         name = "타워",
         fetchInterval = Duration.ofMinutes(10),
         includeInStat = true,
-        status = UpdatableTowerStatus.RUNNING
+        status = UpdatableTowerStatus.CRAWLING_READY
     )
     private val tower = spy(Tower.from(owner, towerCreateRequest)) {
         on { id } doReturn towerId
     }
 
+    private fun crawlResultDto(resultStatus: CrawlResultDto.CrawlResultStatus, httpStatusCode: Int?): CrawlResultDto {
+        return CrawlResultDto(
+            towerId = towerId,
+            url = "https://byeongmin.kr/notice",
+            scheduledAt = "2026-11-03T00:59:00.000Z",
+            crawlStartedAt = now.minusSeconds(5),
+            crawlEndedAt = now,
+            resultStatus = resultStatus,
+            httpStatusCode = httpStatusCode,
+            finalUrl = null,
+            htmlObjectName = null,
+            errorCode = null,
+            triggeredByMemberId = null
+        )
+    }
+
     @BeforeEach
     fun setUp() {
+        tower.applyCrawlResult(crawlResultDto(CrawlResultDto.CrawlResultStatus.FETCHED, httpStatusCode = 200))
+        whenever(towerAccessor.saveTower(any(), any(), any())).thenReturn(tower)
         whenever(memberAccessor.getMemberForUpdate(ownerId))
             .thenReturn(owner)
         whenever(towerAccessor.getOwnedTower(towerId, ownerId))
@@ -108,6 +138,106 @@ class TowerServiceTest {
         assertEquals(towerCreateRequestDto.url.value, savedTower.firstValue.url)
         assertEquals(owner, savedTower.firstValue.createdBy)
         assertEquals(true, response.isSuccess)
+    }
+
+    @Test
+    fun `타워를 저장한 뒤 저장된 타워의 첫 크롤링을 요청함`() {
+        /** when */
+        towerService.createTower(ownerId, towerCreateRequest)
+
+        /** then */
+        val savedTower = argumentCaptor<Tower>()
+        inOrder(towerAccessor, ociQueueClient) {
+            verify(towerAccessor).saveTower(savedTower.capture(), any(), any())
+            verify(ociQueueClient).sendCrawlRequest(CrawlRequestDto.from(tower, now, ownerId))
+        }
+    }
+
+    @Test
+    fun `첫 크롤링 요청을 큐에 넣지 못하면 타워 등록이 실패함`() {
+        /** given */
+        whenever(ociQueueClient.sendCrawlRequest(any()))
+            .thenThrow(BusinessException(CommonError.EXTERNAL_API_ERROR))
+
+        /** when */
+        val exception = assertFailsWith<BusinessException> {
+            towerService.createTower(ownerId, towerCreateRequest)
+        }
+
+        /** then */
+        assertEquals(CommonError.EXTERNAL_API_ERROR, exception.error)
+    }
+
+    @Test
+    fun `크롤링에 실패한 자신의 타워를 재시도하면 크롤링 중으로 바뀌고 크롤링을 요청함`() {
+        /** given */
+        val failedTower = spy(Tower.from(owner, towerCreateRequest)) {
+            on { id } doReturn towerId
+        }
+        failedTower.applyCrawlResult(crawlResultDto(CrawlResultDto.CrawlResultStatus.FAILED, httpStatusCode = null))
+        whenever(towerAccessor.getOwnedTowerForUpdate(towerId, ownerId)).thenReturn(failedTower)
+
+        /** when */
+        val response = towerService.retryCrawl(ownerId, towerId)
+
+        /** then */
+        assertEquals(TowerStatus.CRAWLING, response.data.status)
+        verify(ociQueueClient).sendCrawlRequest(CrawlRequestDto.from(failedTower, now, ownerId))
+    }
+
+    @Test
+    fun `크롤링에 실패하지 않은 타워는 재시도해도 크롤링을 요청하지 않음`() {
+        /** given */
+        whenever(towerAccessor.getOwnedTowerForUpdate(towerId, ownerId)).thenReturn(tower)
+
+        /** when */
+        val exception = assertFailsWith<BusinessException> {
+            towerService.retryCrawl(ownerId, towerId)
+        }
+
+        /** then */
+        assertEquals(TowerError.CRAWL_NOT_RETRYABLE, exception.error)
+        verify(ociQueueClient, never()).sendCrawlRequest(any())
+    }
+
+    @Test
+    fun `다른 회원의 타워는 재시도할 수 없음`() {
+        /** given */
+        whenever(towerAccessor.getOwnedTowerForUpdate(towerId, strangerId))
+            .thenThrow(BusinessException(CommonError.RESOURCE_NOT_FOUND))
+
+        /** when */
+        val exception = assertFailsWith<BusinessException> {
+            towerService.retryCrawl(strangerId, towerId)
+        }
+
+        /** then */
+        assertEquals(CommonError.RESOURCE_NOT_FOUND, exception.error)
+        verify(ociQueueClient, never()).sendCrawlRequest(any())
+    }
+
+    @Test
+    fun `큐 기능이 꺼진 환경에서는 첫 크롤링을 요청할 수 없어서 타워 등록이 실패함`() {
+        /** given */
+        val queueDisabledTowerService = TowerService(
+            towerAccessor = towerAccessor,
+            towerConditionAccessor = towerConditionAccessor,
+            towerSnapshotAccessor = towerSnapshotAccessor,
+            memberAccessor = memberAccessor,
+            notificationChannelAccessor = notificationChannelAccessor,
+            googleFaviconClient = googleFaviconClient,
+            dnsResolver = dnsResolver,
+            ociQueueClient = null,
+            timeProvider = timeProvider
+        )
+
+        /** when */
+        val exception = assertFailsWith<BusinessException> {
+            queueDisabledTowerService.createTower(ownerId, towerCreateRequest)
+        }
+
+        /** then */
+        assertEquals(CommonError.EXTERNAL_API_ERROR, exception.error)
     }
 
     @Test
@@ -240,7 +370,7 @@ class TowerServiceTest {
         /** then */
         assertEquals(towerId, response.data.id)
         assertEquals(tower.url, response.data.url)
-        assertEquals(TowerStatus.RUNNING, response.data.status)
+        assertEquals(TowerStatus.CRAWLING_READY, response.data.status)
     }
 
     @Test
@@ -266,7 +396,7 @@ class TowerServiceTest {
                 name = "변경된-타워-이름",
                 fetchInterval = Duration.ofSeconds(1800),
                 includeInStat = false,
-                status = UpdatableTowerStatus.PAUSED
+                status = UpdatableTowerStatus.USER_PAUSED
             )
         )
 
@@ -275,7 +405,7 @@ class TowerServiceTest {
         assertEquals("https://byeongmin.kr/notice", response.data.url)
         assertEquals(Duration.ofSeconds(1800), response.data.fetchInterval)
         assertEquals(false, response.data.includeInStat)
-        assertEquals(TowerStatus.PAUSED, response.data.status)
+        assertEquals(TowerStatus.USER_PAUSED, response.data.status)
     }
 
     @Test
@@ -293,7 +423,7 @@ class TowerServiceTest {
     fun `타워 상태 변경이 거부되면 아무것도 변경하지 않음`() {
         /** given */
         val rejection = BusinessException(CommonError.PERMISSION_DENIED)
-        doThrow(rejection).whenever(tower).changeStatusByMember(UpdatableTowerStatus.RUNNING)
+        doThrow(rejection).whenever(tower).changeStatusByMember(UpdatableTowerStatus.CRAWLING_READY)
 
         /** when */
         val exception = assertFailsWith<BusinessException> {

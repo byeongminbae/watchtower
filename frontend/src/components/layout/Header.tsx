@@ -31,8 +31,8 @@ export default function Header() {
     }
   }
   return <>
-    <header className="sticky top-0 z-20 border-b bg-background">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
+    <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
+      <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
         <Link href="/" className="flex shrink-0 items-center gap-2 font-semibold"><LighthouseMark size={28} /><span>Watchtower</span></Link>
         <div className="flex min-w-0 items-center gap-2">
           {isLoggedIn ? <>

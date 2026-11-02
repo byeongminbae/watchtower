@@ -28,6 +28,10 @@ class TowerAccessor(
         return towerRepository.get(towerId)
     }
 
+    fun findTower(towerId: Long): Tower? {
+        return towerRepository.find(towerId)
+    }
+
     fun getOwnedTower(towerId: Long, memberId: Long): Tower {
         return towerRepository.findByIdAndCreatedBy_IdAndDeletedAtIsNull(towerId, memberId)
             ?: throw BusinessException(CommonError.RESOURCE_NOT_FOUND)
@@ -65,12 +69,13 @@ class TowerAccessor(
         tower: Tower,
         conditions: List<TowerCondition>,
         notificationChannels: List<TowerNotificationChannel>
-    ) {
-        towerRepository.save(tower)
+    ): Tower {
+        val savedTower = towerRepository.save(tower)
         if (notificationChannels.isNotEmpty()) {
             towerNotificationChannelRepository.saveAll(notificationChannels)
         }
         towerConditionRepository.saveAll(conditions)
+        return savedTower
     }
 
     fun deleteAllRelatedByMemberId(memberId: Long, deletedAt: LocalDateTime) {

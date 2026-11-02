@@ -5,6 +5,7 @@ import com.querydsl.jpa.impl.JPAQueryFactory
 import kr.byeongmin.watchtower.domain.tower.entity.QTower.tower
 import kr.byeongmin.watchtower.domain.tower.entity.QTowerSnapshot.towerSnapshot
 import kr.byeongmin.watchtower.domain.tower.entity.TowerSnapshot
+import kr.byeongmin.watchtower.global.utils.ifNullThrow
 import org.springframework.stereotype.Repository
 import java.time.LocalDateTime
 
@@ -39,6 +40,31 @@ class TowerSnapshotQuerydslRepository(
             return null
         }
         return rows.mapNotNull { it.get(towerSnapshot) }
+    }
+
+    /**
+     * 타워마다 삭제되지 않은 변경 스냅샷(htmlContentDiffUrl 이 있는 스냅샷) 중 가장 최근 것의 AI 요약을 조회
+     * @return 타워 id 별 AI 요약. 변경 스냅샷이 없는 타워는 키가 없고, 가장 최근 변경에 AI 요약이 없으면 값이 null
+     */
+    fun findLatestChangeAiSummaries(towerIds: Collection<Long>): Map<Long, String?> {
+        return queryFactory
+            .select(towerSnapshot.tower.id, towerSnapshot.aiDiffSummary)
+            .from(towerSnapshot)
+            .where(
+                towerSnapshot.id.`in`(
+                    JPAExpressions
+                        .select(towerSnapshot.id.max())
+                        .from(towerSnapshot)
+                        .where(
+                            towerSnapshot.tower.id.`in`(towerIds),
+                            towerSnapshot.htmlContentDiffUrl.isNotNull,
+                            towerSnapshot.deletedAt.isNull
+                        )
+                        .groupBy(towerSnapshot.tower.id)
+                )
+            )
+            .fetch()
+            .associate { it.get(towerSnapshot.tower.id).ifNullThrow() to it.get(towerSnapshot.aiDiffSummary) }
     }
 
     fun deleteByCreatedAtBefore(createdAt: LocalDateTime, deletedAt: LocalDateTime): Long {

@@ -24,10 +24,12 @@ class StatsControllerTest {
         whenever(service.getTowerStats()).thenReturn(
             SuccessDataResponse(
                 TowerStatsResponseDto(
-                    totalCount = 9,
-                    runningCount = 5,
-                    pausedCount = 3,
-                    illegalSuspendedCount = 1
+                    totalCount = 15,
+                    crawlingReadyCount = 5,
+                    crawlingErrorCount = 4,
+                    crawlingCount = 2,
+                    userPausedCount = 3,
+                    adminPausedCount = 1
                 )
             )
         )
@@ -38,10 +40,12 @@ class StatsControllerTest {
         /** then */
         result
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.totalCount").value(9))
-            .andExpect(jsonPath("$.data.runningCount").value(5))
-            .andExpect(jsonPath("$.data.pausedCount").value(3))
-            .andExpect(jsonPath("$.data.illegalSuspendedCount").value(1))
+            .andExpect(jsonPath("$.data.totalCount").value(15))
+            .andExpect(jsonPath("$.data.crawlingReadyCount").value(5))
+            .andExpect(jsonPath("$.data.crawlingErrorCount").value(4))
+            .andExpect(jsonPath("$.data.crawlingCount").value(2))
+            .andExpect(jsonPath("$.data.userPausedCount").value(3))
+            .andExpect(jsonPath("$.data.adminPausedCount").value(1))
     }
 
     @Test

@@ -19,6 +19,7 @@ test("채널과 소멸 조건으로 타워를 등록하고 수정과 삭제를 �
   // then
   await expect(page.getByRole("heading", { name: "새 타워", exact: true })).toBeVisible();
   await expect(page.getByText("사라질 때 알림", { exact: true })).toBeVisible();
+  await expect(page.getByText("지금 페이지를 확인하고 있어요", { exact: true })).toBeVisible();
   const records = await (await request.get(`http://127.0.0.1:4100/__test/records?session=${session}`)).json();
   expect(records.data).toContainEqual(expect.objectContaining({
     method: "POST", path: "/api/v1/towers", csrf: "csrf-fixture", body: {
@@ -29,8 +30,7 @@ test("채널과 소멸 조건으로 타워를 등록하고 수정과 삭제를 �
   // when
   await page.getByRole("button", { name: "타워 수정" }).click();
   await dialog.getByLabel("사이트 이름").fill("수정 타워");
-  await dialog.getByLabel("상태", { exact: true }).click();
-  await page.getByRole("option", { name: "일시정지", exact: true }).click();
+  await dialog.getByRole("button", { name: "일시정지", exact: true }).click();
   await dialog.getByRole("button", { name: "저장", exact: true }).click();
   // then
   await expect(page.getByRole("heading", { name: "수정 타워", exact: true })).toBeVisible();
@@ -49,10 +49,26 @@ test("채널과 소멸 조건으로 타워를 등록하고 수정과 삭제를 �
   await expect(page.getByRole("heading", { name: "수정 타워", exact: true })).toHaveCount(0);
 });
 
+test("크롤링에 실패한 타워를 다시 확인하면 확인 중으로 바뀌고 재시도를 요청할 것이다", async ({ page, login, request }) => {
+  // given
+  const session = await login();
+  await request.get(`http://127.0.0.1:4100/__test/fail-crawl?session=${session}&towerId=9`);
+  await page.goto("/watches/9");
+  await expect(page.getByText("페이지를 확인하지 못했어요", { exact: true })).toBeVisible();
+  // when
+  await page.getByRole("button", { name: "다시 확인", exact: true }).click();
+  // then
+  await expect(page.getByText("지금 페이지를 확인하고 있어요", { exact: true })).toBeVisible();
+  await expect(page.getByText("페이지를 확인하지 못했어요", { exact: true })).toHaveCount(0);
+  const records = await (await request.get(`http://127.0.0.1:4100/__test/records?session=${session}`)).json();
+  expect(records.data).toContainEqual(expect.objectContaining({ method: "POST", path: "/api/v1/towers/9/crawl-retry", csrf: "csrf-fixture" }));
+});
+
 test("스냅샷 보기를 전환하면 실제 HTML 링크를 변경할 것이다", async ({ page, login }) => {
   // given
   await login();
   await page.goto("/watches/9");
+  await page.getByRole("tab", { name: /변경 기록/ }).click();
   // when
   await page.getByRole("button", { name: "전체 페이지", exact: true }).click();
   // then

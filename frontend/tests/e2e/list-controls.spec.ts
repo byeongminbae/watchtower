@@ -59,7 +59,7 @@ test("제목 옆 아이콘으로 감시를 멈추고 다시 시작하면 기존 
   // then
   await expect(page.getByRole("button", { name: "감시 일시정지", exact: true })).toBeVisible();
   const records = await (await request.get(`http://127.0.0.1:4100/__test/records?session=${session}`)).json();
-  for (const status of ["PAUSED", "RUNNING"]) {
+  for (const status of ["USER_PAUSED", "CRAWLING_READY"]) {
     expect(records.data).toContainEqual(expect.objectContaining({ method: "PUT", path: "/api/v1/towers/9", body: { name: "채용 공고", fetchInterval: "PT5M", includeInStat: true, status }, csrf: "csrf-fixture" }));
   }
 });

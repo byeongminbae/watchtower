@@ -5,6 +5,7 @@ import { CircleAlert, UsersRound } from "lucide-react";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -45,14 +46,17 @@ export default function AdminMembersPage() {
     finally { setBusy(false); }
   }
 
-  return <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-7 sm:px-8 sm:py-10">
-    <div className="flex flex-col gap-2"><h1 className="text-[28px] font-semibold tracking-tight sm:text-3xl">회원 관리</h1>
+  return <main className="flex w-full flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="flex flex-col gap-1"><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">회원 관리</h1>
       <p className="text-sm text-muted-foreground">회원 정보와 이용 상태를 확인하고 권한을 관리해요.</p></div>
-    <ListControls value={criteria} label="닉네임 또는 이메일 접두사 검색" onChange={next => { setCriteria(next); setPage(0); }} />
-    {loading && <div role="status" aria-label="회원 불러오는 중" className="flex flex-col gap-3"><Skeleton className="h-16 w-full" /><Skeleton className="h-48 w-full" /></div>}
-    {error && <Alert variant="destructive"><CircleAlert /><AlertDescription>{error}</AlertDescription><AlertAction><Button variant="outline" size="sm" onClick={refetch}>재시도</Button></AlertAction></Alert>}
-    {!loading && !error && data && <>
-      <p className="text-sm text-muted-foreground">전체 <strong className="font-semibold text-foreground">{data.totalElements}</strong>명</p>
+    <Card className="gap-0 py-0">
+      <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1 sm:max-w-md"><ListControls value={criteria} label="닉네임 또는 이메일 접두사 검색" onChange={next => { setCriteria(next); setPage(0); }} /></div>
+        {data && <Badge variant="secondary" className="shrink-0">전체 {data.totalElements.toLocaleString("ko-KR")}명</Badge>}
+      </div>
+    {loading && data === null && <div role="status" aria-label="회원 불러오는 중" className="flex flex-col gap-3 p-4"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
+    {error && <Alert variant="destructive" className="m-4 w-auto"><CircleAlert /><AlertDescription>{error}</AlertDescription><AlertAction><Button variant="outline" size="sm" onClick={refetch}>재시도</Button></AlertAction></Alert>}
+    {!error && data && <>
       {data.data.length > 0 ? <ResponsiveTable headings={["회원", "권한", "상태", "최근 로그인", "관리"]}>
         {data.data.map(member => <TableRow key={member.id}>
           <TableCell data-label="회원"><div className="flex items-center gap-3">
@@ -73,13 +77,14 @@ export default function AdminMembersPage() {
               onClick={() => { setReason(""); setActionError(null); setTarget({ member, action: "ban" }); }}>{member.bannedAt ? "정지 해제" : "정지"}</Button>
           </div></TableCell>
         </TableRow>)}
-      </ResponsiveTable> : <Empty className="rounded-xl border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><UsersRound /></EmptyMedia><EmptyTitle>조회된 회원이 없어요.</EmptyTitle><EmptyDescription>다른 이름이나 이메일로 검색해 보세요.</EmptyDescription></EmptyHeader></Empty>}
-      <div className="flex items-center justify-end gap-3">
-        <Button variant="outline" disabled={page === 0} onClick={() => setPage(page - 1)}>이전</Button>
-        <p className="text-sm tabular-nums text-muted-foreground">{data.totalPages === 0 ? 0 : page + 1} / {data.totalPages}</p>
-        <Button variant="outline" disabled={page + 1 >= data.totalPages} onClick={() => setPage(page + 1)}>다음</Button>
+      </ResponsiveTable> : <Empty className="m-4 rounded-xl border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><UsersRound /></EmptyMedia><EmptyTitle>조회된 회원이 없어요.</EmptyTitle><EmptyDescription>다른 이름이나 이메일로 검색해 보세요.</EmptyDescription></EmptyHeader></Empty>}
+      <div className="flex items-center justify-between gap-3 border-t p-4">
+        <p className="text-sm tabular-nums text-muted-foreground">{data.totalPages === 0 ? 0 : page + 1} / {data.totalPages} 페이지</p>
+        <div className="flex gap-2"><Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>이전</Button>
+          <Button variant="outline" size="sm" disabled={page + 1 >= data.totalPages} onClick={() => setPage(page + 1)}>다음</Button></div>
       </div>
     </>}
+    </Card>
     <Dialog open={target !== null} onOpenChange={open => { if (!open && !busy) setTarget(null); }}>
       <DialogContent showCloseButton={!busy}>
         <form className="flex flex-col gap-6" onSubmit={event => { event.preventDefault(); if (target?.action === "role" || target?.member.bannedAt) void update(); }}>

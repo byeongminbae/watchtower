@@ -38,15 +38,16 @@ class TowerQuerydslRepository(
     }
 
     /**
-     * 특정 시점 이후로 접속하지 않은 [kr.byeongmin.watchtower.domain.member.entity.Member] 의 [Tower] 를 일시정지
+     * 특정 시점 이후로 접속하지 않은 [kr.byeongmin.watchtower.domain.member.entity.Member] 의 크롤링 대기 중이거나 크롤링 중인 [Tower] 를 일시정지
+     * 회원이 돌아와 크롤링 대기로 되돌릴 수 있게 [TowerStatus.USER_PAUSED] 로 바꿈
      */
     fun pauseByMemberLastSignInAtBefore(lastSignInBefore: LocalDateTime, updatedAt: LocalDateTime): Long {
         return queryFactory
             .update(tower)
-            .set(tower.status, TowerStatus.PAUSED)
+            .set(tower.status, TowerStatus.USER_PAUSED)
             .set(tower.updatedAt, updatedAt)
             .where(
-                tower.status.eq(TowerStatus.RUNNING),
+                tower.status.`in`(TowerStatus.CRAWLING_READY, TowerStatus.CRAWLING),
                 tower.deletedAt.isNull,
                 tower.createdBy.id.`in`(
                     JPAExpressions.select(member.id)

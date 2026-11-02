@@ -25,18 +25,22 @@ class StatsServiceTest {
     @Test
     fun `관리자는 전체 타워 수와 상태별 타워 수를 조회할 수 있음`() {
         /** given */
-        whenever(towerAccessor.countByStatus(TowerStatus.RUNNING)).thenReturn(5L)
-        whenever(towerAccessor.countByStatus(TowerStatus.PAUSED)).thenReturn(3L)
-        whenever(towerAccessor.countByStatus(TowerStatus.ILLEGAL_SUSPENDED)).thenReturn(1L)
+        whenever(towerAccessor.countByStatus(TowerStatus.CRAWLING_READY)).thenReturn(5L)
+        whenever(towerAccessor.countByStatus(TowerStatus.CRAWLING_ERROR)).thenReturn(4L)
+        whenever(towerAccessor.countByStatus(TowerStatus.CRAWLING)).thenReturn(2L)
+        whenever(towerAccessor.countByStatus(TowerStatus.USER_PAUSED)).thenReturn(3L)
+        whenever(towerAccessor.countByStatus(TowerStatus.ADMIN_PAUSED)).thenReturn(1L)
 
         /** when */
         val response = statsService.getTowerStats()
 
         /** then */
-        assertEquals(9L, response.data.totalCount)
-        assertEquals(5L, response.data.runningCount)
-        assertEquals(3L, response.data.pausedCount)
-        assertEquals(1L, response.data.illegalSuspendedCount)
+        assertEquals(15L, response.data.totalCount)
+        assertEquals(5L, response.data.crawlingReadyCount)
+        assertEquals(4L, response.data.crawlingErrorCount)
+        assertEquals(2L, response.data.crawlingCount)
+        assertEquals(3L, response.data.userPausedCount)
+        assertEquals(1L, response.data.adminPausedCount)
     }
 
     @Test

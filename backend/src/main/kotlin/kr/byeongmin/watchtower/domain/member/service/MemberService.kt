@@ -6,6 +6,7 @@ import kr.byeongmin.watchtower.domain.member.dto.MemberResponseDto
 import kr.byeongmin.watchtower.domain.member.dto.MemberUpdateRequestDto
 import kr.byeongmin.watchtower.domain.notification.accessor.NotificationChannelAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
+import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
 import kr.byeongmin.watchtower.domain.tower.dto.TowerListItemResponseDto
 import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.dto.SuccessDataResponse
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional
 class MemberService(
     private val memberAccessor: MemberAccessor,
     private val towerAccessor: TowerAccessor,
+    private val towerSnapshotAccessor: TowerSnapshotAccessor,
     private val notificationChannelAccessor: NotificationChannelAccessor,
     private val naverOAuthAccessor: NaverOAuthAccessor,
     private val timeProvider: TimeProvider
@@ -43,13 +45,12 @@ class MemberService(
             sortField = sortField
         )
 
-        val cursorPaginationResponseDto = cursorPaginationRequestDto.to(towers, sortField) { tower ->
-            val latestAiSummary = tower.snapshots
-                .filter { !it.isDeleted() && !it.isHead() }
-                .maxByOrNull { it.id.ifNullThrow() }
-                ?.aiDiffSummary
+        val latestChangeAiSummaries = towerSnapshotAccessor.findLatestChangeAiSummaries(
+            towers.map { it.id.ifNullThrow() }
+        )
 
-            TowerListItemResponseDto.from(tower, latestAiSummary)
+        val cursorPaginationResponseDto = cursorPaginationRequestDto.to(towers, sortField) { tower ->
+            TowerListItemResponseDto.from(tower, latestChangeAiSummaries[tower.id.ifNullThrow()])
         }
 
         return SuccessDataResponse(cursorPaginationResponseDto)

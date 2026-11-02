@@ -1,13 +1,16 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, LayoutDashboard, Radar, ShieldCheck, UserRound, UsersRound, type LucideIcon } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
+import {
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
+  SidebarProvider, SidebarRail, SidebarTrigger
+} from "@/components/ui/sidebar";
 import { useAuth } from "@/lib/AuthContext";
-import { cn } from "@/lib/utils";
 
 type NavigationItem = { readonly href: string; readonly label: string; readonly icon: LucideIcon };
 const memberNavigation: readonly NavigationItem[] = [
@@ -16,18 +19,38 @@ const memberNavigation: readonly NavigationItem[] = [
   { href: "/mypage", label: "마이페이지", icon: UserRound }
 ];
 const adminNavigation: readonly NavigationItem[] = [
-  { href: "/admin", label: "관리자", icon: LayoutDashboard },
+  { href: "/admin", label: "대시보드", icon: LayoutDashboard },
   { href: "/admin/members", label: "회원 관리", icon: UsersRound },
   { href: "/admin/watches", label: "타워 관리", icon: ShieldCheck }
 ];
 
-function NavigationLinks({ items, pathname }: { readonly items: readonly NavigationItem[]; readonly pathname: string }) {
-  return items.map(({ href, label, icon: Icon }) => {
-    const active = pathname === href || (href === "/watches" && pathname.startsWith("/watches/"));
-    return <Link key={href} href={href} className={cn(buttonVariants({ variant: active ? "secondary" : "ghost" }), "justify-start gap-2")} aria-current={active ? "page" : undefined}>
-      <Icon data-icon="inline-start" /><span>{label}</span>
-    </Link>;
-  });
+/** 경로마다 상단 바에 보여줄 위치. 마지막 항목이 현재 화면 */
+function breadcrumbsOf(pathname: string): readonly { readonly label: string; readonly href?: string }[] {
+  if (/^\/watches\/[^/]+$/.test(pathname)) return [{ label: "내 타워", href: "/watches" }, { label: "타워 상세" }];
+  if (pathname.startsWith("/watches")) return [{ label: "내 타워" }];
+  if (pathname.startsWith("/mypage/notifications")) return [{ label: "마이페이지", href: "/mypage" }, { label: "알림 채널" }];
+  if (pathname.startsWith("/mypage")) return [{ label: "마이페이지" }];
+  if (pathname.startsWith("/admin/members")) return [{ label: "관리자", href: "/admin" }, { label: "회원 관리" }];
+  if (pathname.startsWith("/admin/watches")) return [{ label: "관리자", href: "/admin" }, { label: "타워 관리" }];
+  return [{ label: "관리자" }, { label: "대시보드" }];
+}
+
+function NavigationGroup({ label, items, pathname }: { readonly label: string; readonly items: readonly NavigationItem[]; readonly pathname: string }) {
+  return <SidebarGroup>
+    <SidebarGroupLabel>{label}</SidebarGroupLabel>
+    <SidebarGroupContent>
+      <SidebarMenu aria-label={`${label} 메뉴`}>
+        {items.map(({ href, label: itemLabel, icon: Icon }) => {
+          const active = pathname === href || (href === "/watches" && pathname.startsWith("/watches/"));
+          return <SidebarMenuItem key={href}>
+            <SidebarMenuButton render={<Link href={href} aria-current={active ? "page" : undefined} />} isActive={active} tooltip={itemLabel}>
+              <Icon /><span>{itemLabel}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>;
+        })}
+      </SidebarMenu>
+    </SidebarGroupContent>
+  </SidebarGroup>;
 }
 
 export default function AppShell({ children }: { readonly children: ReactNode }) {
@@ -36,15 +59,32 @@ export default function AppShell({ children }: { readonly children: ReactNode })
   const isWorkspace = ["/watches", "/mypage", "/admin"].some(route => pathname === route || pathname.startsWith(`${route}/`));
   if (!isLoggedIn || !isWorkspace) return <div id="main-content" tabIndex={-1}>{children}</div>;
   const isAdmin = principal?.role === "ADMIN";
-  return <div className="mx-auto grid min-h-[calc(100dvh-4rem)] max-w-screen-2xl md:grid-cols-[208px_minmax(0,1fr)]">
-    <aside className="sticky top-16 hidden h-[calc(100dvh-4rem)] flex-col gap-4 border-r bg-sidebar p-4 md:flex">
-      <p className="px-2 text-xs text-muted-foreground">워크스페이스</p>
-      <nav className="flex flex-col gap-1" aria-label="내 메뉴"><NavigationLinks items={memberNavigation} pathname={pathname} /></nav>
-      {isAdmin && <><Separator /><p className="px-2 text-xs text-muted-foreground">관리</p><nav className="flex flex-col gap-1" aria-label="관리자 메뉴"><NavigationLinks items={adminNavigation} pathname={pathname} /></nav></>}
-    </aside>
-    <div className="min-w-0" id="main-content" tabIndex={-1}>
-      <nav className="flex flex-wrap gap-1 border-b p-3 md:hidden" aria-label="페이지 메뉴"><NavigationLinks items={isAdmin ? [...memberNavigation, ...adminNavigation] : memberNavigation} pathname={pathname} /></nav>
+  const breadcrumbs = breadcrumbsOf(pathname);
+
+  return <SidebarProvider style={{ "--header-height": "4rem" } as CSSProperties} className="min-h-[calc(100svh-var(--header-height))]">
+    <Sidebar collapsible="icon" className="top-(--header-height) h-[calc(100svh-var(--header-height))]!">
+      <SidebarContent>
+        <NavigationGroup label="워크스페이스" items={memberNavigation} pathname={pathname} />
+        {isAdmin && <NavigationGroup label="관리" items={adminNavigation} pathname={pathname} />}
+      </SidebarContent>
+      <SidebarRail />
+    </Sidebar>
+    <div className="flex min-w-0 flex-1 flex-col bg-muted/40" id="main-content" tabIndex={-1}>
+      <div className="sticky top-(--header-height) z-10 flex h-12 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur">
+        <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />
+        <Breadcrumb>
+          <BreadcrumbList>
+            {breadcrumbs.map((crumb, index) => <Fragment key={crumb.label}>
+              {index > 0 && <BreadcrumbSeparator />}
+              <BreadcrumbItem>
+                {crumb.href ? <BreadcrumbLink render={<Link href={crumb.href} />}>{crumb.label}</BreadcrumbLink> : <BreadcrumbPage>{crumb.label}</BreadcrumbPage>}
+              </BreadcrumbItem>
+            </Fragment>)}
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
       {children}
     </div>
-  </div>;
+  </SidebarProvider>;
 }

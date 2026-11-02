@@ -18,14 +18,14 @@ function httpUrl(value: string | null): string | undefined {
 
 export default function SnapshotTimeline({ snapshots }: { readonly snapshots: readonly WatchSnapshot[] }) {
   const [viewMode, setViewMode] = React.useState<"full" | "diff">("diff");
-  return <section className="flex min-w-0 flex-col gap-5">
+  return <section aria-label="변경 기록" className="flex min-w-0 flex-col gap-4">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div><h2 className="text-base font-semibold">변경 타임라인</h2><p className="mt-1 text-sm text-muted-foreground">스냅샷은 한 달간 보관돼요.</p></div>
+      <p className="text-sm text-muted-foreground">변화가 감지된 순간을 기록해요. 기록은 한 달간 보관돼요.</p>
       <ToggleGroup value={[viewMode]} variant="outline" spacing={0} aria-label="스냅샷 보기 방식" onValueChange={values => { const value = values[0]; if (value === "full" || value === "diff") setViewMode(value); }}>
         <ToggleGroupItem value="diff">변경 부분</ToggleGroupItem><ToggleGroupItem value="full">전체 페이지</ToggleGroupItem>
       </ToggleGroup>
     </div>
-    {snapshots.length === 0 && <Empty className="border"><EmptyHeader><EmptyMedia variant="icon"><History /></EmptyMedia><EmptyTitle>아직 기록된 변화가 없어요</EmptyTitle><EmptyDescription>아직 저장된 스냅샷이 없어요.</EmptyDescription></EmptyHeader></Empty>}
+    {snapshots.length === 0 && <Empty className="border border-dashed bg-card"><EmptyHeader><EmptyMedia variant="icon"><History /></EmptyMedia><EmptyTitle>아직 기록된 변화가 없어요</EmptyTitle><EmptyDescription>아직 저장된 스냅샷이 없어요.</EmptyDescription></EmptyHeader></Empty>}
     {snapshots.map(snapshot => {
       const image = httpUrl(viewMode === "diff" ? snapshot.screenshotDiffUrl : snapshot.screenshotUrl);
       const html = httpUrl(viewMode === "diff" ? snapshot.htmlContentDiffUrl : snapshot.htmlContentUrl);

@@ -49,6 +49,7 @@ dependencies {
     implementation("tools.jackson.module:jackson-module-kotlin")
 
     implementation("com.oracle.cloud.spring:spring-cloud-oci-starter-vault:2.0.4")
+    implementation("com.oracle.cloud.spring:spring-cloud-oci-starter-queue:2.0.4")
 
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3")
 

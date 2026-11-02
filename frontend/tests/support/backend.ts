@@ -20,7 +20,7 @@ let sequence = 100;
 function makeState(): State {
   const member = { id: 7, nickname: "테스트 회원", email: "member@example.com", profileImageUrl: "/watchtower-icon.svg", lastSignInAt: timestamp };
   const tower: Watch = { id: 9, name: "채용 공고", url: "https://example.com/jobs", fetchInterval: "PT5M", includeInStat: true,
-    status: "RUNNING", faviconUrl: "/watchtower-icon.svg", lastFetchedAt: timestamp, lastNotifiedAt: timestamp, latestAiSummary: "새 공고가 등록되었어요." };
+    status: "CRAWLING_READY", faviconUrl: "/watchtower-icon.svg", lastFetchedAt: timestamp, lastNotifiedAt: timestamp, latestAiSummary: "새 공고가 등록되었어요." };
   return { member, towers: [tower], channels: [{ id: 3, name: "개발 알림", type: "DISCORD", webhookUrl: "https://example.com/hooks/test" }],
     conditions: new Map([[9, [{ id: 1, type: "HTML" }]]]), records: [],
     members: [
@@ -73,6 +73,14 @@ const server = createServer(async (request, response) => {
   const send = (data: unknown) => { response.end(JSON.stringify(data)); };
   if (path === "/health") { send(success()); return; }
   if (path === "/__test/invalidate") { invalidSessions.add(url.searchParams.get("session") ?? ""); send(success()); return; }
+  if (path === "/__test/fail-crawl") {
+    const failedSession = url.searchParams.get("session") ?? "";
+    const failed = states.get(failedSession) ?? makeState();
+    const towerId = Number(url.searchParams.get("towerId"));
+    failed.towers = failed.towers.map(item => item.id === towerId ? { ...item, status: "CRAWLING_ERROR" } : item);
+    states.set(failedSession, failed);
+    send(success()); return;
+  }
   if (path === "/__test/records") { send(success(states.get(url.searchParams.get("session") ?? "")?.records ?? [])); return; }
   state.records.push({ method, path: url.pathname, body, csrf });
   if (path === "/auth/csrf") {
@@ -117,11 +125,11 @@ const server = createServer(async (request, response) => {
   if (path === "/towers" && method === "POST") {
     if (typeof body.name !== "string" || typeof body.url !== "string" || typeof body.fetchInterval !== "string" || typeof body.includeInStat !== "boolean" || !Array.isArray(body.conditions)) { send(failure("COM_001", "타워 요청 오류")); return; }
     const id = ++sequence;
-    state.towers.push({ id, name: body.name, url: body.url, fetchInterval: body.fetchInterval, includeInStat: body.includeInStat, status: "RUNNING", faviconUrl: null, lastFetchedAt: null, lastNotifiedAt: null });
+    state.towers.push({ id, name: body.name, url: body.url, fetchInterval: body.fetchInterval, includeInStat: body.includeInStat, status: "CRAWLING", faviconUrl: null, lastFetchedAt: null, lastNotifiedAt: null });
     state.conditions.set(id, body.conditions.flatMap(item => { const result = record(item) ? condition(item, ++sequence) : null; return result ? [result] : []; }));
     send(success()); return;
   }
-  const towerMatch = /^\/towers\/(\d+)(?:\/(conditions|snapshots)(?:\/(\d+))?)?$/.exec(path);
+  const towerMatch = /^\/towers\/(\d+)(?:\/(conditions|snapshots|crawl-retry)(?:\/(\d+))?)?$/.exec(path);
   if (towerMatch) {
     const id = Number(towerMatch[1]);
     const tower = state.towers.find(item => item.id === id);
@@ -136,12 +144,19 @@ const server = createServer(async (request, response) => {
       state.conditions.set(id, method === "PUT" ? items.map(old => old.id === cid ? item : old) : [...items, item]);
       send(method === "PUT" ? success(item) : success()); return;
     }
+    if (towerMatch[2] === "crawl-retry" && method === "POST") {
+      if (tower.status !== "CRAWLING_ERROR") { send(failure("TOW_005", "크롤링에 실패한 타워만 다시 시도할 수 있습니다.")); return; }
+      const retried: Watch = { ...tower, status: "CRAWLING" };
+      state.towers = state.towers.map(item => item.id === id ? retried : item); send(success(retried)); return;
+    }
     if (towerMatch[2] === "snapshots") {
       send(success([{ id: 1, htmlContentUrl: "https://example.com/full.html", htmlContentDiffUrl: "https://example.com/diff.html", screenshotUrl: null, screenshotDiffUrl: null, aiDiffSummary: "신규 채용 공고", notifiedAt: timestamp }])); return;
     }
     if (method === "DELETE") { state.towers = state.towers.filter(item => item.id !== id); send(success()); return; }
-    if (method === "PUT" && typeof body.name === "string" && typeof body.fetchInterval === "string" && typeof body.includeInStat === "boolean" && (body.status === "RUNNING" || body.status === "PAUSED")) {
-      const updated: Watch = { ...tower, name: body.name, fetchInterval: body.fetchInterval, includeInStat: body.includeInStat, status: body.status };
+    if (method === "PUT" && typeof body.name === "string" && typeof body.fetchInterval === "string" && typeof body.includeInStat === "boolean" && (body.status === "CRAWLING_READY" || body.status === "USER_PAUSED")) {
+      if (tower.status === "ADMIN_PAUSED") { send(failure("PER_001", "접근 권한이 없습니다.")); return; }
+      const status = body.status === "USER_PAUSED" ? "USER_PAUSED" : tower.status === "USER_PAUSED" ? "CRAWLING_READY" : tower.status;
+      const updated: Watch = { ...tower, name: body.name, fetchInterval: body.fetchInterval, includeInStat: body.includeInStat, status };
       state.towers = state.towers.map(item => item.id === id ? updated : item); send(success(updated)); return;
     }
     send(success(tower)); return;
@@ -169,13 +184,13 @@ const server = createServer(async (request, response) => {
     state.members = state.members.map(item => item.id === id ? updated : item); send(success(updated)); return;
   }
   const adminTower = /^\/admin\/towers\/(\d+)$/.exec(path);
-  if (adminTower && (body.status === "RUNNING" || body.status === "PAUSED" || body.status === "ILLEGAL_SUSPENDED")) {
+  if (adminTower && (body.status === "CRAWLING_READY" || body.status === "CRAWLING_ERROR" || body.status === "USER_PAUSED" || body.status === "ADMIN_PAUSED")) {
     const id = Number(adminTower[1]);
     const status = body.status;
     state.towers = state.towers.map(item => item.id === id ? { ...item, status } : item);
     send(success(state.towers.find(item => item.id === id))); return;
   }
-  if (path === "/admin/stats/towers") { send(success({ totalCount: 1, runningCount: 1, pausedCount: 0, illegalSuspendedCount: 0 })); return; }
+  if (path === "/admin/stats/towers") { send(success({ totalCount: 1, crawlingReadyCount: 1, crawlingErrorCount: 0, crawlingCount: 0, userPausedCount: 0, adminPausedCount: 0 })); return; }
   if (path === "/admin/stats/members") { send(success({ totalCount: 3, activeCount: 1, bannedCount: 1, deletedCount: 1 })); return; }
   if (path === "/admin/stats/auth") { send(success({ signUps: { last7Days: 3, last30Days: 8 }, signIns: { last7Days: 12, last30Days: 40 } })); return; }
   response.statusCode = 404;

@@ -7,7 +7,9 @@ import kr.byeongmin.watchtower.domain.subscription.entity.Plan
 import kr.byeongmin.watchtower.domain.tower.dto.TowerCreateRequestDto
 import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
 import kr.byeongmin.watchtower.domain.tower.enums.UpdatableTowerStatus
+import kr.byeongmin.watchtower.domain.tower.error.TowerError
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
+import kr.byeongmin.watchtower.external.oci.queue.dto.CrawlResultDto
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.junit.jupiter.api.Test
@@ -16,6 +18,7 @@ import org.junit.jupiter.params.provider.CsvSource
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import java.time.Duration
+import java.time.LocalDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -36,13 +39,151 @@ class TowerTest {
     )
     private val tower = Tower.from(owner, request)
 
+    private fun crawlResultDto(
+        resultStatus: CrawlResultDto.CrawlResultStatus,
+        httpStatusCode: Int? = null,
+        crawlEndedAt: LocalDateTime = LocalDateTime.of(2026, 11, 3, 1, 0)
+    ): CrawlResultDto {
+        return CrawlResultDto(
+            towerId = 7L,
+            url = "https://example.com",
+            scheduledAt = "2026-11-03T00:59:00.000Z",
+            crawlStartedAt = crawlEndedAt.minusSeconds(5),
+            crawlEndedAt = crawlEndedAt,
+            resultStatus = resultStatus,
+            httpStatusCode = httpStatusCode,
+            finalUrl = null,
+            htmlObjectName = null,
+            errorCode = null,
+            triggeredByMemberId = null
+        )
+    }
+
     @Test
-    fun `새로 만든 타워는 실행 중 상태로 시작함`() {
+    fun `새로 만든 타워는 첫 크롤링을 요청한 크롤링 중 상태로 시작함`() {
         /** when */
         val result = Tower.from(owner, request)
 
         /** then */
-        assertEquals(TowerStatus.RUNNING, result.status)
+        assertEquals(TowerStatus.CRAWLING, result.status)
+    }
+
+    @Test
+    fun `크롤링 중인 타워가 2xx 로 페이지를 받으면 다음 크롤링 대기로 바뀌고 수집 시각이 기록됨`() {
+        /** given */
+        val crawlEndedAt = LocalDateTime.of(2026, 11, 3, 1, 0)
+
+        /** when */
+        tower.applyCrawlResult(
+            crawlResultDto(
+                CrawlResultDto.CrawlResultStatus.FETCHED,
+                httpStatusCode = 200,
+                crawlEndedAt = crawlEndedAt
+            )
+        )
+
+        /** then */
+        assertEquals(TowerStatus.CRAWLING_READY, tower.status)
+        assertEquals(crawlEndedAt, tower.lastFetchedAt)
+    }
+
+    @Test
+    fun `크롤링 중인 타워의 크롤링이 실패하면 크롤링 실패 상태로 바뀜`() {
+        /** when */
+        tower.applyCrawlResult(crawlResultDto(CrawlResultDto.CrawlResultStatus.FAILED))
+
+        /** then */
+        assertEquals(TowerStatus.CRAWLING_ERROR, tower.status)
+        assertFalse(tower.isDeleted())
+    }
+
+    @ParameterizedTest
+    @CsvSource("404", "503")
+    fun `크롤링 중인 타워가 2xx 가 아닌 응답으로 페이지를 받으면 크롤링 실패 상태로 바뀜`(httpStatusCode: Int) {
+        /** when */
+        tower.applyCrawlResult(
+            crawlResultDto(
+                CrawlResultDto.CrawlResultStatus.FETCHED,
+                httpStatusCode = httpStatusCode
+            )
+        )
+
+        /** then */
+        assertEquals(TowerStatus.CRAWLING_ERROR, tower.status)
+    }
+
+    @Test
+    fun `크롤링 중에 회원이 일시정지한 타워는 결과가 와도 정지 상태를 유지하고 수집 시각만 기록됨`() {
+        /** given */
+        tower.changeStatusByMember(UpdatableTowerStatus.USER_PAUSED)
+        val crawlEndedAt = LocalDateTime.of(2026, 11, 3, 1, 0)
+
+        /** when */
+        tower.applyCrawlResult(
+            crawlResultDto(
+                CrawlResultDto.CrawlResultStatus.FETCHED,
+                httpStatusCode = 200,
+                crawlEndedAt = crawlEndedAt
+            )
+        )
+
+        /** then */
+        assertEquals(TowerStatus.USER_PAUSED, tower.status)
+        assertEquals(crawlEndedAt, tower.lastFetchedAt)
+    }
+
+    @Test
+    fun `크롤링에 실패한 타워를 재시도하면 크롤링 중으로 바뀜`() {
+        /** given */
+        tower.applyCrawlResult(crawlResultDto(CrawlResultDto.CrawlResultStatus.FAILED))
+
+        /** when */
+        tower.retryCrawl()
+
+        /** then */
+        assertEquals(TowerStatus.CRAWLING, tower.status)
+    }
+
+    @ParameterizedTest
+    @CsvSource("CRAWLING_READY", "USER_PAUSED", "ADMIN_PAUSED")
+    fun `크롤링에 실패하지 않은 타워는 재시도할 수 없음`(status: TowerStatus) {
+        /** given */
+        tower.changeStatusByAdmin(status)
+
+        /** when */
+        val exception = assertFailsWith<BusinessException> {
+            tower.retryCrawl()
+        }
+
+        /** then */
+        assertEquals(TowerError.CRAWL_NOT_RETRYABLE, exception.error)
+        assertEquals(status, tower.status)
+    }
+
+    @Test
+    fun `크롤링 중인 타워는 재시도해 크롤링 요청을 또 넣을 수 없음`() {
+        /** when */
+        val exception = assertFailsWith<BusinessException> {
+            tower.retryCrawl()
+        }
+
+        /** then */
+        assertEquals(TowerError.CRAWL_NOT_RETRYABLE, exception.error)
+    }
+
+    @Test
+    fun `어드민도 크롤링 요청 없이 타워를 크롤링 중 상태로 바꿀 수 없음`() {
+        /** given */
+        tower.changeStatusByAdmin(TowerStatus.CRAWLING_READY)
+
+        /** when */
+        val exception = assertFailsWith<BusinessException> {
+            tower.changeStatusByAdmin(TowerStatus.CRAWLING)
+        }
+
+        /** then */
+        assertEquals(CommonError.INVALID_INPUT_VALUE, exception.error)
+        assertEquals(TowerStatus.CRAWLING_READY, tower.status)
     }
 
     @Test
@@ -112,44 +253,65 @@ class TowerTest {
         assertFalse(tower.includeInStat)
     }
 
+    @Test
+    fun `회원은 일시정지한 자신의 타워를 크롤링 대기로 되돌릴 수 있음`() {
+        /** given */
+        tower.changeStatusByAdmin(TowerStatus.USER_PAUSED)
+
+        /** when */
+        tower.changeStatusByMember(UpdatableTowerStatus.CRAWLING_READY)
+
+        /** then */
+        assertEquals(TowerStatus.CRAWLING_READY, tower.status)
+    }
+
     @ParameterizedTest
-    @CsvSource("RUNNING,PAUSED", "PAUSED,PAUSED", "ILLEGAL_SUSPENDED,ILLEGAL_SUSPENDED")
-    fun `실행 중인 타워만 일시정지되고 이미 정지된 타워의 상태는 유지됨`(before: TowerStatus, after: TowerStatus) {
+    @CsvSource("CRAWLING_READY", "CRAWLING_ERROR")
+    fun `회원은 크롤링 대기나 실패한 타워를 일시정지할 수 있음`(status: TowerStatus) {
         /** given */
-        tower.changeStatusByAdmin(before)
+        tower.changeStatusByAdmin(status)
 
         /** when */
-        tower.pause()
+        tower.changeStatusByMember(UpdatableTowerStatus.USER_PAUSED)
 
         /** then */
-        assertEquals(after, tower.status)
+        assertEquals(TowerStatus.USER_PAUSED, tower.status)
     }
 
     @Test
-    fun `회원은 일시정지한 자신의 타워를 다시 실행할 수 있음`() {
-        /** given */
-        tower.changeStatusByAdmin(TowerStatus.PAUSED)
-
+    fun `회원이 크롤링 중인 타워를 크롤링 대기로 바꾸려 해도 결과를 반영할 수 있게 크롤링 중 상태를 유지함`() {
         /** when */
-        tower.changeStatusByMember(UpdatableTowerStatus.RUNNING)
+        tower.changeStatusByMember(UpdatableTowerStatus.CRAWLING_READY)
 
         /** then */
-        assertEquals(TowerStatus.RUNNING, tower.status)
+        assertEquals(TowerStatus.CRAWLING, tower.status)
     }
 
     @Test
-    fun `회원은 정책 위반으로 정지된 타워의 상태 변경 불가`() {
+    fun `회원이 크롤링에 실패한 타워를 크롤링 대기로 바꾸려 해도 재시도 전까지 실패 상태를 유지함`() {
         /** given */
-        tower.changeStatusByAdmin(TowerStatus.ILLEGAL_SUSPENDED)
+        tower.changeStatusByAdmin(TowerStatus.CRAWLING_ERROR)
+
+        /** when */
+        tower.changeStatusByMember(UpdatableTowerStatus.CRAWLING_READY)
+
+        /** then */
+        assertEquals(TowerStatus.CRAWLING_ERROR, tower.status)
+    }
+
+    @Test
+    fun `회원은 관리자가 정지한 타워의 상태 변경 불가`() {
+        /** given */
+        tower.changeStatusByAdmin(TowerStatus.ADMIN_PAUSED)
 
         /** when */
         val exception = assertFailsWith<BusinessException> {
-            tower.changeStatusByMember(UpdatableTowerStatus.RUNNING)
+            tower.changeStatusByMember(UpdatableTowerStatus.CRAWLING_READY)
         }
 
         /** then */
         assertEquals(CommonError.PERMISSION_DENIED, exception.error)
-        assertEquals(TowerStatus.ILLEGAL_SUSPENDED, tower.status)
+        assertEquals(TowerStatus.ADMIN_PAUSED, tower.status)
     }
 
     @Test

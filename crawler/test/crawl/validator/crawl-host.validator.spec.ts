@@ -1,0 +1,206 @@
+import { CrawlHostValidator } from '../../../src/crawl/validator/crawl-host.validator.js';
+import { DnsResolver } from '../../../src/external/dns/dns-resolver.js';
+
+function createDnsResolver(records: Record<string, string[]>): DnsResolver {
+  const dnsResolver = new DnsResolver();
+  vi.spyOn(dnsResolver, 'resolveAll').mockImplementation(async (host) => records[host] ?? []);
+  return dnsResolver;
+}
+
+describe('CrawlHostValidator', () => {
+  it('외부 IPv4와 IPv6 주소로만 조회되는 호스트는 접근을 허용함', async () => {
+    for (const address of ['8.8.8.8', '2001:4860:4860::8888']) {
+      // given
+      const hostValidator = new CrawlHostValidator(createDnsResolver({ 'target.example': [address] }));
+
+      // when
+      const result = await hostValidator.isAllowedUrl('https://target.example/');
+
+      // then
+      expect(result, address).toBe(true);
+    }
+  });
+
+  it('내부망, 메타데이터, 멀티캐스트 주소로 조회되는 호스트는 접근을 허용하지 않음', async () => {
+    for (const address of [
+      '0.0.0.0',
+      '127.0.0.1',
+      '10.0.0.163',
+      '100.64.0.1',
+      '172.16.0.1',
+      '192.168.0.1',
+      '169.254.169.254',
+      '224.0.0.1',
+      '::',
+      '::1',
+      'fc00::1',
+      'fd12:3456::1',
+      'fe80::1',
+      'fec0::1',
+      'ff02::1'
+    ]) {
+      // given
+      const hostValidator = new CrawlHostValidator(createDnsResolver({ 'target.example': [address] }));
+
+      // when
+      const result = await hostValidator.isAllowedUrl('https://target.example/');
+
+      // then
+      expect(result, address).toBe(false);
+    }
+  });
+
+  it('IPv6 형식으로 감싼 내부 IPv4 주소로 조회되는 호스트도 접근을 허용하지 않음', async () => {
+    // given
+    const hostValidator = new CrawlHostValidator(createDnsResolver({ 'target.example': ['::ffff:169.254.169.254'] }));
+
+    // when
+    const result = await hostValidator.isAllowedUrl('https://target.example/');
+
+    // then
+    expect(result).toBe(false);
+  });
+
+  it('내부 IPv4 를 감쌀 수 있는 NAT64, 6to4, Teredo 주소와 예약 대역으로 조회되는 호스트는 접근을 허용하지 않음', async () => {
+    for (const address of [
+      '64:ff9b::a9fe:a9fe',
+      '2002:a9fe:a9fe::1',
+      '2001::1',
+      '198.18.0.1',
+      '240.0.0.1',
+      '192.0.0.1',
+      '2001:db8::1'
+    ]) {
+      // given
+      const hostValidator = new CrawlHostValidator(createDnsResolver({ 'target.example': [address] }));
+
+      // when
+      const result = await hostValidator.isAllowedUrl('https://target.example/');
+
+      // then
+      expect(result, address).toBe(false);
+    }
+  });
+
+  it('IPv6 형식으로 감싼 외부 IPv4 주소로 조회되는 호스트는 접근을 허용함', async () => {
+    // given
+    const hostValidator = new CrawlHostValidator(createDnsResolver({ 'target.example': ['::ffff:93.184.216.34'] }));
+
+    // when
+    const result = await hostValidator.isAllowedUrl('https://target.example/');
+
+    // then
+    expect(result).toBe(true);
+  });
+
+  it('IP 형식이 아닌 조회 결과는 판단할 수 없으므로 접근을 허용하지 않음', async () => {
+    // given
+    const hostValidator = new CrawlHostValidator(createDnsResolver({ 'target.example': ['not-an-ip'] }));
+
+    // when
+    const result = await hostValidator.isAllowedUrl('https://target.example/');
+
+    // then
+    expect(result).toBe(false);
+  });
+
+  it('조회된 주소가 모두 외부 주소일 때만 접근을 허용함', async () => {
+    // given
+    const hostValidator = new CrawlHostValidator(
+      createDnsResolver({
+        'example.com': ['93.184.216.34', '2606:2800:220:1::1'],
+        'mixed.example': ['8.8.8.8', '10.0.0.1']
+      })
+    );
+
+    // when
+    const results = await Promise.all([
+      hostValidator.isAllowedUrl('https://example.com/'),
+      hostValidator.isAllowedUrl('https://mixed.example/')
+    ]);
+
+    // then
+    expect(results).toEqual([true, false]);
+  });
+
+  it('조회 결과가 없으면 접근을 허용하지 않음', async () => {
+    // given
+    const hostValidator = new CrawlHostValidator(createDnsResolver({}));
+
+    // when
+    const result = await hostValidator.isAllowedUrl('https://unknown.example/');
+
+    // then
+    expect(result).toBe(false);
+  });
+
+  it('한 번의 크롤링 안에서 같은 호스트는 한 번만 조회함', async () => {
+    // given
+    const dnsResolver = createDnsResolver({ 'example.com': ['8.8.8.8'] });
+    const hostValidator = new CrawlHostValidator(dnsResolver);
+
+    // when
+    await Promise.all([
+      hostValidator.isAllowedUrl('https://example.com/'),
+      hostValidator.isAllowedUrl('https://example.com/')
+    ]);
+
+    // then
+    expect(dnsResolver.resolveAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('대괄호로 감싼 IPv6 호스트는 대괄호를 벗겨서 조회함', async () => {
+    // given
+    const dnsResolver = createDnsResolver({ '::1': ['::1'] });
+    const hostValidator = new CrawlHostValidator(dnsResolver);
+
+    // when
+    const result = await hostValidator.isAllowedUrl('http://[::1]/');
+
+    // then
+    expect(dnsResolver.resolveAll).toHaveBeenCalledWith('::1');
+    expect(result).toBe(false);
+  });
+
+  it('http(s) 가 아닌 주소는 호스트를 조회하지 않고 거부함', async () => {
+    // given
+    const dnsResolver = createDnsResolver({ 'example.com': ['8.8.8.8'] });
+    const hostValidator = new CrawlHostValidator(dnsResolver);
+
+    // when
+    const result = await hostValidator.isAllowedUrl('ftp://example.com/file');
+
+    // then
+    expect(result).toBe(false);
+    expect(dnsResolver.resolveAll).not.toHaveBeenCalled();
+  });
+  it('WebSocket 주소도 http(s) 와 같은 기준으로 공인 주소일 때만 허용함', async () => {
+    // given
+    const hostValidator = new CrawlHostValidator(
+      createDnsResolver({ 'public.example': ['93.184.216.34'], 'internal.example': ['10.0.0.1'] })
+    );
+
+    // when
+    const isPublicWsAllowed = await hostValidator.isAllowedWebSocketUrl('ws://public.example/socket');
+    const isPublicWssAllowed = await hostValidator.isAllowedWebSocketUrl('wss://public.example/socket');
+    const isInternalWssAllowed = await hostValidator.isAllowedWebSocketUrl('wss://internal.example/socket');
+
+    // then
+    expect(isPublicWsAllowed).toBe(true);
+    expect(isPublicWssAllowed).toBe(true);
+    expect(isInternalWssAllowed).toBe(false);
+  });
+
+  it('ws, wss 가 아닌 주소는 WebSocket 주소로 허용하지 않음', async () => {
+    // given
+    const hostValidator = new CrawlHostValidator(createDnsResolver({ 'public.example': ['93.184.216.34'] }));
+
+    // when
+    const isHttpAllowed = await hostValidator.isAllowedWebSocketUrl('https://public.example/socket');
+    const isInvalidAllowed = await hostValidator.isAllowedWebSocketUrl('not a url');
+
+    // then
+    expect(isHttpAllowed).toBe(false);
+    expect(isInvalidAllowed).toBe(false);
+  });
+});

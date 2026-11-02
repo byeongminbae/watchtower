@@ -1,0 +1,12 @@
+{
+  "healthchecks": {
+    "web": [
+      {
+        "type": "startup",
+        "name": "worker uptime",
+        "uptime": 10,
+        "attempts": 3
+      }
+    ]
+  }
+}

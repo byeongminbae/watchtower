@@ -11,7 +11,7 @@ import kr.byeongmin.watchtower.domain.tower.dto.TowerCreateRequestDto
 import kr.byeongmin.watchtower.domain.tower.entity.Tower
 import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
-import kr.byeongmin.watchtower.external.naver.dto.NaverProfileResponseDto
+import kr.byeongmin.watchtower.external.naver.auth.dto.NaverProfileResponseDto
 import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
@@ -86,12 +86,12 @@ class AdminServiceTest {
         /** when */
         val response = adminService.updateTowerStatus(
             towerId,
-            towerStatusUpdateRequestDto = TowerStatusUpdateRequestDto(TowerStatus.ILLEGAL_SUSPENDED)
+            towerStatusUpdateRequestDto = TowerStatusUpdateRequestDto(TowerStatus.ADMIN_PAUSED)
         )
 
         /** then */
-        assertEquals(TowerStatus.ILLEGAL_SUSPENDED, response.data.status)
-        assertEquals(TowerStatus.ILLEGAL_SUSPENDED, tower.status)
+        assertEquals(TowerStatus.ADMIN_PAUSED, response.data.status)
+        assertEquals(TowerStatus.ADMIN_PAUSED, tower.status)
     }
 
     @Test
@@ -104,7 +104,7 @@ class AdminServiceTest {
         val exception = assertFailsWith<BusinessException> {
             adminService.updateTowerStatus(
                 towerId,
-                towerStatusUpdateRequestDto = TowerStatusUpdateRequestDto(TowerStatus.ILLEGAL_SUSPENDED)
+                towerStatusUpdateRequestDto = TowerStatusUpdateRequestDto(TowerStatus.ADMIN_PAUSED)
             )
         }
 

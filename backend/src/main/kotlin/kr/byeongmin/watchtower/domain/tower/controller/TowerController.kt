@@ -68,6 +68,16 @@ class TowerController(
         return towerService.deleteTower(memberId = memberId, towerId = towerId)
     }
 
+    @Operation(summary = "크롤링에 실패한 타워 재시도")
+    @PostMapping("/{towerId}/crawl-retry")
+    @MemberOnly
+    fun retryCrawl(
+        @MemberId memberId: Long,
+        @PathVariable towerId: Long
+    ): SuccessDataResponse<TowerResponseDto> {
+        return towerService.retryCrawl(memberId = memberId, towerId = towerId)
+    }
+
     /** 현재는 타워 소유권만 확인한다. 서비스의 알림 발송 연동은 미구현이다. */
     @Operation(summary = "테스트 알림 발송")
     @PostMapping("/{towerId}/notify")

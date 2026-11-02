@@ -1,10 +1,9 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { Bell, ChartNoAxesCombined, Check, CircleCheck, Clock3 } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Bell, CircleCheck, Clock3 } from "lucide-react";
+import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { formatDateTime, formatRelativeTime, toDate } from "@/lib/dateTime";
 import { formatFetchInterval, intervalMinutes } from "@/lib/tower";
 import type { Watch } from "@/types/tower";
@@ -18,44 +17,51 @@ function currentTime() {
   return Math.floor(Date.now() / 30_000) * 30_000;
 }
 
+function RecentTime({ value, now, emptyText }: { readonly value: string | null; readonly now: number | null; readonly emptyText: string }) {
+  if (value === null) return <span className="text-muted-foreground">{emptyText}</span>;
+  return <time dateTime={value} title={formatDateTime(value)}>{now === null ? formatDateTime(value) : formatRelativeTime(value, now)}</time>;
+}
+
+/** 확인 주기와 다음 확인까지의 진행, 최근 확인과 최근 알림 시각을 지표 카드로 보여줌 */
 export default function WatchActivity({ watch }: { readonly watch: Watch }) {
   const now = useSyncExternalStore<number | null>(subscribeClock, currentTime, () => null);
   const interval = intervalMinutes(watch.fetchInterval) * 60_000;
   const elapsed = watch.lastFetchedAt && now !== null ? now - toDate(watch.lastFetchedAt).getTime() : null;
-  const running = watch.status === "RUNNING";
+  const running = watch.status === "CRAWLING_READY" || watch.status === "CRAWLING";
   const progress = running && elapsed !== null && Number.isFinite(interval) && interval > 0 ? Math.min(1, Math.max(0, elapsed / interval)) : 0;
   const remaining = elapsed === null ? null : Math.max(0, Math.ceil((interval - elapsed) / 60_000));
-  const checkMessage = !running ? "감시가 멈춰 있어요" : remaining === null ? "첫 확인을 기다리고 있어요" : remaining > 0 ? `다음 확인까지 약 ${remaining}분` : "다음 확인을 기다리고 있어요";
+  const checkMessage = watch.status === "CRAWLING" ? "지금 페이지를 확인하고 있어요"
+    : watch.status === "CRAWLING_ERROR" ? "확인에 실패해서 감시가 멈춰 있어요"
+    : !running ? "감시가 멈춰 있어요"
+    : remaining === null ? "첫 확인을 기다리고 있어요" : remaining > 0 ? `다음 확인까지 약 ${remaining}분` : "다음 확인을 기다리고 있어요";
 
-  return <section aria-label="감시 활동" className="grid gap-6 rounded-lg border p-4 sm:grid-cols-2">
-    <div className="flex min-w-0 items-center gap-4">
-      <div className="relative flex shrink-0 items-center justify-center" aria-hidden="true">
-        <svg viewBox="0 0 48 48" className="size-14 -rotate-90 fill-none">
-          <circle cx="24" cy="24" r="21" className="stroke-border" strokeWidth="3" />
-          <circle cx="24" cy="24" r="21" className="stroke-primary" strokeWidth="3" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - progress * 100} />
-        </svg>
-        <Clock3 className="absolute size-5 text-primary" />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <p className="font-medium"><span className="text-lg font-semibold tabular-nums">{formatFetchInterval(watch.fetchInterval)}</span><span className="ml-1 text-sm text-muted-foreground">마다 확인</span></p>
+  return <section aria-label="감시 활동" className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+    <Card className="col-span-2 sm:col-span-1">
+      <CardHeader>
+        <CardDescription>확인 주기</CardDescription>
+        <CardTitle className="text-2xl font-semibold tabular-nums">{formatFetchInterval(watch.fetchInterval)}<span className="ml-1 text-sm font-normal text-muted-foreground">마다</span></CardTitle>
+        <CardAction><Clock3 className="text-muted-foreground" aria-hidden="true" /></CardAction>
+      </CardHeader>
+      <CardFooter className="flex-col items-start gap-2">
         <p className="text-xs text-muted-foreground">{checkMessage}</p>
-        <Tooltip>
-          <TooltipTrigger render={<span tabIndex={0} className="w-fit" />} aria-label={watch.includeInStat ? "인기 URL 통계에 포함" : "인기 URL 통계에서 제외"}>
-            <Badge variant={watch.includeInStat ? "secondary" : "outline"}><ChartNoAxesCombined data-icon="inline-start" />{watch.includeInStat ? "인기 집계 참여" : "인기 집계 제외"}{watch.includeInStat && <Check data-icon="inline-end" />}</Badge>
-          </TooltipTrigger>
-          <TooltipContent>{watch.includeInStat ? "이 페이지의 변화가 인기 URL 집계에 반영돼요." : "이 페이지의 변화는 인기 URL 집계에 반영되지 않아요."}</TooltipContent>
-        </Tooltip>
-      </div>
-    </div>
-    <div className="flex min-w-0 flex-col gap-4">
-      <div className="flex items-center gap-3">
-        <Avatar><AvatarFallback><CircleCheck aria-hidden="true" /></AvatarFallback></Avatar>
-        <div className="min-w-0"><p className="text-xs text-muted-foreground">최근 확인</p>{watch.lastFetchedAt ? <time dateTime={watch.lastFetchedAt} title={formatDateTime(watch.lastFetchedAt)} className="text-sm font-medium">{now === null ? "확인 기록 있음" : formatRelativeTime(watch.lastFetchedAt, now)}</time> : <p className="text-sm">첫 확인 대기</p>}</div>
-      </div>
-      <div className="flex items-center gap-3">
-        <Avatar><AvatarFallback><Bell aria-hidden="true" /></AvatarFallback></Avatar>
-        <div className="min-w-0"><p className="text-xs text-muted-foreground">최근 알림</p>{watch.lastNotifiedAt ? <time dateTime={watch.lastNotifiedAt} title={formatDateTime(watch.lastNotifiedAt)} className="text-sm font-medium">{now === null ? "알림 기록 있음" : formatRelativeTime(watch.lastNotifiedAt, now)}</time> : <p className="text-sm">아직 보낸 알림이 없어요</p>}</div>
-      </div>
-    </div>
+        <Progress value={progress * 100} aria-label="다음 확인까지 진행" className="w-full" />
+      </CardFooter>
+    </Card>
+    <Card>
+      <CardHeader>
+        <CardDescription>최근 확인</CardDescription>
+        <CardTitle className="text-2xl font-semibold"><RecentTime value={watch.lastFetchedAt} now={now} emptyText="대기 중" /></CardTitle>
+        <CardAction><CircleCheck className="text-muted-foreground" aria-hidden="true" /></CardAction>
+      </CardHeader>
+      <CardFooter><p className="text-xs text-muted-foreground">{watch.lastFetchedAt ? formatDateTime(watch.lastFetchedAt) : "첫 확인을 기다리고 있어요"}</p></CardFooter>
+    </Card>
+    <Card>
+      <CardHeader>
+        <CardDescription>최근 알림</CardDescription>
+        <CardTitle className="text-2xl font-semibold"><RecentTime value={watch.lastNotifiedAt} now={now} emptyText="없음" /></CardTitle>
+        <CardAction><Bell className="text-muted-foreground" aria-hidden="true" /></CardAction>
+      </CardHeader>
+      <CardFooter><p className="text-xs text-muted-foreground">{watch.lastNotifiedAt ? formatDateTime(watch.lastNotifiedAt) : "아직 보낸 알림이 없어요"}</p></CardFooter>
+    </Card>
   </section>;
 }

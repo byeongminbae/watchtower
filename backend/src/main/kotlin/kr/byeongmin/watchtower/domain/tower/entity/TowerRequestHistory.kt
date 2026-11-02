@@ -2,6 +2,7 @@ package kr.byeongmin.watchtower.domain.tower.entity
 
 import jakarta.persistence.*
 import kr.byeongmin.watchtower.domain.member.entity.Member
+import kr.byeongmin.watchtower.external.oci.queue.dto.CrawlResultDto
 import kr.byeongmin.watchtower.global.entity.HistoryBase
 import java.time.LocalDateTime
 
@@ -11,7 +12,8 @@ import java.time.LocalDateTime
  * @property [url] 요청 시점의 감시 대상 URL
  * @property [startedAt] 확인 요청을 시작한 시각
  * @property [endedAt] 확인 요청을 마친 시각
- * @property [httpStatusCode] 확인 응답의 HTTP 상태 코드
+ * @property [httpStatusCode] 확인 응답의 HTTP 상태 코드. 응답을 받지 못하고 실패했으면 null
+ * @property [errorCode] 크롤링에 실패한 이유(크롤러의 CrawlError 코드). 페이지를 받아왔으면 null
  * @property [changed] 이번 요청에서 변화가 감지되었는지 여부 (Hot 타워리스트 집계 기준)
  * @property [triggeredBy] 요청을 시작한 회원. null은 자동 요청
  */
@@ -22,7 +24,8 @@ class TowerRequestHistory private constructor(
     val url: String,
     val startedAt: LocalDateTime,
     val endedAt: LocalDateTime,
-    val httpStatusCode: Int,
+    val httpStatusCode: Int?,
+    val errorCode: String?,
     val changed: Boolean,
     @ManyToOne(fetch = FetchType.LAZY)
     val triggeredBy: Member? = null
@@ -40,22 +43,20 @@ class TowerRequestHistory private constructor(
     override val id: Long? = null
 
     companion object {
-        /** 시간 순서나 HTTP 상태 코드 범위는 검증하지 않음 */
+        /** @param [changed] 이전 수집본과 비교해 변화를 감지했는지 */
         fun from(
             tower: Tower,
-            url: String,
-            startedAt: LocalDateTime,
-            endedAt: LocalDateTime,
-            httpStatusCode: Int,
+            crawlResultDto: CrawlResultDto,
             changed: Boolean,
             triggeredBy: Member?
         ): TowerRequestHistory {
             return TowerRequestHistory(
                 tower = tower,
-                url = url,
-                startedAt = startedAt,
-                endedAt = endedAt,
-                httpStatusCode = httpStatusCode,
+                url = crawlResultDto.url,
+                startedAt = crawlResultDto.crawlStartedAt,
+                endedAt = crawlResultDto.crawlEndedAt,
+                httpStatusCode = crawlResultDto.httpStatusCode,
+                errorCode = crawlResultDto.errorCode,
                 changed = changed,
                 triggeredBy = triggeredBy
             )
