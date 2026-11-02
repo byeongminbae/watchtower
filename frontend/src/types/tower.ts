@@ -1,4 +1,5 @@
-export type WatchStatus = "RUNNING" | "PAUSED" | "ILLEGAL_SUSPENDED";
+export type WatchStatus = "CRAWLING_READY" | "CRAWLING_ERROR" | "CRAWLING" | "USER_PAUSED" | "ADMIN_PAUSED";
+export type MemberWatchStatus = "CRAWLING_READY" | "USER_PAUSED";
 export type WatchConditionType = "KEYWORD" | "REGEX" | "HTML";
 export type WatchConditionInput =
   | { readonly type: "HTML" }

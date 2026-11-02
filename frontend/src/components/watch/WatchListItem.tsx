@@ -2,7 +2,8 @@
 
 import { Globe } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
+import { cn } from "@/lib/utils";
 import type { Watch } from "@/types/domain";
 import WatchStatusDot from "./WatchStatusDot";
 
@@ -11,13 +12,16 @@ export default function WatchListItem({ watch, selected, onClick }: {
   readonly selected: boolean;
   readonly onClick: () => void;
 }) {
-  return <Button variant={selected ? "secondary" : "ghost"} aria-pressed={selected} onClick={onClick}
-    className="h-auto w-full items-start justify-start gap-3 px-3 py-4 whitespace-normal">
-    <Avatar size="lg"><AvatarImage src={watch.faviconUrl || undefined} alt="" /><AvatarFallback><Globe aria-hidden="true" /></AvatarFallback></Avatar>
-    <span className="flex min-w-0 flex-1 flex-col gap-1 text-left">
-      <span className="flex items-center gap-2"><WatchStatusDot status={watch.status} showLabel={false} /><span className="min-w-0 wrap-anywhere">{watch.name}</span></span>
-      <span className="truncate text-xs text-muted-foreground">{watch.url}</span>
-      {watch.latestAiSummary && <span className="mt-1 line-clamp-2 text-xs leading-relaxed font-normal text-muted-foreground">{watch.latestAiSummary}</span>}
-    </span>
-  </Button>;
+  return <Item render={<button type="button" aria-pressed={selected} onClick={onClick} />} variant={selected ? "outline" : "default"}
+    className={cn("cursor-pointer items-start text-left hover:bg-muted/60", selected && "bg-background shadow-sm hover:bg-background")}>
+    <ItemMedia>
+      <Avatar size="lg"><AvatarImage src={watch.faviconUrl || undefined} alt="" /><AvatarFallback><Globe aria-hidden="true" /></AvatarFallback></Avatar>
+    </ItemMedia>
+    <ItemContent className="min-w-0">
+      <ItemTitle className="w-full"><span className="min-w-0 flex-1 truncate">{watch.name}</span></ItemTitle>
+      <ItemDescription className="truncate">{watch.url}</ItemDescription>
+      {watch.latestAiSummary && <ItemDescription className="line-clamp-2">{watch.latestAiSummary}</ItemDescription>}
+    </ItemContent>
+    <ItemActions>{watch.status === "CRAWLING_READY" ? <WatchStatusDot status={watch.status} showLabel={false} /> : <WatchStatusDot status={watch.status} />}</ItemActions>
+  </Item>;
 }

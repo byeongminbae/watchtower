@@ -15,7 +15,7 @@ function httpUrl(value: unknown): value is string {
 export function isWatch(value: unknown): value is Watch {
   return object(value) && id(value.id) && typeof value.name === "string" && httpUrl(value.url) &&
     typeof value.fetchInterval === "string" && typeof value.includeInStat === "boolean" &&
-    typeof value.status === "string" && ["RUNNING", "PAUSED", "ILLEGAL_SUSPENDED"].includes(value.status) &&
+    typeof value.status === "string" && ["CRAWLING_READY", "CRAWLING_ERROR", "CRAWLING", "USER_PAUSED", "ADMIN_PAUSED"].includes(value.status) &&
     text(value.faviconUrl) && text(value.lastFetchedAt) && text(value.lastNotifiedAt) &&
     (value.latestAiSummary === undefined || text(value.latestAiSummary));
 }
@@ -55,7 +55,8 @@ export function offsetOf<T>(guard: ApiDataGuard<T>): ApiDataGuard<OffsetPage<T>>
     value.data.every(guard) && count(value.size) && count(value.page) && count(value.totalElements) && count(value.totalPages);
 }
 export function isTowerStats(value: unknown): value is TowerStats {
-  return object(value) && count(value.totalCount) && count(value.runningCount) && count(value.pausedCount) && count(value.illegalSuspendedCount);
+  return object(value) && count(value.totalCount) && count(value.crawlingReadyCount) && count(value.crawlingErrorCount) &&
+    count(value.crawlingCount) && count(value.userPausedCount) && count(value.adminPausedCount);
 }
 export function isMemberStats(value: unknown): value is MemberStats {
   return object(value) && count(value.totalCount) && count(value.activeCount) && count(value.bannedCount) && count(value.deletedCount);

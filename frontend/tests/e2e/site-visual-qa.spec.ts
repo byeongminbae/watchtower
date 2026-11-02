@@ -35,6 +35,22 @@ for (const role of ["NORMAL", "ADMIN"] as const) {
   });
 }
 
+test("크롤링에 실패한 타워 상세 화면은 모바일과 태블릿과 데스크톱에서 가로 넘침 없이 다시 확인 버튼을 표시할 것이다", async ({ page, login, request }, info) => {
+  // given
+  const session = await login();
+  await request.get(`http://127.0.0.1:4100/__test/fail-crawl?session=${session}&towerId=9`);
+  // when
+  for (const width of [375, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/watches/9");
+    // then
+    await expect(page.getByRole("button", { name: "다시 확인", exact: true })).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+    expect(overflow, `crawl error at ${width}`).toBe(false);
+    await page.screenshot({ path: info.outputPath(`watch-crawl-error-${width}.png`), fullPage: true });
+  }
+});
+
 test("비로그인 홈과 로그인 화면은 모바일과 태블릿과 데스크톱에서 가로 넘침 없이 표시될 것이다", async ({ page }, info) => {
   // given
   const routes = ["/", "/login"];

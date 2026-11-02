@@ -21,7 +21,7 @@ it("타워 생성과 수정은 Duration과 모든 필수 필드를 전송할 것
   // given
   const create = { name: "관찰", url: "https://example.com", fetchInterval: "PT5M", includeInStat: true, notificationChannelIds: [3],
     conditions: [{ type: "KEYWORD", keyword: "마감", isSatisfiedAtAppearance: false }] } as const;
-  const update = { name: "관찰", fetchInterval: "PT10M", includeInStat: false, status: "PAUSED" } as const;
+  const update = { name: "관찰", fetchInterval: "PT10M", includeInStat: false, status: "USER_PAUSED" } as const;
   // when
   watchApi.createWatch(create); watchApi.updateWatch(9, update);
   // then

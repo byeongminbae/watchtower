@@ -16,14 +16,14 @@ it("타워 목록 요청이 진행 중이면 빈 목록을 표시하지 않을 �
   expect(screen.queryByText(/등록된 타워가 없어/)).not.toBeInTheDocument();
   await waitFor(() => expect(list).toHaveBeenCalledWith(7, expect.objectContaining({ sortField: "ID", sortDirection: "DESC" })));
 });
-it("서버가 빈 페이지를 반환하면 등록 안내를 표시할 것이다", async () => {
+it("서버가 빈 페이지를 반환하면 등록 안내와 빈 목록 안의 등록 버튼을 표시할 것이다", async () => {
   // given
   list.mockResolvedValue({ data: { data: [], hasNext: false, nextCursorId: null, nextCursorValue: null, size: 20 } });
   // when
   render(<WatchesPage />);
   // then
-  expect(await screen.findByText("등록된 타워가 없어요. 타워를 등록해 주세요.")).toBeVisible();
-  expect(screen.getByRole("button", { name: "타워 등록" })).toBeVisible();
+  expect(await screen.findByText("변화를 기다리는 페이지를 등록하면 대신 지켜볼게요.")).toBeVisible();
+  expect(screen.getAllByRole("button", { name: "타워 등록" })).toHaveLength(2);
 });
 it("목록 조회가 실패하면 서버 오류와 재시도를 표시할 것이다", async () => {
   // given

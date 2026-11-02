@@ -3,6 +3,8 @@
 import React from "react";
 import { CircleAlert, Radar } from "lucide-react";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -19,13 +21,13 @@ import ListControls from "@/components/common/ListControls";
 import ResponsiveTable from "@/components/common/ResponsiveTable";
 import WatchStatusDot from "@/components/watch/WatchStatusDot";
 
-const statuses = [{ value: "RUNNING", label: "감시중" }, { value: "PAUSED", label: "일시정지" }, { value: "ILLEGAL_SUSPENDED", label: "정책 위반 정지" }];
+const statuses = [{ value: "CRAWLING_READY", label: "감시중" }, { value: "CRAWLING_ERROR", label: "확인 실패" }, { value: "USER_PAUSED", label: "일시정지" }, { value: "ADMIN_PAUSED", label: "관리자 정지" }];
 
 export default function AdminWatchesPage() {
   const [criteria, setCriteria] = React.useState<SearchCriteria>(defaultSearch);
   const [page, setPage] = React.useState(0);
   const [target, setTarget] = React.useState<Watch | null>(null);
-  const [status, setStatus] = React.useState<WatchStatus>("RUNNING");
+  const [status, setStatus] = React.useState<WatchStatus>("CRAWLING_READY");
   const [busy, setBusy] = React.useState(false);
   const [actionError, setActionError] = React.useState<string | null>(null);
   const { data, loading, error, refetch } = useApiData(() => adminApi.getWatches({ ...criteria, page }).then(r => r.data), [criteria, page]);
@@ -38,14 +40,17 @@ export default function AdminWatchesPage() {
     finally { setBusy(false); }
   }
 
-  return <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-7 sm:px-8 sm:py-10">
-    <div className="flex flex-col gap-2"><h1 className="text-[28px] font-semibold tracking-tight sm:text-3xl">타워 관리</h1>
+  return <main className="flex w-full flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="flex flex-col gap-1"><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">타워 관리</h1>
       <p className="text-sm text-muted-foreground">등록된 타워를 확인하고 감시 상태를 관리해요.</p></div>
-    <ListControls value={criteria} label="타워 이름 접두사 검색" onChange={next => { setCriteria(next); setPage(0); }} />
-    {loading && <div role="status" aria-label="타워 불러오는 중" className="flex flex-col gap-3"><Skeleton className="h-16 w-full" /><Skeleton className="h-48 w-full" /></div>}
-    {error && <Alert variant="destructive"><CircleAlert /><AlertDescription>{error}</AlertDescription><AlertAction><Button variant="outline" size="sm" onClick={refetch}>재시도</Button></AlertAction></Alert>}
-    {!loading && !error && data && <>
-      <p className="text-sm text-muted-foreground">전체 <strong className="font-semibold text-foreground">{data.totalElements}</strong>개</p>
+    <Card className="gap-0 py-0">
+      <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1 sm:max-w-md"><ListControls value={criteria} label="타워 이름 접두사 검색" onChange={next => { setCriteria(next); setPage(0); }} /></div>
+        {data && <Badge variant="secondary" className="shrink-0">전체 {data.totalElements.toLocaleString("ko-KR")}개</Badge>}
+      </div>
+    {loading && data === null && <div role="status" aria-label="타워 불러오는 중" className="flex flex-col gap-3 p-4"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
+    {error && <Alert variant="destructive" className="m-4 w-auto"><CircleAlert /><AlertDescription>{error}</AlertDescription><AlertAction><Button variant="outline" size="sm" onClick={refetch}>재시도</Button></AlertAction></Alert>}
+    {!error && data && <>
       {data.data.length > 0 ? <ResponsiveTable headings={["이름", "URL", "상태", "확인 주기", "관리"]}>
         {data.data.map(watch => <TableRow key={watch.id}>
           <TableCell data-label="이름"><p className="font-medium">{watch.name}</p></TableCell>
@@ -54,25 +59,26 @@ export default function AdminWatchesPage() {
           <TableCell data-label="확인 주기">{formatFetchInterval(watch.fetchInterval)}</TableCell>
           <TableCell data-label="관리"><Button variant="outline" size="sm" onClick={() => { setStatus(watch.status); setActionError(null); setTarget(watch); }}>상태 변경</Button></TableCell>
         </TableRow>)}
-      </ResponsiveTable> : <Empty className="rounded-xl border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><Radar /></EmptyMedia><EmptyTitle>조회된 타워가 없어요.</EmptyTitle><EmptyDescription>다른 이름으로 검색해 보세요.</EmptyDescription></EmptyHeader></Empty>}
-      <div className="flex items-center justify-end gap-3">
-        <Button variant="outline" disabled={page === 0} onClick={() => setPage(page - 1)}>이전</Button>
-        <p className="text-sm tabular-nums text-muted-foreground">{data.totalPages === 0 ? 0 : page + 1} / {data.totalPages}</p>
-        <Button variant="outline" disabled={page + 1 >= data.totalPages} onClick={() => setPage(page + 1)}>다음</Button>
+      </ResponsiveTable> : <Empty className="m-4 rounded-xl border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><Radar /></EmptyMedia><EmptyTitle>조회된 타워가 없어요.</EmptyTitle><EmptyDescription>다른 이름으로 검색해 보세요.</EmptyDescription></EmptyHeader></Empty>}
+      <div className="flex items-center justify-between gap-3 border-t p-4">
+        <p className="text-sm tabular-nums text-muted-foreground">{data.totalPages === 0 ? 0 : page + 1} / {data.totalPages} 페이지</p>
+        <div className="flex gap-2"><Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>이전</Button>
+          <Button variant="outline" size="sm" disabled={page + 1 >= data.totalPages} onClick={() => setPage(page + 1)}>다음</Button></div>
       </div>
     </>}
+    </Card>
     <Dialog open={target !== null} onOpenChange={open => { if (!open && !busy) setTarget(null); }}>
       <DialogContent showCloseButton={!busy}>
         <DialogHeader><DialogTitle>타워 상태 변경</DialogTitle><DialogDescription>{target?.name} 타워의 감시 상태를 변경해요.</DialogDescription></DialogHeader>
         {actionError && <Alert variant="destructive"><CircleAlert /><AlertDescription>{actionError}</AlertDescription></Alert>}
         <FieldGroup><Field data-disabled={busy}><FieldLabel htmlFor="tower-status">상태</FieldLabel>
-          <Select items={statuses} value={status} disabled={busy} onValueChange={value => { if (value === "RUNNING" || value === "PAUSED" || value === "ILLEGAL_SUSPENDED") setStatus(value); }}>
+          <Select items={statuses} value={status} disabled={busy} onValueChange={value => { if (value === "CRAWLING_READY" || value === "CRAWLING_ERROR" || value === "USER_PAUSED" || value === "ADMIN_PAUSED") setStatus(value); }}>
             <SelectTrigger id="tower-status" className="w-full"><SelectValue /></SelectTrigger>
             <SelectContent><SelectGroup>{statuses.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
           </Select>
         </Field></FieldGroup>
         <DialogFooter><Button variant="outline" disabled={busy} onClick={() => setTarget(null)}>취소</Button>
-          <Button variant={status === "ILLEGAL_SUSPENDED" ? "destructive" : "default"} disabled={busy} onClick={() => void update()}>{busy ? "변경 중" : "변경"}</Button></DialogFooter>
+          <Button variant={status === "ADMIN_PAUSED" ? "destructive" : "default"} disabled={busy || status === "CRAWLING"} onClick={() => void update()}>{busy ? "변경 중" : "변경"}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   </main>;

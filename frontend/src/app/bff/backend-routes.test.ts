@@ -54,6 +54,20 @@ it.each([
   const sent = fetch.mock.calls[0]?.[0];
   expect(sent instanceof Request ? sent.url : sent).toBe(`http://backend:8080/api/v1/${expected}`);
 });
+it("크롤링 재시도는 POST 로만 백엔드에 전달할 것이다", async () => {
+  // given
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(response());
+  const context = { params: Promise.resolve({ path: ["towers", "7", "crawl-retry"] }) };
+  // when
+  await POST(new NextRequest("http://front/bff/towers/7/crawl-retry", { method: "POST" }), context);
+  const rejected = await GET(new NextRequest("http://front/bff/towers/7/crawl-retry"), context);
+  // then
+  const sent = fetch.mock.calls[0]?.[0];
+  expect(sent instanceof Request ? sent.url : sent).toBe("http://backend:8080/api/v1/towers/7/crawl-retry");
+  expect(sent instanceof Request ? sent.method : undefined).toBe("POST");
+  expect(rejected.status).toBe(405);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
 it("회원 수정은 PUT 본문을 전달할 것이다", async () => {
   // given
   const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(response());
