@@ -9,9 +9,9 @@ import kr.byeongmin.watchtower.domain.member.accessor.MemberAccessor
 import kr.byeongmin.watchtower.domain.member.entity.Member
 import kr.byeongmin.watchtower.domain.subscription.accessor.PlanAccessor
 import kr.byeongmin.watchtower.domain.subscription.enums.PlanType
-import kr.byeongmin.watchtower.external.naver.client.NaverAuthClient
-import kr.byeongmin.watchtower.external.naver.dto.NaverProfileResponseDto
-import kr.byeongmin.watchtower.external.naver.dto.NaverTokenResponseDto
+import kr.byeongmin.watchtower.external.naver.auth.client.NaverAuthClient
+import kr.byeongmin.watchtower.external.naver.auth.dto.NaverProfileResponseDto
+import kr.byeongmin.watchtower.external.naver.auth.dto.NaverTokenResponseDto
 import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.dto.SuccessDataResponse
 import kr.byeongmin.watchtower.global.error.AuthError

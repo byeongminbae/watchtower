@@ -4,8 +4,8 @@ import jakarta.persistence.DiscriminatorValue
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 import kr.byeongmin.watchtower.domain.member.entity.Member
-import kr.byeongmin.watchtower.external.naver.dto.NaverProfileResponseDto
-import kr.byeongmin.watchtower.external.naver.dto.NaverTokenResponseDto
+import kr.byeongmin.watchtower.external.naver.auth.dto.NaverProfileResponseDto
+import kr.byeongmin.watchtower.external.naver.auth.dto.NaverTokenResponseDto
 
 /**
  * @property [expiresIn] 초 단위

@@ -3,7 +3,7 @@ package kr.byeongmin.watchtower.domain.auth.service
 import kr.byeongmin.watchtower.domain.member.accessor.MemberAccessor
 import kr.byeongmin.watchtower.domain.member.entity.Member
 import kr.byeongmin.watchtower.domain.member.enums.MemberRole
-import kr.byeongmin.watchtower.external.naver.dto.NaverProfileResponseDto
+import kr.byeongmin.watchtower.external.naver.auth.dto.NaverProfileResponseDto
 import kr.byeongmin.watchtower.global.error.AuthError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.junit.jupiter.api.Test

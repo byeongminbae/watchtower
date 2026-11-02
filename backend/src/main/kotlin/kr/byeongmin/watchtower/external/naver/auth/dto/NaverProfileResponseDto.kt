@@ -1,4 +1,4 @@
-package kr.byeongmin.watchtower.external.naver.dto
+package kr.byeongmin.watchtower.external.naver.auth.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
 

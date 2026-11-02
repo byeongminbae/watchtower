@@ -1,8 +1,8 @@
 package kr.byeongmin.watchtower.external.naver
 
-import kr.byeongmin.watchtower.external.naver.client.NaverAuthClient
-import kr.byeongmin.watchtower.external.naver.dto.NaverProfileResponseDto
-import kr.byeongmin.watchtower.external.naver.dto.NaverTokenResponseDto
+import kr.byeongmin.watchtower.external.naver.auth.client.NaverAuthClient
+import kr.byeongmin.watchtower.external.naver.auth.dto.NaverProfileResponseDto
+import kr.byeongmin.watchtower.external.naver.auth.dto.NaverTokenResponseDto
 import kr.byeongmin.watchtower.global.error.AuthError
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException

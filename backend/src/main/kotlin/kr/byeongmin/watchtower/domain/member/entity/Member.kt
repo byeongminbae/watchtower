@@ -3,7 +3,7 @@ package kr.byeongmin.watchtower.domain.member.entity
 import jakarta.persistence.*
 import kr.byeongmin.watchtower.domain.member.enums.MemberRole
 import kr.byeongmin.watchtower.domain.subscription.entity.Plan
-import kr.byeongmin.watchtower.external.naver.dto.NaverProfileResponseDto
+import kr.byeongmin.watchtower.external.naver.auth.dto.NaverProfileResponseDto
 import kr.byeongmin.watchtower.global.entity.Base
 import kr.byeongmin.watchtower.global.error.AuthError
 import kr.byeongmin.watchtower.global.exception.BusinessException

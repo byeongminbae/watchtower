@@ -11,8 +11,8 @@ import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
 import kr.byeongmin.watchtower.domain.tower.dto.TowerCreateRequestDto
 import kr.byeongmin.watchtower.domain.tower.entity.Tower
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
-import kr.byeongmin.watchtower.external.naver.dto.NaverProfileResponseDto
-import kr.byeongmin.watchtower.external.naver.dto.NaverTokenResponseDto
+import kr.byeongmin.watchtower.external.naver.auth.dto.NaverProfileResponseDto
+import kr.byeongmin.watchtower.external.naver.auth.dto.NaverTokenResponseDto
 import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
