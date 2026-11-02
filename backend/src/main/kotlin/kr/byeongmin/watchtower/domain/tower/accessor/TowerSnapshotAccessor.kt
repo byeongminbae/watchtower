@@ -16,6 +16,14 @@ class TowerSnapshotAccessor(
             ?: throw BusinessException(CommonError.RESOURCE_NOT_FOUND)
     }
 
+    /** @return 타워 id 별 마지막 변경의 AI 요약. 변경이 없던 타워는 키가 없음 */
+    fun findLatestChangeAiSummaries(towerIds: Collection<Long>): Map<Long, String?> {
+        if (towerIds.isEmpty()) {
+            return emptyMap()
+        }
+        return towerSnapshotQuerydslRepository.findLatestChangeAiSummaries(towerIds)
+    }
+
     fun deleteByCreatedAtBefore(createdAt: LocalDateTime, deletedAt: LocalDateTime): Long {
         return towerSnapshotQuerydslRepository.deleteByCreatedAtBefore(createdAt, deletedAt)
     }

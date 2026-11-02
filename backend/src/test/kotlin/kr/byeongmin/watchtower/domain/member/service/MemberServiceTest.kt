@@ -7,6 +7,7 @@ import kr.byeongmin.watchtower.domain.member.dto.MemberUpdateRequestDto
 import kr.byeongmin.watchtower.domain.member.entity.Member
 import kr.byeongmin.watchtower.domain.notification.accessor.NotificationChannelAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
+import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
 import kr.byeongmin.watchtower.domain.tower.dto.TowerCreateRequestDto
 import kr.byeongmin.watchtower.domain.tower.entity.Tower
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
@@ -31,6 +32,7 @@ class MemberServiceTest {
     private val memberAccessor = mock<MemberAccessor>()
     private val notificationChannelAccessor = mock<NotificationChannelAccessor>()
     private val towerAccessor = mock<TowerAccessor>()
+    private val towerSnapshotAccessor = mock<TowerSnapshotAccessor>()
     private val naverOAuthAccessor = mock<NaverOAuthAccessor>()
     private val now = LocalDateTime.of(2026, 10, 20, 12, 0)
     private val timeProvider = mock<TimeProvider> {
@@ -41,6 +43,7 @@ class MemberServiceTest {
         memberAccessor = memberAccessor,
         notificationChannelAccessor = notificationChannelAccessor,
         towerAccessor = towerAccessor,
+        towerSnapshotAccessor = towerSnapshotAccessor,
         naverOAuthAccessor = naverOAuthAccessor,
         timeProvider = timeProvider
     )
@@ -100,45 +103,26 @@ class MemberServiceTest {
     }
 
     @Test
-    fun `타워 목록에는 삭제되지 않은 마지막 변경의 AI 요약이 표시됨`() {
+    fun `타워 목록에는 타워마다 마지막 변경의 AI 요약이 표시되고 변경이 없던 타워는 요약이 없음`() {
         /** given */
         val memberId = 21L
-        val towerWithoutSnapshot = spy(Tower.from(member, request)) {
+        val towerWithoutChange = spy(Tower.from(member, request)) {
             on { id } doReturn 6L
         }
         val pagination = CursorPaginationRequestDto(size = 20)
-        tower.snapshots.addAll(
-            listOf(
-                mock {
-                    on { id } doReturn 14L
-                    on { createdAt } doReturn now.minusMonths(2)
-                    on { aiDiffSummary } doReturn "보관 기간이 지난 변경 내용"
-                },
-                mock {
-                    on { id } doReturn 10L
-                    on { createdAt } doReturn now.minusMonths(3)
-                    on { aiDiffSummary } doReturn "이전 변경 내용"
-                },
-                mock {
-                    on { id } doReturn 15L
-                    on { isDeleted() } doReturn true
-                    on { aiDiffSummary } doReturn "삭제된 변경 요약"
-                }
-            )
-        )
         whenever(towerAccessor.findOwnedTowers(memberId, pagination, BaseSortField.CREATED_AT))
-            .thenReturn(listOf(tower, towerWithoutSnapshot))
+            .thenReturn(listOf(tower, towerWithoutChange))
+        whenever(towerSnapshotAccessor.findLatestChangeAiSummaries(listOf(7L, 6L)))
+            .thenReturn(mapOf(7L to "마지막 변경 내용"))
 
         /** when */
         val response = memberService.getMemberTowers(memberId, pagination, BaseSortField.CREATED_AT)
 
         /** then */
-        assertEquals(2, response.data.data.size)
-        assertEquals(7L, response.data.data[0].id)
+        assertEquals(listOf(7L, 6L), response.data.data.map { it.id })
         assertEquals(tower.name, response.data.data[0].name)
         assertEquals(tower.status, response.data.data[0].status)
-        assertEquals("보관 기간이 지난 변경 내용", response.data.data[0].latestAiSummary)
-        assertEquals(6L, response.data.data[1].id)
+        assertEquals("마지막 변경 내용", response.data.data[0].latestAiSummary)
         assertNull(response.data.data[1].latestAiSummary)
     }
 
@@ -312,46 +296,5 @@ class MemberServiceTest {
         /** then */
         assertNull(member.deletedAt)
         verify(towerAccessor).deleteAllRelatedByMemberId(memberId, now)
-    }
-
-    @Test
-    fun `최초 수집본만 있으면 타워 목록의 최근 변경 요약이 없음`() {
-        /** given */
-        tower.snapshots.add(
-            mock {
-                on { id } doReturn 10L
-                on { isHead() } doReturn true
-            }
-        )
-        val request = CursorPaginationRequestDto(size = 10)
-        whenever(towerAccessor.findOwnedTowers(21L, request, BaseSortField.ID)).thenReturn(listOf(tower))
-
-        /** when */
-        val response = memberService.getMemberTowers(21L, request, BaseSortField.ID)
-
-        /** then */
-        assertNull(response.data.data.single().latestAiSummary)
-    }
-
-    @Test
-    fun `마지막 변경에 AI 요약이 없으면 이전 변경의 요약을 대신 보여주지 않음`() {
-        /** given */
-        tower.snapshots.addAll(
-            listOf(
-                mock {
-                    on { id } doReturn 10L
-                    on { aiDiffSummary } doReturn "이전 요약"
-                },
-                mock { on { id } doReturn 11L }
-            )
-        )
-        val request = CursorPaginationRequestDto(size = 10)
-        whenever(towerAccessor.findOwnedTowers(21L, request, BaseSortField.ID)).thenReturn(listOf(tower))
-
-        /** when */
-        val response = memberService.getMemberTowers(21L, request, BaseSortField.ID)
-
-        /** then */
-        assertNull(response.data.data.single().latestAiSummary)
     }
 }

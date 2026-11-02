@@ -5,6 +5,7 @@ import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -40,5 +41,15 @@ class TowerSnapshotAccessorTest {
 
         /** then */
         assertEquals(CommonError.RESOURCE_NOT_FOUND, exception.error)
+    }
+
+    @Test
+    fun `조회할 타워가 없으면 쿼리 없이 빈 요약 목록을 돌려줌`() {
+        /** when */
+        val summaries = towerSnapshotAccessor.findLatestChangeAiSummaries(emptyList())
+
+        /** then */
+        assertTrue(summaries.isEmpty())
+        verifyNoInteractions(towerSnapshotQuerydslRepository)
     }
 }
