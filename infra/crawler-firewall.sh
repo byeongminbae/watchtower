@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 크롤러 호스트에서 컨테이너가 내부망과 인스턴스 메타데이터에 닿지 못하게 함. 다시 실행해도 결과가 같음
 # 사용법: 크롤러 호스트에서 sudo bash crawler-firewall.sh
-# 배포 workflow 가 매 배포마다 이 차단이 동작하는지 검사하고, 동작하지 않으면 크롤러를 멈춤
+# 크롤러가 시작할 때마다 이 차단이 동작하는지 검사하고, 동작하지 않으면 기동하지 않음(InternalNetworkIsolationCheck)
 set -euo pipefail
 
 # 컨테이너 DNS 를 공개 DNS 로 바꿈. 기본값인 OCI DNS(169.254.169.254)는 아래 규칙에 막혀 크롤링이 전부 실패함
