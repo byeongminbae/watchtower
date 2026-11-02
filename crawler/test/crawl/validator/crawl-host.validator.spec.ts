@@ -174,4 +174,33 @@ describe('CrawlHostValidator', () => {
     expect(result).toBe(false);
     expect(dnsResolver.resolveAll).not.toHaveBeenCalled();
   });
+  it('WebSocket 주소도 http(s) 와 같은 기준으로 공인 주소일 때만 허용함', async () => {
+    // given
+    const hostValidator = new CrawlHostValidator(
+      createDnsResolver({ 'public.example': ['93.184.216.34'], 'internal.example': ['10.0.0.1'] })
+    );
+
+    // when
+    const isPublicWsAllowed = await hostValidator.isAllowedWebSocketUrl('ws://public.example/socket');
+    const isPublicWssAllowed = await hostValidator.isAllowedWebSocketUrl('wss://public.example/socket');
+    const isInternalWssAllowed = await hostValidator.isAllowedWebSocketUrl('wss://internal.example/socket');
+
+    // then
+    expect(isPublicWsAllowed).toBe(true);
+    expect(isPublicWssAllowed).toBe(true);
+    expect(isInternalWssAllowed).toBe(false);
+  });
+
+  it('ws, wss 가 아닌 주소는 WebSocket 주소로 허용하지 않음', async () => {
+    // given
+    const hostValidator = new CrawlHostValidator(createDnsResolver({ 'public.example': ['93.184.216.34'] }));
+
+    // when
+    const isHttpAllowed = await hostValidator.isAllowedWebSocketUrl('https://public.example/socket');
+    const isInvalidAllowed = await hostValidator.isAllowedWebSocketUrl('not a url');
+
+    // then
+    expect(isHttpAllowed).toBe(false);
+    expect(isInvalidAllowed).toBe(false);
+  });
 });

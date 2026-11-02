@@ -18,6 +18,16 @@ export class CrawlHostValidator {
     return parsedUrl !== undefined && (await this.isAllowedHost(parsedUrl.host));
   }
 
+  /** WebSocket 주소(ws, wss)의 호스트가 공인 주소인지 검사함. 호스트 검사 기준은 isAllowedUrl 과 같음 */
+  async isAllowedWebSocketUrl(url: string): Promise<boolean> {
+    const parsedUrl = URL.parse(url);
+    if (parsedUrl === null || parsedUrl.hostname === '') {
+      return false;
+    }
+    const isWebSocketProtocol = parsedUrl.protocol === 'ws:' || parsedUrl.protocol === 'wss:';
+    return isWebSocketProtocol && (await this.isAllowedHost(parsedUrl.hostname));
+  }
+
   private isAllowedHost(host: string): Promise<boolean> {
     let hostCheck = this.hostCheckCache.get(host);
     if (hostCheck === undefined) {

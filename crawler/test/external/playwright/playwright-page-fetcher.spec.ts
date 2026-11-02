@@ -33,6 +33,19 @@ beforeAll(async () => {
           `<html><body>감시 대상<img src="${blockedSecretUrl}"><script src="${blockedSecretUrl}"></script></body></html>`
         );
         return;
+      case '/client-rendered':
+        response.end(
+          `<html><body><div id="content"></div><script>window.addEventListener('load', async () => { document.getElementById('content').textContent = await (await fetch('/client-rendered-data')).text(); });</script></body></html>`
+        );
+        return;
+      case '/client-rendered-data':
+        setTimeout(() => response.end('나중에 그려진 감시 대상'), 500);
+        return;
+      case '/navigate-to-blocked-after-load':
+        response.end(
+          `<html><body>처음 페이지<script>window.addEventListener('load', () => { location.href = '/redirect-to-blocked'; });</script></body></html>`
+        );
+        return;
       case '/missing':
         response.writeHead(404).end('<html><body>없음</body></html>');
         return;
@@ -69,6 +82,31 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
     expect(outcome).toMatchObject({
       page: { httpStatusCode: 200, finalUrl: url, html: expect.stringContaining('감시 대상') }
     });
+    expect(secretRequestCount).toBe(0);
+  });
+
+  it('load 이후 스크립트가 받아와 그린 내용도 함께 수집함', async () => {
+    // given
+    const url = `${allowedOrigin}/client-rendered`;
+
+    // when
+    const result = await pageFetcher.fetchPage(url);
+
+    // then
+    expect(result).toMatchObject({ page: { html: expect.stringContaining('나중에 그려진 감시 대상') } });
+  });
+
+  it('load 이후 스크립트가 내부 주소로 리다이렉트되는 주소로 이동하려 하면 막고 처음 페이지를 수집함', async () => {
+    // given
+    const url = `${allowedOrigin}/navigate-to-blocked-after-load`;
+    secretRequestCount = 0;
+
+    // when
+    const result = await pageFetcher.fetchPage(url);
+
+    // then
+    expect(result).toMatchObject({ page: { finalUrl: url, html: expect.stringContaining('처음 페이지') } });
+    expect(result).not.toMatchObject({ page: { html: expect.stringContaining('내부 비밀') } });
     expect(secretRequestCount).toBe(0);
   });
 

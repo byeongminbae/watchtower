@@ -2,6 +2,11 @@
 export class Policy {
   /** 페이지 하나를 여는(load 이벤트까지) 최대 시간. 넘기면 NAVIGATION_TIMEOUT 실패 결과로 돌려줌 */
   static readonly NAVIGATION_TIMEOUT_MILLIS = 30_000;
+  /**
+   * load 이후 CSR 페이지가 데이터를 받아 그릴 때까지(networkidle) 기다리는 최대 시간. 넘기면 그때까지 그려진 HTML 을 수집함
+   * 폴링이나 스트리밍처럼 요청이 끝나지 않는 페이지도 있어서, 탐색 제한 시간과 달리 넘겨도 실패로 보지 않음
+   */
+  static readonly CLIENT_RENDERING_WAIT_MILLIS = 3_000;
   /** 저장할 HTML 의 최대 크기. 넘기면 메모리와 저장소를 아끼기 위해 버리고 HTML_TOO_LARGE 실패 결과로 돌려줌 */
   static readonly MAX_HTML_BYTES = 5 * 1024 * 1024;
   /**

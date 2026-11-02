@@ -10,7 +10,7 @@ import { HTML_STORAGE, type HtmlStorage } from '../interfaces/html-storage.inter
 import { PAGE_FETCHER, type PageFetcher } from '../interfaces/page-fetcher.interface.js';
 
 /**
- * 크롤링 요청 한 건을 처리함. 페이지를 받아오고, 받아왔으면 HTML 을 저장한 뒤 결과 메시지를 만듦
+ * 크롤링 요청 단건을 처리함. 페이지를 받아오고, 받아왔으면 HTML 을 저장한 뒤 결과 메시지를 만듦
  *
  * 큐 수신, 동시 처리 한도, 결과 발행과 요청 완료 처리는 CrawlRequestConsumer 가 맡음
  */
@@ -36,6 +36,7 @@ export class CrawlService {
 
     const htmlObjectName = crawlRequest.toHtmlObjectName();
     await this.htmlStorage.saveHtml(bucketName, htmlObjectName, pageFetchResult.page.html);
+
     return new CrawlSuccessResultMessage(
       crawlRequest,
       crawlStartedAt,
