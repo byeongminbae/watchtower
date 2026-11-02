@@ -47,7 +47,12 @@ describe('크롤러 (e2e)', () => {
     devRequestQueue = new InMemoryRequestQueue([]);
     prodRequestQueue = new InMemoryRequestQueue([
       {
-        content: JSON.stringify({ towerId: 7, url: 'https://example.com', scheduledAt: '2026-10-30T00:00:00.000Z' }),
+        content: JSON.stringify({
+          towerId: 7,
+          url: 'https://example.com',
+          scheduledAt: '2026-10-30T00:00:00.000Z',
+          triggeredByMemberId: null
+        }),
         receipt: 'prod-1',
         deliveryCount: 1
       }
@@ -95,7 +100,7 @@ describe('크롤러 (e2e)', () => {
     // then
     expect(savedBuckets).toEqual(['watchtower-snapshot-prod']);
     expect(prodResultQueue.published.map((content) => JSON.parse(content))).toEqual([
-      expect.objectContaining({ towerId: 7, outcome: 'FETCHED', httpStatusCode: 200 })
+      expect.objectContaining({ towerId: 7, resultStatus: 'FETCHED', httpStatusCode: 200 })
     ]);
     expect(devResultQueue.published).toEqual([]);
     expect(prodRequestQueue.completedReceipts).toEqual(['prod-1']);

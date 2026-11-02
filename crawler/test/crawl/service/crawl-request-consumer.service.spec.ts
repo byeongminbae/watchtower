@@ -13,7 +13,12 @@ import { CrawlRequestConsumer } from '../../../src/crawl/service/crawl-request-c
 import type { ReceivedMessage, RequestQueue } from '../../../src/crawl/interfaces/queue.interface.js';
 
 const message: ReceivedMessage = {
-  content: JSON.stringify({ towerId: 1, url: 'https://example.com', scheduledAt: '2026-10-30T00:00:00.000Z' }),
+  content: JSON.stringify({
+    towerId: 1,
+    url: 'https://example.com',
+    scheduledAt: '2026-10-30T00:00:00.000Z',
+    triggeredByMemberId: null
+  }),
   receipt: 'receipt-1',
   deliveryCount: 1
 };

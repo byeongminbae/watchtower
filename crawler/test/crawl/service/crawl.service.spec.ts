@@ -10,7 +10,12 @@ import {
 } from '../../../src/crawl/interfaces/page-fetcher.interface.js';
 
 const request = CrawlRequestMessage.from(
-  JSON.stringify({ towerId: 7, url: 'https://example.com', scheduledAt: '2026-10-30T00:00:00.000Z' })
+  JSON.stringify({
+    towerId: 7,
+    url: 'https://example.com',
+    scheduledAt: '2026-10-30T00:00:00.000Z',
+    triggeredByMemberId: 21
+  })
 )!;
 const startedAt = new Date('2026-10-30T00:00:01.000Z');
 const endedAt = new Date('2026-10-30T00:00:03.000Z');
@@ -47,7 +52,8 @@ describe('CrawlService', () => {
       scheduledAt: '2026-10-30T00:00:00.000Z',
       crawlStartedAt: startedAt.toISOString(),
       crawlEndedAt: endedAt.toISOString(),
-      outcome: 'FETCHED',
+      resultStatus: 'FETCHED',
+      triggeredByMemberId: 21,
       httpStatusCode: 404,
       finalUrl: 'https://example.com/',
       htmlObjectName: 'towers/7/2026-10-30T00:00:00.000Z.html'
@@ -69,6 +75,10 @@ describe('CrawlService', () => {
 
     // then
     expect(htmlStorage.saveHtml).not.toHaveBeenCalled();
-    expect(result).toMatchObject({ outcome: 'FAILED', errorCode: CrawlError.URL_NOT_ALLOWED.code });
+    expect(result).toMatchObject({
+      resultStatus: 'FAILED',
+      errorCode: CrawlError.URL_NOT_ALLOWED.code,
+      triggeredByMemberId: 21
+    });
   });
 });

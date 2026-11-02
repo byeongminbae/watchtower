@@ -30,6 +30,7 @@ abstract class CrawlResultMessage {
   readonly scheduledAt: string;
   readonly crawlStartedAt: string;
   readonly crawlEndedAt: string;
+  readonly triggeredByMemberId: number | null;
 
   protected constructor(request: CrawlRequestMessage, startedAt: Date, endedAt: Date) {
     this.towerId = request.towerId;
@@ -37,11 +38,12 @@ abstract class CrawlResultMessage {
     this.scheduledAt = request.scheduledAt;
     this.crawlStartedAt = startedAt.toISOString();
     this.crawlEndedAt = endedAt.toISOString();
+    this.triggeredByMemberId = request.triggeredByMemberId;
   }
 }
 
 export class CrawlSuccessResultMessage extends CrawlResultMessage {
-  readonly outcome = 'FETCHED';
+  readonly resultStatus = 'FETCHED';
   readonly httpStatusCode: number;
   readonly finalUrl: string;
 
@@ -59,7 +61,7 @@ export class CrawlSuccessResultMessage extends CrawlResultMessage {
 }
 
 export class CrawlFailedResultMessage extends CrawlResultMessage {
-  readonly outcome = 'FAILED';
+  readonly resultStatus = 'FAILED';
   readonly errorCode: string;
 
   constructor(request: CrawlRequestMessage, startedAt: Date, endedAt: Date, error: CrawlError) {
