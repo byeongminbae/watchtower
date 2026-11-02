@@ -20,6 +20,15 @@ const prod: EnvironmentConfig = {
   bucketName: 'watchtower-snapshot-prod'
 };
 
+const local: EnvironmentConfig = {
+  deploymentEnvironment: 'local',
+  requestQueueId: 'ocid1.queue.oc1.ap-osaka-1.amaaaaaaw36r47iayiwr7o4un42ywx3u2dlbhjc55ykl4neing3vpqbss7ya',
+  requestQueueEndpoint: QUEUE_ENDPOINT,
+  resultQueueId: 'ocid1.queue.oc1.ap-osaka-1.amaaaaaaw36r47iae4shyzwkan7zjiwsgio2ezjbluws53x2kiejsflqxhkq',
+  resultQueueEndpoint: QUEUE_ENDPOINT,
+  bucketName: 'watchtower-snapshot-local'
+};
+
 export const RUN_MODES: Record<string, RunModeConfig> = {
   server: {
     objectStorageNamespace: 'ax7wkezrucld',
@@ -31,7 +40,7 @@ export const RUN_MODES: Record<string, RunModeConfig> = {
   local: {
     objectStorageNamespace: 'ax7wkezrucld',
     concurrency: 1,
-    environments: [dev],
+    environments: [local],
     secretVaultId:
       'ocid1.vault.oc1.ap-osaka-1.fzvog2tgaafqy.abvwsljrjnlwob4t4xlgkhpprljovqbqz3kxpc552xfkocpn466xnscnq5oa'
   }

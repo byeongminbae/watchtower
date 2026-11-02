@@ -3,7 +3,7 @@ import { SecretsClient } from 'oci-secrets';
 import { z } from 'zod';
 import { RUN_MODES } from './run-modes.js';
 
-export type DeploymentEnvironment = 'dev' | 'prod';
+export type DeploymentEnvironment = 'local' | 'dev' | 'prod';
 
 export type EnvironmentConfig = {
   deploymentEnvironment: DeploymentEnvironment;
