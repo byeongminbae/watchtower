@@ -86,7 +86,12 @@ jobs:
             "./$SERVICE"
 
       - name: Verify image health
+        env:
+          CI_OCI_KEY_FILE: ${{ runner.temp }}/ci-oci-key.pem
         run: |
+          # 백엔드 큐 클라이언트용 가짜 자격 증명의 키. OCI 에 등록하지 않은 일회용 키라 아무 권한이 없음
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$CI_OCI_KEY_FILE"
+          chmod 644 "$CI_OCI_KEY_FILE"
           docker compose --file .github/ci/compose.yml --profile "$SERVICE" up --detach --wait --wait-timeout 300
 
       - name: Show container logs
