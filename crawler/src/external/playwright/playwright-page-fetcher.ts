@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, type OnModuleInit } from '@nestjs/common';
 import {
   type Browser,
+  type LaunchOptions,
   type Page,
   type Request,
   type Response,
@@ -29,14 +30,31 @@ import { DnsResolver } from '../dns/dns-resolver.js';
  * 요청 자체가 내부망에 도달하는 것은 크롤러 서버의 망 격리로 막아야 함
  */
 @Injectable()
-export class PlaywrightPageFetcher implements PageFetcher {
-  /**
-   * Chromium 에 넘기는 환경변수. 이렇게 지정하지 않으면 크롤러의 환경변수 전체가 넘어가서,
-   * 브라우저가 장악되면(v8 엔진 공격 등) OCI 개인키 같은 비밀값까지 읽힘
-   */
-  private static readonly BROWSER_ENVIRONMENT_VARIABLES = { HOME: '/tmp', PATH: '/usr/local/bin:/usr/bin:/bin' };
+export class PlaywrightPageFetcher implements PageFetcher, OnModuleInit {
+  private static readonly BROWSER_LAUNCH_OPTIONS: LaunchOptions = {
+    /**
+     * Chromium 샌드박스. Playwright 는 기본으로 끄는데, 꺼져 있으면 렌더러의 V8 취약점 하나로 크롤러와 같은 사용자 권한을 얻어
+     * ~/.oci 의 API 키 파일과 크롤러 프로세스 메모리까지 읽을 수 있음
+     * Docker 기본 seccomp 가 샌드박스에 필요한 user namespace 생성을 막아서, 컨테이너 seccomp 를 꺼야 함(infra/crawler-sandbox.sh)
+     */
+    chromiumSandbox: true,
+    /**
+     * Chromium 에 넘기는 환경변수. 지정하지 않으면 크롤러의 환경변수 전체가 넘어감
+     * 샌드박스 안의 렌더러는 파일을 읽지 못해도 자기 프로세스의 환경변수는 읽을 수 있어서, 실행에 필요한 값만 넘김
+     */
+    env: { HOME: '/tmp', PATH: '/usr/local/bin:/usr/bin:/bin' }
+  };
 
   constructor(private readonly dnsResolver: DnsResolver) {}
+
+  /**
+   * 시작할 때 브라우저를 한 번 띄워 봄. 샌드박스를 띄울 수 없는 환경이면 기동을 멈춤
+   * 그래야 배포 헬스체크가 실패해 이전 크롤러가 계속 돌고, 모든 크롤링이 실패하는 크롤러가 배포되지 않음
+   */
+  async onModuleInit(): Promise<void> {
+    const browser = await chromium.launch(PlaywrightPageFetcher.BROWSER_LAUNCH_OPTIONS);
+    await browser.close();
+  }
 
   async fetchPage(url: string): Promise<PageFetchResult> {
     const hostValidator = new CrawlHostValidator(this.dnsResolver);
@@ -44,7 +62,7 @@ export class PlaywrightPageFetcher implements PageFetcher {
       return new PageFetchFailure(CrawlError.URL_NOT_ALLOWED);
     }
 
-    const browser = await chromium.launch({ env: PlaywrightPageFetcher.BROWSER_ENVIRONMENT_VARIABLES });
+    const browser = await chromium.launch(PlaywrightPageFetcher.BROWSER_LAUNCH_OPTIONS);
     try {
       const page = await PlaywrightPageFetcher.openPageBlockingDisallowedRequests(browser, hostValidator);
 
