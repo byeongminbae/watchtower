@@ -713,6 +713,7 @@ class TowerServiceTest {
         val snapshotId = 11L
         val snapshot = mock<TowerSnapshot> {
             on { id } doReturn snapshotId
+            on { createdAt } doReturn now
         }
         whenever(towerSnapshotAccessor.getMemberChangedSnapshots(towerId, ownerId))
             .thenReturn(listOf(snapshot))
@@ -723,6 +724,7 @@ class TowerServiceTest {
         /** then */
         assertEquals(1, response.data.size)
         assertEquals(snapshotId, response.data.first().id)
+        assertEquals(now, response.data.first().detectedAt)
     }
 
     @Test
@@ -732,6 +734,7 @@ class TowerServiceTest {
         val readUrl = "https://objectstorage.ap-osaka-1.oraclecloud.com/p/token/n/ns/b/bucket/o/$objectName"
         val snapshot = mock<TowerSnapshot> {
             on { id } doReturn 11L
+            on { createdAt } doReturn now
             on { highlightedScreenshotObjectName } doReturn objectName
         }
         whenever(towerSnapshotAccessor.getMemberChangedSnapshots(towerId, ownerId)).thenReturn(listOf(snapshot))
@@ -751,6 +754,7 @@ class TowerServiceTest {
         /** given */
         val snapshot = mock<TowerSnapshot> {
             on { id } doReturn 11L
+            on { createdAt } doReturn now
             on { highlightedScreenshotObjectName } doReturn null
         }
         whenever(towerSnapshotAccessor.getMemberChangedSnapshots(towerId, ownerId)).thenReturn(listOf(snapshot))

@@ -64,7 +64,7 @@ test("크롤링에 실패한 타워를 다시 확인하면 확인 중으로 바�
   expect(records.data).toContainEqual(expect.objectContaining({ method: "POST", path: "/api/v1/towers/9/crawl-retry", csrf: "csrf-fixture" }));
 });
 
-test("변경 기록 탭을 열면 감지된 변경의 요약과 변경 부분 스크린샷을 보여줄 것이다", async ({ page, login }) => {
+test("변경 기록 탭을 열면 감지된 변경의 감지 시각과 요약과 변경 부분 스크린샷을 보여줄 것이다", async ({ page, login }) => {
   // given
   await login();
   await page.goto("/watches/9");
@@ -72,5 +72,6 @@ test("변경 기록 탭을 열면 감지된 변경의 요약과 변경 부분 �
   await page.getByRole("tab", { name: /변경 기록/ }).click();
   // then
   await expect(page.getByText("신규 채용 공고", { exact: true })).toBeVisible();
+  await expect(page.getByText(/에 감지했어요$/)).toBeVisible();
   await expect(page.getByRole("img", { name: "변경 부분을 표시한 스크린샷" })).toHaveAttribute("src", "https://objectstorage.ap-osaka-1.oraclecloud.com/p/token/o/1.png");
 });

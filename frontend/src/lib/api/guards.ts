@@ -29,7 +29,7 @@ export function isCondition(value: unknown): value is WatchCondition {
   }
 }
 export function isSnapshot(value: unknown): value is WatchSnapshot {
-  return object(value) && id(value.id) && (value.highlightedScreenshotUrl === null || httpUrl(value.highlightedScreenshotUrl)) &&
+  return object(value) && id(value.id) && typeof value.detectedAt === "string" && (value.highlightedScreenshotUrl === null || httpUrl(value.highlightedScreenshotUrl)) &&
     text(value.aiDiffSummary) && text(value.notifiedAt);
 }
 export function isHotUrl(value: unknown): value is HotUrl {
