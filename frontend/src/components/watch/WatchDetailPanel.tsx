@@ -150,7 +150,7 @@ export default function WatchDetailPanel({ watch, onChanged, onDeleted, headingL
     <Tabs defaultValue="conditions" className="gap-4">
       <TabsList>
         <TabsTrigger value="conditions"><ScanLine data-icon="inline-start" />감지 조건{conditions.data && <Badge variant="secondary">{conditions.data.length}</Badge>}</TabsTrigger>
-        <TabsTrigger value="snapshots"><History data-icon="inline-start" />변경 기록{snapshots.data && <Badge variant="secondary">{snapshots.data.length}</Badge>}</TabsTrigger>
+        <TabsTrigger value="snapshots"><History data-icon="inline-start" />변화 기록{snapshots.data && <Badge variant="secondary">{snapshots.data.length}</Badge>}</TabsTrigger>
       </TabsList>
       <TabsContent value="conditions">
         <Card>

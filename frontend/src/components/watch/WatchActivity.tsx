@@ -1,21 +1,12 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import { Bell, CircleCheck, Clock3 } from "lucide-react";
 import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { formatDateTime, formatRelativeTime } from "@/lib/dateTime";
 import { formatFetchInterval, intervalMinutes } from "@/lib/tower";
+import { useNow } from "@/lib/useNow";
 import type { Watch } from "@/types/tower";
-
-function subscribeClock(onChange: () => void) {
-  const timer = window.setInterval(onChange, 30_000);
-  return () => window.clearInterval(timer);
-}
-
-function currentTime() {
-  return Math.floor(Date.now() / 30_000) * 30_000;
-}
 
 function RecentTime({ value, now, emptyText }: { readonly value: string | null; readonly now: number | null; readonly emptyText: string }) {
   if (value === null) return <span className="text-muted-foreground">{emptyText}</span>;
@@ -24,7 +15,7 @@ function RecentTime({ value, now, emptyText }: { readonly value: string | null; 
 
 /** 확인 주기와 다음 확인까지의 진행, 최근 확인과 최근 알림 시각을 지표 카드로 보여줌 */
 export default function WatchActivity({ watch }: { readonly watch: Watch }) {
-  const now = useSyncExternalStore<number | null>(subscribeClock, currentTime, () => null);
+  const now = useNow();
   const interval = intervalMinutes(watch.fetchInterval) * 60_000;
   const elapsed = watch.lastFetchedAt && now !== null ? now - new Date(watch.lastFetchedAt).getTime() : null;
   const running = watch.status === "CRAWLING_READY" || watch.status === "CRAWLING";

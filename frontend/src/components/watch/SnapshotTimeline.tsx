@@ -1,29 +1,20 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import Image from "next/image";
 import { History } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { formatDateTime, formatElapsedTime } from "@/lib/dateTime";
+import { useNow } from "@/lib/useNow";
 import type { WatchSnapshot } from "@/types/tower";
-
-function subscribeClock(onChange: () => void) {
-  const timer = window.setInterval(onChange, 1_000);
-  return () => window.clearInterval(timer);
-}
-
-function currentTime() {
-  return Math.floor(Date.now() / 1_000) * 1_000;
-}
 
 function ElapsedTime({ value, now }: { readonly value: string; readonly now: number | null }) {
   return <time dateTime={value} title={formatDateTime(value)}>{now === null ? formatDateTime(value) : formatElapsedTime(value, now)}</time>;
 }
 
 export default function SnapshotTimeline({ snapshots }: { readonly snapshots: readonly WatchSnapshot[] }) {
-  const now = useSyncExternalStore<number | null>(subscribeClock, currentTime, () => null);
-  return <section aria-label="변경 기록" className="flex min-w-0 flex-col gap-4">
+  const now = useNow();
+  return <section aria-label="변화 기록" className="flex min-w-0 flex-col gap-4">
     <p className="text-sm text-muted-foreground">변화가 감지된 순간을 기록해요. 기록은 한 달간 보관돼요.</p>
     {snapshots.length === 0 && <Empty className="border border-dashed bg-card"><EmptyHeader><EmptyMedia variant="icon"><History /></EmptyMedia><EmptyTitle>아직 기록된 변화가 없어요</EmptyTitle><EmptyDescription>아직 저장된 스냅샷이 없어요.</EmptyDescription></EmptyHeader></Empty>}
     {snapshots.map(snapshot => <Card key={snapshot.id} size="sm">

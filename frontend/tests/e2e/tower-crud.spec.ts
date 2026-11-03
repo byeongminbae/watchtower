@@ -64,12 +64,12 @@ test("크롤링에 실패한 타워를 다시 확인하면 확인 중으로 바�
   expect(records.data).toContainEqual(expect.objectContaining({ method: "POST", path: "/api/v1/towers/9/crawl-retry", csrf: "csrf-fixture" }));
 });
 
-test("변경 기록 탭을 열면 감지된 변경의 감지 시각과 요약과 변경 부분 스크린샷을 보여줄 것이다", async ({ page, login }) => {
+test("변화 기록 탭을 열면 감지된 변경의 감지 시각과 요약과 변경 부분 스크린샷을 보여줄 것이다", async ({ page, login }) => {
   // given
   await login();
   await page.goto("/watches/9");
   // when
-  await page.getByRole("tab", { name: /변경 기록/ }).click();
+  await page.getByRole("tab", { name: /변화 기록/ }).click();
   // then
   await expect(page.getByText("신규 채용 공고", { exact: true })).toBeVisible();
   await expect(page.locator("time[datetime='2026-11-03T20:55:38Z']")).toHaveAttribute("title", /2026/);
