@@ -24,6 +24,8 @@ import WatchStatusDot from "./WatchStatusDot";
 
 /** 크롤링 중인 타워의 결과가 반영됐는지 다시 확인하는 간격 */
 const CRAWLING_POLL_MILLIS = 5_000;
+/** 크롤링 대기 중인 타워를 서버 스케줄러가 크롤링하기 시작했는지 다시 확인하는 간격 */
+const CRAWLING_READY_POLL_MILLIS = 30_000;
 
 export default function WatchDetailPanel({ watch, onChanged, onDeleted, headingLevel = 1 }: {
   readonly watch: Watch;
@@ -32,7 +34,7 @@ export default function WatchDetailPanel({ watch, onChanged, onDeleted, headingL
   readonly headingLevel?: 1 | 2;
 }) {
   const conditions = useApiData(() => watchApi.getWatchConditions(watch.id).then(r => r.data), [watch.id]);
-  const snapshots = useApiData(() => watchApi.listWatchSnapshots(watch.id).then(r => r.data), [watch.id]);
+  const snapshots = useApiData(() => watchApi.listWatchSnapshots(watch.id).then(r => r.data), [watch.id, watch.lastFetchedAt]);
   const [conditionDialog, setConditionDialog] = React.useState<{ readonly initial?: WatchCondition } | null>(null);
   const [editOpen, setEditOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
@@ -43,16 +45,19 @@ export default function WatchDetailPanel({ watch, onChanged, onDeleted, headingL
   const crawlFailed = watch.status === "CRAWLING_ERROR";
   const crawling = watch.status === "CRAWLING";
 
-  // 크롤링 결과가 반영될 때까지 이 타워만 조용히 다시 조회하고, 상태가 바뀌면 그때 한 번만 화면 전체를 새로 불러옴
+  const pollMillis = crawling ? CRAWLING_POLL_MILLIS : watch.status === "CRAWLING_READY" ? CRAWLING_READY_POLL_MILLIS : null;
+
+  // 서버가 상태나 확인 시각을 바꿨는지 이 타워만 조용히 다시 조회하고, 바뀌었을 때만 화면 전체를 새로 불러옴. 탭이 보이지 않으면 조회하지 않음
   React.useEffect(() => {
-    if (!crawling || onChanged === undefined) return;
+    if (pollMillis === null || onChanged === undefined) return;
     const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
       watchApi.getWatch(watch.id)
-        .then(response => { if (response.data.status !== "CRAWLING") onChanged(); })
+        .then(response => { if (response.data.status !== watch.status || response.data.lastFetchedAt !== watch.lastFetchedAt) onChanged(); })
         .catch(() => undefined);
-    }, CRAWLING_POLL_MILLIS);
+    }, pollMillis);
     return () => window.clearInterval(timer);
-  }, [crawling, watch.id, onChanged]);
+  }, [pollMillis, watch.id, watch.status, watch.lastFetchedAt, onChanged]);
   const Heading = headingLevel === 1 ? "h1" : "h2";
 
   async function toggleStatus() {
