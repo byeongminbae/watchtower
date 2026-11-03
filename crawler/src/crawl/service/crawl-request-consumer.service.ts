@@ -10,7 +10,7 @@ import { CrawlService } from './crawl.service.js';
 import type { ReceivedMessage } from '../interfaces/queue.interface.js';
 
 /**
- * 환경마다 요청 큐를 폴링해서 받은 크롤링 요청을 실행하고, 결과를 그 환경의 CrawlQueueBatch 에 넘김
+ * 환경마다 요청 큐를 폴링해서 받은 크롤링 요청을 실행하고, 결과를 그 환경의 CrawlResultBatchProducer 에 넘김
  * 동시에 실행하는 크롤링 수는 모든 환경을 합쳐 concurrency 설정값으로 제한함(세마포어)
  *
  * 메시지를 받기 전에는 세마포어를 획득(acquire)하지 않음. 메시지가 없는 큐가 폴링 대기 중에 세마포어를 쥐고 있으면 다른 환경의 크롤링이 그만큼 밀리기 때문
@@ -90,7 +90,7 @@ export class CrawlRequestConsumer implements OnApplicationBootstrap, BeforeAppli
     void this.crawlAndBatchResult(environmentResource, receivedMessage).finally(releaseLimit);
   }
 
-  /** 요청 메시지 한 건을 크롤링하고 결과를 CrawlQueueBatch 에 넘김. 실패하면 로그만 남기고 완료 처리하지 않으므로 큐가 다시 전달함 */
+  /** 요청 메시지 한 건을 크롤링하고 결과를 CrawlResultBatchProducer 에 넘김. 실패하면 로그만 남기고 완료 처리하지 않으므로 큐가 다시 전달함 */
   private async crawlAndBatchResult(environment: EnvironmentResource, receivedMessage: ReceivedMessage): Promise<void> {
     const crawlRequest = CrawlRequestMessage.from(receivedMessage.content);
 
@@ -104,7 +104,7 @@ export class CrawlRequestConsumer implements OnApplicationBootstrap, BeforeAppli
 
     try {
       const crawlResult = await this.crawlService.crawl(crawlRequest, environment.bucketName);
-      environment.crawlQueueBatch.add(JSON.stringify(crawlResult), receivedMessage.receipt);
+      environment.crawlResultBatchProducer.add(JSON.stringify(crawlResult), receivedMessage.receipt);
     } catch (error) {
       this.logger.error(`[${environment.deploymentEnvironment}] 크롤링 실패. 재전달 후 다시 처리함`, {
         towerId: crawlRequest.towerId,
@@ -124,6 +124,6 @@ export class CrawlRequestConsumer implements OnApplicationBootstrap, BeforeAppli
   }
 
   private async publishRemainingResults(): Promise<void> {
-    await Promise.all(this.environments.all.map((environment) => environment.crawlQueueBatch.close()));
+    await Promise.all(this.environments.all.map((environment) => environment.crawlResultBatchProducer.close()));
   }
 }

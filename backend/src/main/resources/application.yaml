@@ -39,3 +39,7 @@ spring:
   datasource:
     platform: postgres
     driverClassName: org.postgresql.Driver
+
+watchtower:
+  snapshot-storage:
+    namespace: ax7wkezrucld

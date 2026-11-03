@@ -85,6 +85,11 @@ class TowerAccessor(
         towerQuerydslRepository.deleteByMemberId(memberId, deletedAt)
     }
 
+    /** 다른 트랜잭션이 잠근 타워는 건너뛰고, 조회한 타워는 트랜잭션이 끝날 때까지 잠김 */
+    fun findCrawlDueTowersForUpdate(now: LocalDateTime, limit: Int): List<Tower> {
+        return towerQuerydslRepository.findCrawlDueForUpdate(now, limit.toLong())
+    }
+
     fun pauseByMemberLastSignInAtBefore(lastSignInBefore: LocalDateTime, updatedAt: LocalDateTime): Long {
         return towerQuerydslRepository.pauseByMemberLastSignInAtBefore(lastSignInBefore, updatedAt)
     }

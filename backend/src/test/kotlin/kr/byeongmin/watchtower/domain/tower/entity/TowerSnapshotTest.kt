@@ -7,12 +7,12 @@ import kotlin.test.assertSame
 
 class TowerSnapshotTest {
     private val tower = mock<Tower>()
-    private val url = "https://example.com/snapshot"
+    private val htmlObjectName = "towers/7/2026-11-04T01:00:00.000Z.html"
 
     @Test
     fun `새 스냅샷을 만들면 해당 타워에도 스냅샷을 연결함`() {
         /** when */
-        val snapshot = TowerSnapshot.from(tower, url)
+        val snapshot = TowerSnapshot.from(tower = tower, htmlObjectName = htmlObjectName, changed = false)
 
         /** then */
         assertSame(tower, snapshot.tower)

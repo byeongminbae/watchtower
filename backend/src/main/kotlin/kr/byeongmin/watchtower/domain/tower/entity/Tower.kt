@@ -119,9 +119,7 @@ class Tower private constructor(
     }
 
     /**
-     * 크롤링 결과를 반영함. 크롤링 중인 타워만 결과에 따라 [TowerStatus.CRAWLING_READY] 나 [TowerStatus.CRAWLING_ERROR] 로 바뀜
-     *
-     * 페이지를 받아왔고 2xx 로 응답했을 때만 성공으로 봄
+     * 크롤링 결과를 반영함. 크롤링 중인 타워만 결과([CrawlResultDto.isPageReceived])에 따라 [TowerStatus.CRAWLING_READY] 나 [TowerStatus.CRAWLING_ERROR] 로 바뀜
      *
      * 크롤링 중에 정지된 타워는 정지 상태를 유지하고 수집 시각만 기록함
      */
@@ -131,9 +129,13 @@ class Tower private constructor(
             return
         }
 
-        val isPageReceived = crawlResultDto.resultStatus == CrawlResultDto.CrawlResultStatus.FETCHED &&
-                crawlResultDto.httpStatusCode in 200..299
-        this.status = if (isPageReceived) TowerStatus.CRAWLING_READY else TowerStatus.CRAWLING_ERROR
+        this.status = if (crawlResultDto.isPageReceived()) TowerStatus.CRAWLING_READY else TowerStatus.CRAWLING_ERROR
+    }
+
+    /** 크롤링 대기 중인 타워를 크롤링 중으로 바꿈. 크롤링 요청은 호출하는 쪽에서 큐에 넣어야 함 */
+    fun startCrawl() {
+        check(status == TowerStatus.CRAWLING_READY) { "크롤링 대기 중인 타워만 크롤링을 시작할 수 있음. status=$status" }
+        this.status = TowerStatus.CRAWLING
     }
 
     /** 크롤링에 실패한 타워를 다시 크롤링 중으로 바꿈. 크롤링 요청은 호출하는 쪽에서 큐에 넣어야 함 */

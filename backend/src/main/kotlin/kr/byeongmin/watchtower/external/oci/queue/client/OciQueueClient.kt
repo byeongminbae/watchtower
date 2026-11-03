@@ -32,16 +32,23 @@ class OciQueueClient(
     @Value("\${watchtower.crawl-queue.result-queue-id}") private val resultQueueId: String
 ) {
     fun sendCrawlRequest(crawlRequestDto: CrawlRequestDto) {
+        sendCrawlRequests(listOf(crawlRequestDto))
+    }
+
+    /** 요청을 한 번에 넣음. OCI Queue 는 일부만 넣지 않고, 실패하면 모두 넣지 않음 */
+    fun sendCrawlRequests(crawlRequestDtos: List<CrawlRequestDto>) {
+        require(crawlRequestDtos.size <= MAX_BATCH_SIZE) { "한 번에 넣을 수 있는 요청은 최대 $MAX_BATCH_SIZE 개" }
+
         val putMessagesRequest = PutMessagesRequest.builder()
             .queueId(requestQueueId)
             .putMessagesDetails(
                 PutMessagesDetails.builder()
                     .messages(
-                        listOf(
+                        crawlRequestDtos.map {
                             PutMessagesDetailsEntry.builder()
-                                .content(objectMapper.writeValueAsString(crawlRequestDto))
+                                .content(objectMapper.writeValueAsString(it))
                                 .build()
-                        )
+                        }
                     )
                     .build()
             )
@@ -93,7 +100,7 @@ class OciQueueClient(
         const val LONG_POLLING_SECONDS = 30
 
         /**
-         * OCI Queue 가 받기, 지우기 요청 한 번에 처리할 수 있는 최대 메시지 수. 요청 수로 과금되므로 최대로 묶음
+         * OCI Queue 가 넣기, 받기, 지우기 요청 한 번에 처리할 수 있는 최대 메시지 수. 요청 수로 과금되므로 최대로 묶음
          *
          * 받기는 이 수가 찰 때까지 기다리지 않고, 응답하는 순간 큐에 있는 메시지를 이 수까지 담아 줌
          */

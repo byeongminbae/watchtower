@@ -150,7 +150,7 @@ const server = createServer(async (request, response) => {
       state.towers = state.towers.map(item => item.id === id ? retried : item); send(success(retried)); return;
     }
     if (towerMatch[2] === "snapshots") {
-      send(success([{ id: 1, htmlContentUrl: "https://example.com/full.html", htmlContentDiffUrl: "https://example.com/diff.html", screenshotUrl: null, screenshotDiffUrl: null, aiDiffSummary: "신규 채용 공고", notifiedAt: timestamp }])); return;
+      send(success([{ id: 1, aiDiffSummary: "신규 채용 공고", notifiedAt: timestamp }])); return;
     }
     if (method === "DELETE") { state.towers = state.towers.filter(item => item.id !== id); send(success()); return; }
     if (method === "PUT" && typeof body.name === "string" && typeof body.fetchInterval === "string" && typeof body.includeInStat === "boolean" && (body.status === "CRAWLING_READY" || body.status === "USER_PAUSED")) {

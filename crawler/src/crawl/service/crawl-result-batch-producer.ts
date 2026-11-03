@@ -11,8 +11,8 @@ type BatchItem = { resultContent: string; requestReceipt: string };
  *
  * 발행에 실패하면 요청을 완료 처리하지 않으므로 큐가 다시 전달함. 결과가 유실되지 않는 대신 중복될 수 있음
  */
-export class CrawlQueueBatch {
-  private readonly logger = new Logger(CrawlQueueBatch.name);
+export class CrawlResultBatchProducer {
+  private readonly logger = new Logger(CrawlResultBatchProducer.name);
   private readonly batchItems = new Subject<BatchItem>();
   private readonly allBatchesHandled: Promise<void>;
 

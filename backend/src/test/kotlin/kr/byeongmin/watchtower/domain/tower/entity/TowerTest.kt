@@ -172,6 +172,44 @@ class TowerTest {
     }
 
     @Test
+    fun `크롤링 대기 중인 타워의 크롤링을 시작하면 크롤링 중으로 바뀜`() {
+        /** given */
+        tower.changeStatusByAdmin(TowerStatus.CRAWLING_READY)
+
+        /** when */
+        tower.startCrawl()
+
+        /** then */
+        assertEquals(TowerStatus.CRAWLING, tower.status)
+    }
+
+    @ParameterizedTest
+    @CsvSource("CRAWLING_ERROR", "USER_PAUSED", "ADMIN_PAUSED")
+    fun `크롤링 대기 중이 아닌 타워는 크롤링을 시작할 수 없음`(status: TowerStatus) {
+        /** given */
+        tower.changeStatusByAdmin(status)
+
+        /** when */
+        assertFailsWith<IllegalStateException> {
+            tower.startCrawl()
+        }
+
+        /** then */
+        assertEquals(status, tower.status)
+    }
+
+    @Test
+    fun `크롤링 중인 타워는 크롤링을 또 시작할 수 없음`() {
+        /** when */
+        assertFailsWith<IllegalStateException> {
+            tower.startCrawl()
+        }
+
+        /** then */
+        assertEquals(TowerStatus.CRAWLING, tower.status)
+    }
+
+    @Test
     fun `어드민도 크롤링 요청 없이 타워를 크롤링 중 상태로 바꿀 수 없음`() {
         /** given */
         tower.changeStatusByAdmin(TowerStatus.CRAWLING_READY)
@@ -216,7 +254,7 @@ class TowerTest {
 
     @Test
     fun `타워를 삭제하면 삭제되지 않은 스냅샷과 감지 조건도 삭제됨`() {
-        val snapshot = TowerSnapshot.from(tower, "https://example.com/snapshot")
+        val snapshot = TowerSnapshot.from(tower = tower, htmlObjectName = "towers/7/2026-11-04T01:00:00.000Z.html", changed = false)
         val condition = KeywordCondition.from(tower, "재고", true)
 
         tower.delete()
@@ -228,7 +266,7 @@ class TowerTest {
 
     @Test
     fun `타워를 삭제할 때 이미 삭제된 스냅샷과 감지 조건 및 채널 연결은 건너뜀`() {
-        val snapshot = TowerSnapshot.from(tower, "https://example.com/snapshot")
+        val snapshot = TowerSnapshot.from(tower = tower, htmlObjectName = "towers/7/2026-11-04T01:00:00.000Z.html", changed = false)
         val condition = HtmlCondition.from(tower)
         val channel = NotificationChannel.from(
             member = owner,

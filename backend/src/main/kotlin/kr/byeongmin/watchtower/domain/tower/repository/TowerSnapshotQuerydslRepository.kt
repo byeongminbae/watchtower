@@ -14,8 +14,8 @@ class TowerSnapshotQuerydslRepository(
     private val queryFactory: JPAQueryFactory
 ) {
     /**
-     * 회원이 소유한 삭제되지 않은 타워의 [TowerSnapshot]을 조회
-     * @return 삭제되지 않은 스냅샷 목록. 타워가 없거나 삭제되었거나 소유자가 다르면 null, 스냅샷이 없으면 빈 목록
+     * 회원이 소유한 삭제되지 않은 타워에서 변경이 감지된 [TowerSnapshot]을 조회
+     * @return 삭제되지 않은 변경 스냅샷 목록. 타워가 없거나 삭제되었거나 소유자가 다르면 null, 변경 스냅샷이 없으면 빈 목록
      */
     fun findByTowerIdAndMemberId(
         towerId: Long,
@@ -26,6 +26,7 @@ class TowerSnapshotQuerydslRepository(
             .from(tower)
             .leftJoin(tower.snapshots, towerSnapshot)
             .on(
+                towerSnapshot.changed.isTrue,
                 towerSnapshot.deletedAt.isNull
             )
             .where(
@@ -43,7 +44,7 @@ class TowerSnapshotQuerydslRepository(
     }
 
     /**
-     * 타워마다 삭제되지 않은 변경 스냅샷(htmlContentDiffUrl 이 있는 스냅샷) 중 가장 최근 것의 AI 요약을 조회
+     * 타워마다 삭제되지 않은 변경 스냅샷 중 가장 최근 것의 AI 요약을 조회
      * @return 타워 id 별 AI 요약. 변경 스냅샷이 없는 타워는 키가 없고, 가장 최근 변경에 AI 요약이 없으면 값이 null
      */
     fun findLatestChangeAiSummaries(towerIds: Collection<Long>): Map<Long, String?> {
@@ -57,7 +58,7 @@ class TowerSnapshotQuerydslRepository(
                         .from(towerSnapshot)
                         .where(
                             towerSnapshot.tower.id.`in`(towerIds),
-                            towerSnapshot.htmlContentDiffUrl.isNotNull,
+                            towerSnapshot.changed.isTrue,
                             towerSnapshot.deletedAt.isNull
                         )
                         .groupBy(towerSnapshot.tower.id)
@@ -65,6 +66,18 @@ class TowerSnapshotQuerydslRepository(
             )
             .fetch()
             .associate { it.get(towerSnapshot.tower.id).ifNullThrow() to it.get(towerSnapshot.aiDiffSummary) }
+    }
+
+    /** 타워의 삭제되지 않은 [TowerSnapshot] 중 가장 최근에 저장한 것을 조회. 없으면 null */
+    fun findLatestByTowerId(towerId: Long): TowerSnapshot? {
+        return queryFactory
+            .selectFrom(towerSnapshot)
+            .where(
+                towerSnapshot.tower.id.eq(towerId),
+                towerSnapshot.deletedAt.isNull
+            )
+            .orderBy(towerSnapshot.createdAt.desc())
+            .fetchFirst()
     }
 
     fun deleteByCreatedAtBefore(createdAt: LocalDateTime, deletedAt: LocalDateTime): Long {

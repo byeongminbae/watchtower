@@ -22,6 +22,7 @@ services:
     environment:
       SPRING_CLOUD_OCI_VAULT_ENABLED: "false"
       SPRING_CLOUD_OCI_QUEUE_ENABLED: "false"
+      SPRING_CLOUD_OCI_STORAGE_ENABLED: "false"
       SPRING_AUTOCONFIGURE_EXCLUDE: com.oracle.cloud.spring.autoconfigure.core.CredentialsProviderAutoConfiguration
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/watchtower
       SPRING_DATASOURCE_USERNAME: watchtower

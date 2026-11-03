@@ -22,6 +22,11 @@ data class CrawlResultDto(
     val errorCode: String?,
     val triggeredByMemberId: Long?
 ) {
+    /** 페이지를 받아왔고 2xx 로 응답했을 때만 성공으로 봄 */
+    fun isPageReceived(): Boolean {
+        return resultStatus == CrawlResultStatus.FETCHED && httpStatusCode in 200..299
+    }
+
     enum class CrawlResultStatus {
         FETCHED, FAILED
     }

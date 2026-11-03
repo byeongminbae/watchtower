@@ -5,10 +5,12 @@ import kr.byeongmin.watchtower.domain.member.accessor.MemberAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerRequestHistoryAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
+import kr.byeongmin.watchtower.domain.tower.entity.Tower
 import kr.byeongmin.watchtower.domain.tower.entity.TowerRequestHistory
 import kr.byeongmin.watchtower.domain.tower.entity.TowerSnapshot
 import kr.byeongmin.watchtower.external.oci.queue.client.OciQueueClient
 import kr.byeongmin.watchtower.external.oci.queue.dto.CrawlResultDto
+import kr.byeongmin.watchtower.external.oci.storage.client.OciSnapshotStorageClient
 import kr.byeongmin.watchtower.external.slack.client.SlackClient
 import kr.byeongmin.watchtower.global.utils.ifNullThrow
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -22,12 +24,14 @@ import java.util.concurrent.TimeUnit
 /** 크롤러가 결과 큐에 보낸 크롤링 결과를 타워에 반영. 큐 기능을 끈 환경에서는 결과 큐를 받지 않음 */
 @Service
 @ConditionalOnProperty(name = [OciQueueClient.QUEUE_ENABLED_PROPERTY], havingValue = "true", matchIfMissing = true)
-class TowerCrawlResultService(
+class CrawlResultConsumerService(
     private val ociQueueClient: OciQueueClient,
     private val towerAccessor: TowerAccessor,
     private val towerSnapshotAccessor: TowerSnapshotAccessor,
     private val towerRequestHistoryAccessor: TowerRequestHistoryAccessor,
     private val memberAccessor: MemberAccessor,
+    private val towerDetectionService: TowerDetectionService,
+    private val ociSnapshotStorageClient: OciSnapshotStorageClient,
     private val objectMapper: ObjectMapper,
     private val transactionTemplate: TransactionTemplate,
     private val slackClient: SlackClient
@@ -77,18 +81,35 @@ class TowerCrawlResultService(
         }
 
         tower.applyCrawlResult(crawlResultDto)
+
+        // 오류 페이지가 직전 버전이 되면 다음 정상 페이지를 변경으로 판정하므로, 2xx 로 받아온 페이지만 버전으로 저장하고 비교함
+        val changed = if (crawlResultDto.isPageReceived()) {
+            saveHtmlVersionAndDetectChange(tower, crawlResultDto.htmlObjectName.ifNullThrow())
+        } else {
+            false
+        }
+
         towerRequestHistoryAccessor.save(
             TowerRequestHistory.from(
                 tower = tower,
                 crawlResultDto = crawlResultDto,
-                // TODO: 이전 수집본과 비교하는 변경 감지 구현 후 결과를 넣어야 함
-                changed = false,
+                changed = changed,
                 triggeredBy = crawlResultDto.triggeredByMemberId?.let { memberAccessor.findMember(it) }
             )
         )
+    }
 
-        // 실패한 크롤링은 저장한 HTML 이 없음
-        val htmlObjectName = crawlResultDto.htmlObjectName ?: return
-        towerSnapshotAccessor.save(TowerSnapshot.from(tower = tower, htmlContentUrl = htmlObjectName))
+    /** 이번 HTML 을 직전 버전과 타워의 조건으로 비교하고 새 버전으로 저장함. 첫 버전은 비교 대상이 없어서 변경이 아님 */
+    private fun saveHtmlVersionAndDetectChange(tower: Tower, htmlObjectName: String): Boolean {
+        val towerId = tower.id.ifNullThrow()
+        val previousSnapshot = towerSnapshotAccessor.findLatestSnapshot(towerId)
+        val changed = previousSnapshot != null && towerDetectionService.isChanged(
+            towerId = towerId,
+            previousHtml = ociSnapshotStorageClient.getHtml(previousSnapshot.htmlObjectName),
+            currentHtml = ociSnapshotStorageClient.getHtml(htmlObjectName)
+        )
+
+        towerSnapshotAccessor.save(TowerSnapshot.from(tower = tower, htmlObjectName = htmlObjectName, changed = changed))
+        return changed
     }
 }

@@ -22,6 +22,11 @@ class TowerSnapshotAccessor(
             ?: throw BusinessException(CommonError.RESOURCE_NOT_FOUND)
     }
 
+    /** 새 크롤링 결과와 비교할 직전 버전. 첫 크롤링이면 null */
+    fun findLatestSnapshot(towerId: Long): TowerSnapshot? {
+        return towerSnapshotQuerydslRepository.findLatestByTowerId(towerId)
+    }
+
     /** @return 타워 id 별 마지막 변경의 AI 요약. 변경이 없던 타워는 키가 없음 */
     fun findLatestChangeAiSummaries(towerIds: Collection<Long>): Map<Long, String?> {
         if (towerIds.isEmpty()) {

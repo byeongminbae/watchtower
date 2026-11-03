@@ -708,7 +708,6 @@ class TowerServiceTest {
         val snapshotId = 11L
         val snapshot = mock<TowerSnapshot> {
             on { id } doReturn snapshotId
-            on { htmlContentUrl } doReturn "https://example.com/snapshot"
         }
         whenever(towerSnapshotAccessor.getMemberSnapshots(towerId, ownerId))
             .thenReturn(listOf(snapshot))

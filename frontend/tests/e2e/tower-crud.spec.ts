@@ -64,17 +64,12 @@ test("크롤링에 실패한 타워를 다시 확인하면 확인 중으로 바�
   expect(records.data).toContainEqual(expect.objectContaining({ method: "POST", path: "/api/v1/towers/9/crawl-retry", csrf: "csrf-fixture" }));
 });
 
-test("스냅샷 보기를 전환하면 실제 HTML 링크를 변경할 것이다", async ({ page, login }) => {
+test("변경 기록 탭을 열면 감지된 변경의 요약을 보여줄 것이다", async ({ page, login }) => {
   // given
   await login();
   await page.goto("/watches/9");
+  // when
   await page.getByRole("tab", { name: /변경 기록/ }).click();
-  // when
-  await page.getByRole("button", { name: "전체 페이지", exact: true }).click();
   // then
-  await expect(page.getByRole("link", { name: "HTML 열기" })).toHaveAttribute("href", "https://example.com/full.html");
-  // when
-  await page.getByRole("button", { name: "변경 부분", exact: true }).click();
-  // then
-  await expect(page.getByRole("link", { name: "HTML 열기" })).toHaveAttribute("href", "https://example.com/diff.html");
+  await expect(page.getByText("신규 채용 공고", { exact: true })).toBeVisible();
 });

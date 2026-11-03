@@ -1,9 +1,9 @@
 import { Logger } from '@nestjs/common';
 import type { RequestQueue, ResultQueue } from '../../../src/crawl/interfaces/queue.interface.js';
 import { Policy } from '../../../src/config/policy.js';
-import { CrawlQueueBatch } from '../../../src/crawl/service/crawl-queue-batch.js';
+import { CrawlResultBatchProducer } from '../../../src/crawl/service/crawl-result-batch-producer.js';
 
-describe('CrawlQueueBatch', () => {
+describe('CrawlResultBatchProducer', () => {
   let resultQueue: ResultQueue;
   let requestQueue: RequestQueue;
 
@@ -20,11 +20,11 @@ describe('CrawlQueueBatch', () => {
 
   it('배치 크기만큼 모이면 기다리지 않고 한 번에 발행한 뒤 한 번에 완료 처리함', async () => {
     // given
-    const batcher = new CrawlQueueBatch(requestQueue, resultQueue);
+    const producer = new CrawlResultBatchProducer(requestQueue, resultQueue);
 
     // when
     for (let index = 0; index < Policy.QUEUE_BATCH_SIZE; index++) {
-      batcher.add(`result-${index}`, `receipt-${index}`);
+      producer.add(`result-${index}`, `receipt-${index}`);
     }
     await vi.waitFor(() => expect(requestQueue.completeAll).toHaveBeenCalled());
 
@@ -36,8 +36,8 @@ describe('CrawlQueueBatch', () => {
 
   it('배치 크기에 못 미쳐도 대기 시간이 지나면 모인 만큼 발행함', async () => {
     // given
-    const batcher = new CrawlQueueBatch(requestQueue, resultQueue);
-    batcher.add('result-1', 'receipt-1');
+    const producer = new CrawlResultBatchProducer(requestQueue, resultQueue);
+    producer.add('result-1', 'receipt-1');
 
     // when
     await vi.advanceTimersByTimeAsync(Policy.RESULT_FLUSH_DELAY_MILLIS);
@@ -52,11 +52,11 @@ describe('CrawlQueueBatch', () => {
     resultQueue.publishAll = vi.fn(async () => {
       throw new Error('결과 큐 장애');
     });
-    const batcher = new CrawlQueueBatch(requestQueue, resultQueue);
-    batcher.add('result-1', 'receipt-1');
+    const producer = new CrawlResultBatchProducer(requestQueue, resultQueue);
+    producer.add('result-1', 'receipt-1');
 
     // when
-    await batcher.close();
+    await producer.close();
 
     // then
     expect(requestQueue.completeAll).not.toHaveBeenCalled();
@@ -64,11 +64,11 @@ describe('CrawlQueueBatch', () => {
 
   it('종료할 때 대기 시간 전이라도 남은 결과를 모두 발행함', async () => {
     // given
-    const batcher = new CrawlQueueBatch(requestQueue, resultQueue);
-    batcher.add('result-1', 'receipt-1');
+    const producer = new CrawlResultBatchProducer(requestQueue, resultQueue);
+    producer.add('result-1', 'receipt-1');
 
     // when
-    await batcher.close();
+    await producer.close();
 
     // then
     expect(resultQueue.publishAll).toHaveBeenCalledWith(['result-1']);

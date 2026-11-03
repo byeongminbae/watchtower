@@ -5,18 +5,21 @@ import kr.byeongmin.watchtower.global.entity.Base
 import java.time.LocalDateTime
 
 /**
- * [Tower.url] 을 크롤링 할 때마다 생성되는 엔티티
+ * [Tower.url] 을 크롤링해 2xx 로 받아온 페이지의 버전. 같은 타워의 가장 최근 스냅샷이 다음 크롤링의 비교 대상이 됨
  *
- *  아래 nullable 필드들은 이전 수집본과 비교한 변경 결과라서, 첫 수집이거나 변경이 없으면 전부 null 이다
+ * @property [htmlObjectName] 크롤러가 HTML 을 저장한 버킷의 객체 이름
+ * @property [highlightedScreenshotObjectName] 이번 스크린샷 위에 직전 버전과 달라진 영역을 표시한 이미지의 객체 이름. 첫 버전이거나 화면이 바뀌지 않았으면 null
+ * @property [changed] 직전 버전과 비교해 타워의 조건 중 하나라도 충족했는지. 첫 버전은 비교 대상이 없어서 false
  */
 @Entity
 class TowerSnapshot private constructor(
     @ManyToOne(fetch = FetchType.LAZY)
     val tower: Tower,
-    val htmlContentUrl: String,
-    val htmlContentDiffUrl: String?,
-    val screenshotUrl: String?,
-    val screenshotDiffUrl: String?,
+    val htmlObjectName: String,
+    // TODO: 크롤러가 스크린샷을 저장하게 되면 NOT NULL 로 변경
+    val screenshotObjectName: String?,
+    val highlightedScreenshotObjectName: String?,
+    val changed: Boolean,
     val aiDiffSummary: String?,
     val notifiedAt: LocalDateTime?
 ) : Base() {
@@ -35,19 +38,19 @@ class TowerSnapshot private constructor(
     companion object {
         fun from(
             tower: Tower,
-            htmlContentUrl: String,
-            htmlContentDiffUrl: String? = null,
-            screenshotUrl: String? = null,
-            screenshotDiffUrl: String? = null,
+            htmlObjectName: String,
+            changed: Boolean,
+            screenshotObjectName: String? = null,
+            highlightedScreenshotObjectName: String? = null,
             aiDiffSummary: String? = null,
             notifiedAt: LocalDateTime? = null
         ): TowerSnapshot {
             val snapshot = TowerSnapshot(
                 tower = tower,
-                htmlContentUrl = htmlContentUrl,
-                htmlContentDiffUrl = htmlContentDiffUrl,
-                screenshotUrl = screenshotUrl,
-                screenshotDiffUrl = screenshotDiffUrl,
+                htmlObjectName = htmlObjectName,
+                screenshotObjectName = screenshotObjectName,
+                highlightedScreenshotObjectName = highlightedScreenshotObjectName,
+                changed = changed,
                 aiDiffSummary = aiDiffSummary,
                 notifiedAt = notifiedAt
             )
