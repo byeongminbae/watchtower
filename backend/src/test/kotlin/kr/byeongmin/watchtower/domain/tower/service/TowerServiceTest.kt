@@ -15,11 +15,13 @@ import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
 import kr.byeongmin.watchtower.domain.tower.enums.UpdatableTowerStatus
 import kr.byeongmin.watchtower.domain.tower.error.TowerError
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
+import kr.byeongmin.watchtower.domain.tower.policy.TowerPolicy
 import kr.byeongmin.watchtower.external.dns.DnsResolver
 import kr.byeongmin.watchtower.external.google.GoogleFaviconClient
 import kr.byeongmin.watchtower.external.oci.queue.client.OciQueueClient
 import kr.byeongmin.watchtower.external.oci.queue.dto.CrawlRequestDto
 import kr.byeongmin.watchtower.external.oci.queue.dto.CrawlResultDto
+import kr.byeongmin.watchtower.external.oci.storage.client.OciSnapshotStorageClient
 import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
@@ -44,6 +46,7 @@ class TowerServiceTest {
         on { resolveAll(any()) } doReturn listOf(InetAddress.ofLiteral("8.8.8.8"))
     }
     private val ociQueueClient = mock<OciQueueClient>()
+    private val ociSnapshotStorageClient = mock<OciSnapshotStorageClient>()
     private val now = LocalDateTime.of(2026, 11, 3, 1, 0)
     private val timeProvider = mock<TimeProvider> {
         on { now() } doReturn now
@@ -58,6 +61,7 @@ class TowerServiceTest {
         googleFaviconClient = googleFaviconClient,
         dnsResolver = dnsResolver,
         ociQueueClient = ociQueueClient,
+        ociSnapshotStorageClient = ociSnapshotStorageClient,
         timeProvider = timeProvider
     )
 
@@ -228,6 +232,7 @@ class TowerServiceTest {
             googleFaviconClient = googleFaviconClient,
             dnsResolver = dnsResolver,
             ociQueueClient = null,
+            ociSnapshotStorageClient = ociSnapshotStorageClient,
             timeProvider = timeProvider
         )
 
@@ -688,14 +693,14 @@ class TowerServiceTest {
     }
 
     @Test
-    fun `소유한 타워를 찾을 수 없으면 스냅샷을 조회할 수 없음`() {
+    fun `소유한 타워를 찾을 수 없으면 변경이 감지된 스냅샷을 조회할 수 없음`() {
         /** given */
-        whenever(towerSnapshotAccessor.getMemberSnapshots(towerId, ownerId))
+        whenever(towerSnapshotAccessor.getMemberChangedSnapshots(towerId, ownerId))
             .thenThrow(BusinessException(CommonError.RESOURCE_NOT_FOUND))
 
         /** when */
         val exception = assertFailsWith<BusinessException> {
-            towerService.getTowerSnapshots(ownerId, towerId)
+            towerService.getTowerChangedSnapshots(ownerId, towerId)
         }
 
         /** then */
@@ -703,17 +708,17 @@ class TowerServiceTest {
     }
 
     @Test
-    fun `회원은 자신의 타워에 저장된 스냅샷을 조회할 수 있음`() {
+    fun `회원은 자신의 타워에서 변경이 감지된 스냅샷을 조회할 수 있음`() {
         /** given */
         val snapshotId = 11L
         val snapshot = mock<TowerSnapshot> {
             on { id } doReturn snapshotId
         }
-        whenever(towerSnapshotAccessor.getMemberSnapshots(towerId, ownerId))
+        whenever(towerSnapshotAccessor.getMemberChangedSnapshots(towerId, ownerId))
             .thenReturn(listOf(snapshot))
 
         /** when */
-        val response = towerService.getTowerSnapshots(ownerId, towerId)
+        val response = towerService.getTowerChangedSnapshots(ownerId, towerId)
 
         /** then */
         assertEquals(1, response.data.size)
@@ -721,13 +726,51 @@ class TowerServiceTest {
     }
 
     @Test
-    fun `조회할 스냅샷이 없으면 스냅샷 목록은 비어 있음`() {
+    fun `하이라이트 스크린샷이 있는 스냅샷은 정해진 시간 동안만 읽을 수 있는 URL 을 함께 내려줌`() {
         /** given */
-        whenever(towerSnapshotAccessor.getMemberSnapshots(towerId, ownerId))
+        val objectName = "towers/7/2026-11-04T01:00:00.000Z.png"
+        val readUrl = "https://objectstorage.ap-osaka-1.oraclecloud.com/p/token/n/ns/b/bucket/o/$objectName"
+        val snapshot = mock<TowerSnapshot> {
+            on { id } doReturn 11L
+            on { highlightedScreenshotObjectName } doReturn objectName
+        }
+        whenever(towerSnapshotAccessor.getMemberChangedSnapshots(towerId, ownerId)).thenReturn(listOf(snapshot))
+        whenever(
+            ociSnapshotStorageClient.createReadUrl(objectName, timeProvider.now().plus(TowerPolicy.SNAPSHOT_READ_URL_VALIDITY))
+        ).thenReturn(readUrl)
+
+        /** when */
+        val response = towerService.getTowerChangedSnapshots(ownerId, towerId)
+
+        /** then */
+        assertEquals(readUrl, response.data.first().highlightedScreenshotUrl)
+    }
+
+    @Test
+    fun `하이라이트 스크린샷이 없는 스냅샷은 URL 을 발급하지 않음`() {
+        /** given */
+        val snapshot = mock<TowerSnapshot> {
+            on { id } doReturn 11L
+            on { highlightedScreenshotObjectName } doReturn null
+        }
+        whenever(towerSnapshotAccessor.getMemberChangedSnapshots(towerId, ownerId)).thenReturn(listOf(snapshot))
+
+        /** when */
+        val response = towerService.getTowerChangedSnapshots(ownerId, towerId)
+
+        /** then */
+        assertNull(response.data.first().highlightedScreenshotUrl)
+        verifyNoInteractions(ociSnapshotStorageClient)
+    }
+
+    @Test
+    fun `변경이 감지된 스냅샷이 없으면 스냅샷 목록은 비어 있음`() {
+        /** given */
+        whenever(towerSnapshotAccessor.getMemberChangedSnapshots(towerId, ownerId))
             .thenReturn(emptyList())
 
         /** when */
-        val response = towerService.getTowerSnapshots(ownerId, towerId)
+        val response = towerService.getTowerChangedSnapshots(ownerId, towerId)
 
         /** then */
         assertEquals(0, response.data.size)

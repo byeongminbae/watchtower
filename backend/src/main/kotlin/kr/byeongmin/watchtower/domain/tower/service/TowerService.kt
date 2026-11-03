@@ -9,11 +9,13 @@ import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
 import kr.byeongmin.watchtower.domain.tower.dto.*
 import kr.byeongmin.watchtower.domain.tower.entity.*
 import kr.byeongmin.watchtower.domain.tower.error.TowerError
+import kr.byeongmin.watchtower.domain.tower.policy.TowerPolicy
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
 import kr.byeongmin.watchtower.external.dns.DnsResolver
 import kr.byeongmin.watchtower.external.google.GoogleFaviconClient
 import kr.byeongmin.watchtower.external.oci.queue.client.OciQueueClient
 import kr.byeongmin.watchtower.external.oci.queue.dto.CrawlRequestDto
+import kr.byeongmin.watchtower.external.oci.storage.client.OciSnapshotStorageClient
 import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.dto.SuccessDataResponse
 import kr.byeongmin.watchtower.global.dto.SuccessResponse
@@ -21,6 +23,7 @@ import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDateTime
 
 @Service
 class TowerService(
@@ -33,6 +36,8 @@ class TowerService(
     private val dnsResolver: DnsResolver,
     /** 큐 기능을 끈 환경([OciQueueClient.QUEUE_ENABLED_PROPERTY])에서는 null 이고, 크롤링을 요청하는 기능은 거부함 */
     private val ociQueueClient: OciQueueClient?,
+    /** 스토리지 기능을 끈 환경([OciSnapshotStorageClient.STORAGE_ENABLED_PROPERTY])에서는 null 이고, 스냅샷 파일 URL 발급을 거부함 */
+    private val ociSnapshotStorageClient: OciSnapshotStorageClient?,
     private val timeProvider: TimeProvider
 ) {
     @Transactional
@@ -249,12 +254,27 @@ class TowerService(
     }
 
     @Transactional(readOnly = true)
-    fun getTowerSnapshots(memberId: Long, towerId: Long): SuccessDataResponse<List<TowerSnapshotResponseDto>> {
-        val snapshots = towerSnapshotAccessor.getMemberSnapshots(
+    fun getTowerChangedSnapshots(memberId: Long, towerId: Long): SuccessDataResponse<List<TowerSnapshotResponseDto>> {
+        val snapshots = towerSnapshotAccessor.getMemberChangedSnapshots(
             towerId = towerId,
             memberId = memberId
         )
 
-        return SuccessDataResponse(snapshots.map { TowerSnapshotResponseDto.from(it) })
+        val readUrlExpiresAt = timeProvider.now().plus(TowerPolicy.SNAPSHOT_READ_URL_VALIDITY)
+        return SuccessDataResponse(
+            snapshots.map {
+                TowerSnapshotResponseDto.from(
+                    towerSnapshot = it,
+                    highlightedScreenshotUrl = it.highlightedScreenshotObjectName?.let { objectName ->
+                        createSnapshotReadUrl(objectName, readUrlExpiresAt)
+                    }
+                )
+            }
+        )
+    }
+
+    private fun createSnapshotReadUrl(objectName: String, expiresAt: LocalDateTime): String {
+        val storageClient = ociSnapshotStorageClient ?: throw BusinessException(CommonError.EXTERNAL_API_ERROR)
+        return storageClient.createReadUrl(objectName, expiresAt)
     }
 }

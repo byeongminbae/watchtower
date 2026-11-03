@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { History } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -14,6 +15,9 @@ export default function SnapshotTimeline({ snapshots }: { readonly snapshots: re
       <CardHeader><CardTitle><span className="flex items-center gap-2"><History aria-hidden="true" className="size-4 text-primary" />변경 기록</span></CardTitle><CardDescription>{snapshot.notifiedAt ? formatDateTime(snapshot.notifiedAt) : "알림 전 스냅샷"}</CardDescription></CardHeader>
       <CardContent className="flex min-w-0 flex-col gap-4">
         <p className="text-sm leading-relaxed wrap-anywhere">{snapshot.aiDiffSummary || "변경 요약이 없어요."}</p>
+        {snapshot.highlightedScreenshotUrl && <a href={snapshot.highlightedScreenshotUrl} target="_blank" rel="noopener noreferrer" aria-label="변경 부분 스크린샷 원본 열기">
+          <Image src={snapshot.highlightedScreenshotUrl} alt="변경 부분을 표시한 스크린샷" width={1280} height={720} unoptimized className="h-auto w-full rounded-lg border" />
+        </a>}
       </CardContent>
     </Card>)}
   </section>;

@@ -17,7 +17,7 @@ class TowerSnapshotQuerydslRepository(
      * 회원이 소유한 삭제되지 않은 타워에서 변경이 감지된 [TowerSnapshot]을 조회
      * @return 삭제되지 않은 변경 스냅샷 목록. 타워가 없거나 삭제되었거나 소유자가 다르면 null, 변경 스냅샷이 없으면 빈 목록
      */
-    fun findByTowerIdAndMemberId(
+    fun findChangedByTowerIdAndMemberId(
         towerId: Long,
         memberId: Long
     ): List<TowerSnapshot>? {

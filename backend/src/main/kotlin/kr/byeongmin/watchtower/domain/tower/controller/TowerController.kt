@@ -7,8 +7,8 @@ import kr.byeongmin.watchtower.domain.tower.service.HotTowerService
 import kr.byeongmin.watchtower.domain.tower.service.TowerService
 import kr.byeongmin.watchtower.global.dto.SuccessDataResponse
 import kr.byeongmin.watchtower.global.dto.SuccessResponse
-import kr.byeongmin.watchtower.global.security.MemberOnly
 import kr.byeongmin.watchtower.global.security.MemberId
+import kr.byeongmin.watchtower.global.security.MemberOnly
 import org.springframework.web.bind.annotation.*
 
 @RestController
@@ -146,14 +146,14 @@ class TowerController(
         )
     }
 
-    @Operation(summary = "스냅샷 조회")
+    @Operation(summary = "변경이 감지된 스냅샷 조회")
     @GetMapping("/{towerId}/snapshots")
     @MemberOnly
-    fun listTowerSnapshots(
+    fun getTowerChangedSnapshots(
         @MemberId memberId: Long,
         @PathVariable towerId: Long
     ): SuccessDataResponse<List<TowerSnapshotResponseDto>> {
-        return towerService.getTowerSnapshots(memberId = memberId, towerId = towerId)
+        return towerService.getTowerChangedSnapshots(memberId = memberId, towerId = towerId)
     }
 
 }

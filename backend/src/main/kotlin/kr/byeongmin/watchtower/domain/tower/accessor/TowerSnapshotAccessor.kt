@@ -17,8 +17,8 @@ class TowerSnapshotAccessor(
         return towerSnapshotRepository.save(towerSnapshot)
     }
 
-    fun getMemberSnapshots(towerId: Long, memberId: Long): List<TowerSnapshot> {
-        return towerSnapshotQuerydslRepository.findByTowerIdAndMemberId(towerId, memberId)
+    fun getMemberChangedSnapshots(towerId: Long, memberId: Long): List<TowerSnapshot> {
+        return towerSnapshotQuerydslRepository.findChangedByTowerIdAndMemberId(towerId, memberId)
             ?: throw BusinessException(CommonError.RESOURCE_NOT_FOUND)
     }
 

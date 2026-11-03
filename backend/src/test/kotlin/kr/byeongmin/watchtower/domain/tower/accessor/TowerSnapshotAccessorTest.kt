@@ -18,27 +18,27 @@ class TowerSnapshotAccessorTest {
     private val towerSnapshotAccessor = TowerSnapshotAccessor(towerSnapshotRepository, towerSnapshotQuerydslRepository)
 
     @Test
-    fun `소유한 타워에 스냅샷이 없으면 빈 목록을 조회할 수 있음`() {
+    fun `소유한 타워에 변경이 감지된 스냅샷이 없으면 빈 목록을 조회할 수 있음`() {
         /** given */
-        whenever(towerSnapshotQuerydslRepository.findByTowerIdAndMemberId(7L, 21L))
+        whenever(towerSnapshotQuerydslRepository.findChangedByTowerIdAndMemberId(7L, 21L))
             .thenReturn(emptyList())
 
         /** when */
-        val snapshots = towerSnapshotAccessor.getMemberSnapshots(towerId = 7L, memberId = 21L)
+        val snapshots = towerSnapshotAccessor.getMemberChangedSnapshots(towerId = 7L, memberId = 21L)
 
         /** then */
         assertTrue(snapshots.isEmpty())
     }
 
     @Test
-    fun `소유한 타워를 찾을 수 없으면 스냅샷을 조회할 수 없음`() {
+    fun `소유한 타워를 찾을 수 없으면 변경이 감지된 스냅샷을 조회할 수 없음`() {
         /** given */
-        whenever(towerSnapshotQuerydslRepository.findByTowerIdAndMemberId(7L, 21L))
+        whenever(towerSnapshotQuerydslRepository.findChangedByTowerIdAndMemberId(7L, 21L))
             .thenReturn(null)
 
         /** when */
         val exception = assertFailsWith<BusinessException> {
-            towerSnapshotAccessor.getMemberSnapshots(towerId = 7L, memberId = 21L)
+            towerSnapshotAccessor.getMemberChangedSnapshots(towerId = 7L, memberId = 21L)
         }
 
         /** then */

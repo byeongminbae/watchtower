@@ -29,7 +29,8 @@ export function isCondition(value: unknown): value is WatchCondition {
   }
 }
 export function isSnapshot(value: unknown): value is WatchSnapshot {
-  return object(value) && id(value.id) && text(value.aiDiffSummary) && text(value.notifiedAt);
+  return object(value) && id(value.id) && (value.highlightedScreenshotUrl === null || httpUrl(value.highlightedScreenshotUrl)) &&
+    text(value.aiDiffSummary) && text(value.notifiedAt);
 }
 export function isHotUrl(value: unknown): value is HotUrl {
   return object(value) && typeof value.domain === "string" && httpUrl(value.url) && count(value.changeCount);

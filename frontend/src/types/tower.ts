@@ -20,6 +20,7 @@ export interface Watch {
 }
 export interface WatchSnapshot {
   readonly id: number;
+  readonly highlightedScreenshotUrl: string | null;
   readonly aiDiffSummary: string | null;
   readonly notifiedAt: string | null;
 }
