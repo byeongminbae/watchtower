@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.Date
+import java.util.zip.GZIPInputStream
 
 /**
  * 크롤러가 스냅샷을 저장하는 OCI Object Storage 버킷. 버킷은 실행 프로파일(local, dev, prod)마다 다름
@@ -26,7 +27,7 @@ class OciSnapshotStorageClient(
     @Value("\${watchtower.snapshot-storage.namespace}") private val namespaceName: String,
     @Value("\${watchtower.snapshot-storage.bucket-name}") private val bucketName: String
 ) {
-    /** 크롤러가 UTF-8 로 저장한 HTML 을 읽음 */
+    /** 크롤러가 UTF-8 로 저장한 HTML 을 읽음. gzip 으로 압축해 저장한 객체는 압축을 풀어 읽음 */
     fun getHtml(objectName: String): String {
         val getObjectRequest = GetObjectRequest.builder()
             .namespaceName(namespaceName)
@@ -35,9 +36,8 @@ class OciSnapshotStorageClient(
             .build()
 
         try {
-            return objectStorageClient.getObject(getObjectRequest).inputStream.use {
-                it.readAllBytes().toString(Charsets.UTF_8)
-            }
+            val objectBytes = objectStorageClient.getObject(getObjectRequest).inputStream.use { it.readAllBytes() }
+            return decompressIfGzip(objectBytes).toString(Charsets.UTF_8)
         } catch (exception: BmcException) {
             throw BusinessException(error = CommonError.EXTERNAL_API_ERROR, cause = exception)
         }
@@ -72,7 +72,25 @@ class OciSnapshotStorageClient(
         }
     }
 
+    /**
+     * gzip 여부를 Content-Encoding 이 아니라 매직 넘버(1f 8b)로 판별함
+     *
+     * SDK 가 Content-Encoding 을 보고 압축을 미리 풀었는지와 상관없이 읽고, 압축하기 전에 저장한 객체도 그대로 읽기 위함
+     */
+    private fun decompressIfGzip(objectBytes: ByteArray): ByteArray {
+        val isGzip = objectBytes.size >= 2 &&
+                objectBytes[0] == GZIP_MAGIC_FIRST_BYTE &&
+                objectBytes[1] == GZIP_MAGIC_SECOND_BYTE
+        if (!isGzip) {
+            return objectBytes
+        }
+        return GZIPInputStream(objectBytes.inputStream()).use { it.readAllBytes() }
+    }
+
     companion object {
+        private const val GZIP_MAGIC_FIRST_BYTE: Byte = 0x1f
+        private const val GZIP_MAGIC_SECOND_BYTE: Byte = 0x8b.toByte()
+
         /** Spring Cloud OCI 가 스토리지 자동 설정을 켜고 끄는 설정. 기본값은 true */
         const val STORAGE_ENABLED_PROPERTY = "spring.cloud.oci.storage.enabled"
     }
