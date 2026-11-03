@@ -29,6 +29,7 @@ services:
       WATCHTOWER_AUTH_NAVER_CLIENT_ID: ci
       WATCHTOWER_AUTH_NAVER_CLIENT_SECRET: ci
       WATCHTOWER_AUTH_NAVER_CALLBACK_URL: http://127.0.0.1:3000/login/callback
+      BACKEND_SLACK_WEBHOOK_URL: ci
 
   frontend:
     profiles: [frontend]

@@ -9,4 +9,9 @@ package kr.byeongmin.watchtower.global.error
 interface Error {
     val statusCode: String
     val message: String
+
+    /** 요청한 사용자가 아니라 서버나 외부 서비스 쪽 문제라서 운영자에게 Slack 알림을 보내야 하는 오류인지 여부 */
+    fun isOperatorAlertRequired(): Boolean {
+        return false
+    }
 }

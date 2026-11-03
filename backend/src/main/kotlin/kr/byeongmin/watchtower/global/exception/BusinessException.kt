@@ -11,11 +11,13 @@ import java.time.ZoneId
  * 서블릿에 도달하기 전인 요청은 못잡으니 유의할것
  *
  * @property [error] 구체적으로 어떤 이유에서 예외를 터트렸는지에 대한 일종의 타입
+ * @param [cause] 외부 라이브러리 예외를 감쌀 때 원인을 운영자 알림과 로그에 남기기 위해 넘김
  * */
 class BusinessException(
     val error: Error,
-    val timestamp: LocalDateTime = LocalDateTime.now(ZoneId.of("UTC"))
-) : RuntimeException() {
+    val timestamp: LocalDateTime = LocalDateTime.now(ZoneId.of("UTC")),
+    cause: Throwable? = null
+) : RuntimeException(cause) {
     override fun toString(): String {
         return "BusinessException(error=$error, timestamp=$timestamp)"
     }

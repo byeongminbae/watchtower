@@ -49,8 +49,8 @@ class OciQueueClient(
 
         try {
             queueClient.putMessages(putMessagesRequest)
-        } catch (_: BmcException) {
-            throw BusinessException(CommonError.EXTERNAL_API_ERROR)
+        } catch (exception: BmcException) {
+            throw BusinessException(error = CommonError.EXTERNAL_API_ERROR, cause = exception)
         }
     }
 

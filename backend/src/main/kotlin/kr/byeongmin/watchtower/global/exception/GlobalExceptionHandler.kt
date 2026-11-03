@@ -2,6 +2,7 @@ package kr.byeongmin.watchtower.global.exception
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.servlet.http.HttpServletRequest
+import kr.byeongmin.watchtower.external.slack.client.SlackClient
 import kr.byeongmin.watchtower.global.dto.ErrorResponse
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -12,7 +13,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
  * 프로젝트 컨벤션상 응답 코드는 무조건 200 이고 봉투패턴을 사용해 응답함
  * */
 @RestControllerAdvice
-class GlobalExceptionHandler {
+class GlobalExceptionHandler(
+    private val slackClient: SlackClient
+) {
     private val logger = KotlinLogging.logger {}
 
     @ExceptionHandler(BusinessException::class)
@@ -20,8 +23,11 @@ class GlobalExceptionHandler {
         businessException: BusinessException,
         request: HttpServletRequest
     ): ErrorResponse {
-        logger.debug(businessException) {
-            getHttpHeader(request)
+        if (businessException.error.isOperatorAlertRequired()) {
+            logger.error(businessException) { getHttpHeader(request) }
+            slackClient.sendErrorAlert("${businessException.error.statusCode} 요청 처리 실패${getHttpHeader(request)}", businessException)
+        } else {
+            logger.debug(businessException) { getHttpHeader(request) }
         }
         return ErrorResponse(businessException)
     }

@@ -9,6 +9,7 @@ import kr.byeongmin.watchtower.domain.tower.entity.TowerRequestHistory
 import kr.byeongmin.watchtower.domain.tower.entity.TowerSnapshot
 import kr.byeongmin.watchtower.external.oci.queue.client.OciQueueClient
 import kr.byeongmin.watchtower.external.oci.queue.dto.CrawlResultDto
+import kr.byeongmin.watchtower.external.slack.client.SlackClient
 import kr.byeongmin.watchtower.global.utils.ifNullThrow
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.Scheduled
@@ -28,7 +29,8 @@ class TowerCrawlResultService(
     private val towerRequestHistoryAccessor: TowerRequestHistoryAccessor,
     private val memberAccessor: MemberAccessor,
     private val objectMapper: ObjectMapper,
-    private val transactionTemplate: TransactionTemplate
+    private val transactionTemplate: TransactionTemplate,
+    private val slackClient: SlackClient
 ) {
     private val logger = KotlinLogging.logger {}
 
@@ -54,7 +56,9 @@ class TowerCrawlResultService(
                 transactionTemplate.execute { applyCrawlResult(crawlResultDto) }
                 appliedReceipts.add(queueResultMessageDto.receipt)
             } catch (exception: Exception) {
-                logger.error(exception) { "크롤링 결과 반영 실패. content=${queueResultMessageDto.content}" }
+                val message = "크롤링 결과 반영 실패. content=${queueResultMessageDto.content}"
+                logger.error(exception) { message }
+                slackClient.sendErrorAlert(message, exception)
             }
         }
 
