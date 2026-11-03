@@ -13,10 +13,11 @@ const conditionTypes = [
   { value: "REGEX", label: "정규식 감지" }
 ];
 
-export default function ConditionFields({ value, onChange, lockType = false }: {
+export default function ConditionFields({ value, onChange, lockType = false, hasHtmlCondition = false }: {
   readonly value: WatchConditionInput;
   readonly onChange: (condition: WatchConditionInput) => void;
   readonly lockType?: boolean;
+  readonly hasHtmlCondition?: boolean;
 }) {
   const id = useId();
   return <FieldGroup>
@@ -30,7 +31,7 @@ export default function ConditionFields({ value, onChange, lockType = false }: {
         }
       }}>
         <SelectTrigger id={`${id}-type`} className="w-full"><SelectValue /></SelectTrigger>
-        <SelectContent><SelectGroup>{conditionTypes.map(type => <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>)}</SelectGroup></SelectContent>
+        <SelectContent><SelectGroup>{conditionTypes.map(type => <SelectItem key={type.value} value={type.value} disabled={type.value === "HTML" && hasHtmlCondition}>{type.value === "HTML" && hasHtmlCondition ? `${type.label} (이미 추가했어요)` : type.label}</SelectItem>)}</SelectGroup></SelectContent>
       </Select>
     </Field>
     {value.type === "KEYWORD" && <Field><FieldLabel htmlFor={`${id}-keyword`}>키워드</FieldLabel><Input id={`${id}-keyword`} required value={value.keyword} onChange={event => onChange({ ...value, keyword: event.target.value })} /></Field>}

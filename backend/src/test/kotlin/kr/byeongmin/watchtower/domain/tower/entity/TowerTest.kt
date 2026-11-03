@@ -187,6 +187,34 @@ class TowerTest {
     }
 
     @Test
+    fun `전체 변경 감지 조건이 이미 있는 타워에 또 추가하면 예외가 발생함`() {
+        /** given */
+        HtmlCondition.from(tower)
+
+        /** when */
+        val exception = assertFailsWith<BusinessException> {
+            HtmlCondition.from(tower)
+        }
+
+        /** then */
+        assertEquals(TowerError.HTML_CONDITION_DUPLICATED, exception.error)
+        assertEquals(1, tower.conditions.size)
+    }
+
+    @Test
+    fun `전체 변경 감지 조건을 삭제한 타워에는 다시 추가할 수 있음`() {
+        /** given */
+        HtmlCondition.from(tower).delete()
+
+        /** when */
+        val condition = HtmlCondition.from(tower)
+
+        /** then */
+        assertTrue(tower.hasHtmlCondition())
+        assertFalse(condition.isDeleted())
+    }
+
+    @Test
     fun `타워를 삭제하면 삭제되지 않은 스냅샷과 감지 조건도 삭제됨`() {
         val snapshot = TowerSnapshot.from(tower, "https://example.com/snapshot")
         val condition = KeywordCondition.from(tower, "재고", true)

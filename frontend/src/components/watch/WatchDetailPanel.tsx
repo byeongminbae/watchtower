@@ -179,7 +179,7 @@ export default function WatchDetailPanel({ watch, onChanged, onDeleted, headingL
       </TabsContent>
     </Tabs>
 
-    {conditionDialog !== null && <AddConditionDialog open onClose={() => setConditionDialog(null)} onAdd={saveCondition} initial={conditionDialog.initial} />}
+    {conditionDialog !== null && <AddConditionDialog open onClose={() => setConditionDialog(null)} onAdd={saveCondition} initial={conditionDialog.initial} hasHtmlCondition={conditions.data?.some(condition => condition.type === "HTML") ?? false} />}
     {editOpen && <EditWatchDialog watch={watch} onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); onChanged?.(); }} />}
     <AlertDialog open={deleteOpen} onOpenChange={open => { if (!busy) setDeleteOpen(open); }}><AlertDialogContent>
       <AlertDialogHeader><AlertDialogTitle>타워를 삭제할까요?</AlertDialogTitle><AlertDialogDescription>이 타워의 감시를 종료하고 목록에서 삭제해요. 삭제한 타워는 되돌릴 수 없어요.</AlertDialogDescription></AlertDialogHeader>

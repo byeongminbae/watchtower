@@ -114,6 +114,10 @@ class Tower private constructor(
         conditions.add(condition)
     }
 
+    fun hasHtmlCondition(): Boolean {
+        return conditions.any { it is HtmlCondition && !it.isDeleted() }
+    }
+
     /**
      * 크롤링 결과를 반영함. 크롤링 중인 타워만 결과에 따라 [TowerStatus.CRAWLING_READY] 나 [TowerStatus.CRAWLING_ERROR] 로 바뀜
      *

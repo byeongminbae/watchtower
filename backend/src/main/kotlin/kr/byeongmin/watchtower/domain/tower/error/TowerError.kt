@@ -11,7 +11,8 @@ enum class TowerError(
     CONDITION_QUOTA_EXCEEDED("TOW_002", "타워 하나에 등록할 수 있는 조건은 최대 3개입니다."),
     URL_NOT_ALLOWED("TOW_003", "내부망 등 허용되지 않는 주소는 등록할 수 없습니다."),
     UNSUPPORTED_CONDITION("TOW_004", "지원하지 않는 타워 조건입니다."),
-    CRAWL_NOT_RETRYABLE("TOW_005", "크롤링에 실패한 타워만 다시 시도할 수 있습니다.");
+    CRAWL_NOT_RETRYABLE("TOW_005", "크롤링에 실패한 타워만 다시 시도할 수 있습니다."),
+    HTML_CONDITION_DUPLICATED("TOW_006", "전체 변경 감지 조건은 타워에 하나만 등록할 수 있습니다.");
 
     override fun toString(): String {
         return "TowerError(statusCode='$statusCode', message='$message')"
