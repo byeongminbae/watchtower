@@ -24,7 +24,7 @@ class SlackClient(
     fun sendErrorAlert(message: String, exception: Throwable) {
         val stackTrace = exception.stackTraceToString().take(STACK_TRACE_MAX_LENGTH)
         val payload = Payload.builder()
-            .text("[backend:$activeProfile] $message\n```$stackTrace```")
+            .text(SensitiveValueMasker.mask("[backend:$activeProfile] $message\n```$stackTrace```"))
             .build()
 
         try {
