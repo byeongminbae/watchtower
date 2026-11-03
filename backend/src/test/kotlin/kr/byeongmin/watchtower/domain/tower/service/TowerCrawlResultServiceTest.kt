@@ -13,6 +13,7 @@ import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
 import kr.byeongmin.watchtower.external.oci.queue.client.OciQueueClient
 import kr.byeongmin.watchtower.external.oci.queue.dto.QueueResultMessageDto
+import kr.byeongmin.watchtower.external.slack.client.SlackClient
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.*
 import org.springframework.transaction.PlatformTransactionManager
@@ -31,6 +32,7 @@ class TowerCrawlResultServiceTest {
     private val towerSnapshotAccessor = mock<TowerSnapshotAccessor>()
     private val towerRequestHistoryAccessor = mock<TowerRequestHistoryAccessor>()
     private val memberAccessor = mock<MemberAccessor>()
+    private val slackClient = mock<SlackClient>()
     private val transactionManager = mock<PlatformTransactionManager> {
         on { getTransaction(any()) } doReturn mock<TransactionStatus>()
     }
@@ -41,7 +43,8 @@ class TowerCrawlResultServiceTest {
         towerRequestHistoryAccessor = towerRequestHistoryAccessor,
         memberAccessor = memberAccessor,
         objectMapper = jacksonObjectMapper(),
-        transactionTemplate = TransactionTemplate(transactionManager)
+        transactionTemplate = TransactionTemplate(transactionManager),
+        slackClient = slackClient
     )
 
     private val owner = mock<Member>()
@@ -180,6 +183,25 @@ class TowerCrawlResultServiceTest {
 
         /** then */
         verify(ociQueueClient).deleteCrawlResults(listOf("applied"))
+    }
+
+    @Test
+    fun `반영하지 못한 결과가 있으면 결과마다 운영자에게 알림을 보냄`() {
+        /** given */
+        whenever(ociQueueClient.fetchCrawlResults()).thenReturn(
+            listOf(
+                failedResultMessage("applied", towerId = 7L),
+                QueueResultMessageDto(receipt = "malformed", content = "형식이 잘못된 결과")
+            )
+        )
+        whenever(towerAccessor.findTower(7L)).thenReturn(tower)
+
+        /** when */
+        towerCrawlResultService.applyCrawlResults()
+
+        /** then */
+        verify(slackClient).sendErrorAlert(argThat { contains("형식이 잘못된 결과") }, any())
+        verifyNoMoreInteractions(slackClient)
     }
 
     @Test

@@ -24,6 +24,10 @@ enum class CommonError(
     INTERNAL_SERVER_ERROR("SER_000", "서버 내부 오류가 발생했습니다."),
     NULL_CASTING_ERROR("SER_001", "NULL 캐스팅 오류입니다.");
 
+    override fun isOperatorAlertRequired(): Boolean {
+        return this == EXTERNAL_API_ERROR || this == INTERNAL_SERVER_ERROR || this == NULL_CASTING_ERROR
+    }
+
     override fun toString(): String {
         return "CommonError(statusCode='$statusCode', message='$message')"
     }

@@ -5,6 +5,7 @@ import kr.byeongmin.watchtower.domain.auth.service.AuthService
 import kr.byeongmin.watchtower.domain.member.enums.MemberRole
 import kr.byeongmin.watchtower.global.error.AuthError
 import kr.byeongmin.watchtower.global.exception.BusinessException
+import kr.byeongmin.watchtower.external.slack.client.SlackClient
 import kr.byeongmin.watchtower.global.exception.GlobalExceptionHandler
 import kr.byeongmin.watchtower.global.security.MemberPrinciple
 import kr.byeongmin.watchtower.global.security.SecurityConfig
@@ -166,6 +167,11 @@ class OpenApiTestSessionTest {
     )
     class TestConfig {
         private val objectMapper = jacksonObjectMapper()
+
+        @Bean
+        fun slackClient(): SlackClient {
+            return mock()
+        }
 
         @Bean
         fun sessionMemberLoader(): SessionMemberLoader {

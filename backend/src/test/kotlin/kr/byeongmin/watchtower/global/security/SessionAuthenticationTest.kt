@@ -15,6 +15,7 @@ import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.dto.SuccessResponse
 import kr.byeongmin.watchtower.global.error.AuthError
 import kr.byeongmin.watchtower.global.exception.BusinessException
+import kr.byeongmin.watchtower.external.slack.client.SlackClient
 import kr.byeongmin.watchtower.global.exception.GlobalExceptionHandler
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -439,6 +440,11 @@ class SessionAuthenticationTest {
     )
     class TestConfig {
         private val objectMapper = jacksonObjectMapper()
+
+        @Bean
+        fun slackClient(): SlackClient {
+            return mock()
+        }
 
         @Bean
         fun naverAuthClient(): NaverAuthClient {
