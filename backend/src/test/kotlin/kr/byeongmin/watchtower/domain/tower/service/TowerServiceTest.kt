@@ -763,7 +763,7 @@ class TowerServiceTest {
         val exception = assertFailsWith<BusinessException> {
             towerService.createTower(
                 ownerId, towerCreateRequest.copy(
-                    conditions = List(owner.plan.maxConditionQuantity + 1) { HtmlConditionCreateRequestDto }
+                    conditions = List(owner.plan.maxConditionQuantity + 1) { KeywordConditionCreateRequestDto(keyword = "재고$it", isSatisfiedAtAppearance = true) }
                 ))
         }
 
