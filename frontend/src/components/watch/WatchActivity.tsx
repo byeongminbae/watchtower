@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import { Bell, CircleCheck, Clock3 } from "lucide-react";
 import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { formatDateTime, formatRelativeTime, toDate } from "@/lib/dateTime";
+import { formatDateTime, formatRelativeTime } from "@/lib/dateTime";
 import { formatFetchInterval, intervalMinutes } from "@/lib/tower";
 import type { Watch } from "@/types/tower";
 
@@ -26,7 +26,7 @@ function RecentTime({ value, now, emptyText }: { readonly value: string | null; 
 export default function WatchActivity({ watch }: { readonly watch: Watch }) {
   const now = useSyncExternalStore<number | null>(subscribeClock, currentTime, () => null);
   const interval = intervalMinutes(watch.fetchInterval) * 60_000;
-  const elapsed = watch.lastFetchedAt && now !== null ? now - toDate(watch.lastFetchedAt).getTime() : null;
+  const elapsed = watch.lastFetchedAt && now !== null ? now - new Date(watch.lastFetchedAt).getTime() : null;
   const running = watch.status === "CRAWLING_READY" || watch.status === "CRAWLING";
   const progress = running && elapsed !== null && Number.isFinite(interval) && interval > 0 ? Math.min(1, Math.max(0, elapsed / interval)) : 0;
   const remaining = elapsed === null ? null : Math.max(0, Math.ceil((interval - elapsed) / 60_000));

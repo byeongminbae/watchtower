@@ -14,7 +14,7 @@ import java.time.ZoneId
  * */
 class BusinessException(
     val error: Error,
-    val timestamp: LocalDateTime = LocalDateTime.now(ZoneId.of("Asia/Seoul"))
+    val timestamp: LocalDateTime = LocalDateTime.now(ZoneId.of("UTC"))
 ) : RuntimeException() {
     override fun toString(): String {
         return "BusinessException(error=$error, timestamp=$timestamp)"
