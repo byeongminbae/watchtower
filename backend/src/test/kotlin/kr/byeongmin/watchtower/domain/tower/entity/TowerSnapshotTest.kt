@@ -12,7 +12,7 @@ class TowerSnapshotTest {
     @Test
     fun `새 스냅샷을 만들면 해당 타워에도 스냅샷을 연결함`() {
         /** when */
-        val snapshot = TowerSnapshot.from(tower = tower, htmlObjectName = htmlObjectName, changed = false)
+        val snapshot = TowerSnapshot.from(tower = tower, htmlObjectName = htmlObjectName, htmlSha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", changed = false)
 
         /** then */
         assertSame(tower, snapshot.tower)

@@ -42,6 +42,10 @@ abstract class CrawlResultMessage {
   }
 }
 
+/**
+ * @property htmlSha256 받아온 HTML 의 SHA-256 (소문자 16진수)
+ * @property htmlObjectName HTML 을 저장한 객체 이름. 요청의 previousHtmlSha256 과 같아서 저장하지 않았으면 null
+ */
 export class CrawlSuccessResultMessage extends CrawlResultMessage {
   readonly resultStatus = 'FETCHED';
   readonly httpStatusCode: number;
@@ -52,7 +56,8 @@ export class CrawlSuccessResultMessage extends CrawlResultMessage {
     startedAt: Date,
     endedAt: Date,
     fetchedPage: { httpStatusCode: number; finalUrl: string },
-    readonly htmlObjectName: string
+    readonly htmlSha256: string,
+    readonly htmlObjectName: string | null
   ) {
     super(request, startedAt, endedAt);
     this.httpStatusCode = fetchedPage.httpStatusCode;

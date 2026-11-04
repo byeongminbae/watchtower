@@ -103,6 +103,7 @@ class TowerServiceTest {
             resultStatus = resultStatus,
             httpStatusCode = httpStatusCode,
             finalUrl = null,
+            htmlSha256 = null,
             htmlObjectName = null,
             errorCode = null,
             triggeredByMemberId = null
@@ -153,7 +154,7 @@ class TowerServiceTest {
         val savedTower = argumentCaptor<Tower>()
         inOrder(towerAccessor, ociQueueClient) {
             verify(towerAccessor).saveTower(savedTower.capture(), any(), any())
-            verify(ociQueueClient).sendCrawlRequest(CrawlRequestDto.from(tower, now, ownerId))
+            verify(ociQueueClient).sendCrawlRequest(CrawlRequestDto.from(tower, null, now, ownerId))
         }
     }
 
@@ -186,7 +187,7 @@ class TowerServiceTest {
 
         /** then */
         assertEquals(TowerStatus.CRAWLING, response.data.status)
-        verify(ociQueueClient).sendCrawlRequest(CrawlRequestDto.from(failedTower, now, ownerId))
+        verify(ociQueueClient).sendCrawlRequest(CrawlRequestDto.from(failedTower, null, now, ownerId))
     }
 
     @Test

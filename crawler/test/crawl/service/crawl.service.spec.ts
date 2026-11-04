@@ -14,9 +14,11 @@ const request = CrawlRequestMessage.from(
     towerId: 7,
     url: 'https://example.com',
     scheduledAt: '2026-10-30T00:00:00.000Z',
-    triggeredByMemberId: 21
+    triggeredByMemberId: 21,
+    previousHtmlSha256: null
   })
 )!;
+const HTML_SHA256 = 'b633a587c652d02386c4f16f8c6f6aab7352d97f16367c3c40576214372dd628';
 const startedAt = new Date('2026-10-30T00:00:01.000Z');
 const endedAt = new Date('2026-10-30T00:00:03.000Z');
 
@@ -27,7 +29,7 @@ function createTimeProvider(): TimeProvider {
 }
 
 describe('CrawlService', () => {
-  it('페이지를 받아오면 요청을 받은 환경의 버킷에 HTML 을 저장하고 저장 위치를 담은 결과를 돌려줌', async () => {
+  it('직전 버전이 없는 페이지를 받아오면 요청을 받은 환경의 버킷에 HTML 을 저장하고 HTML 해시와 저장 위치를 담은 결과를 돌려줌', async () => {
     // given
     const pageFetcher: PageFetcher = {
       fetchPage: async () => {
@@ -56,7 +58,40 @@ describe('CrawlService', () => {
       triggeredByMemberId: 21,
       httpStatusCode: 404,
       finalUrl: 'https://example.com/',
+      htmlSha256: HTML_SHA256,
       htmlObjectName: 'towers/7/2026-10-30T00:00:00.000Z.html'
+    });
+  });
+
+  it('받아온 HTML 이 직전 버전과 같으면 저장하지 않고 저장 위치 없이 HTML 해시만 담은 결과를 돌려줌', async () => {
+    // given
+    const unchangedRequest = CrawlRequestMessage.from(
+      JSON.stringify({
+        towerId: 7,
+        url: 'https://example.com',
+        scheduledAt: '2026-10-30T00:00:00.000Z',
+        triggeredByMemberId: null,
+        previousHtmlSha256: HTML_SHA256
+      })
+    )!;
+    const pageFetcher: PageFetcher = {
+      fetchPage: async () => {
+        return new PageFetchSuccess({ httpStatusCode: 200, finalUrl: 'https://example.com/', html: '<html></html>' });
+      }
+    };
+    const htmlStorage: HtmlStorage = { saveHtml: vi.fn(async () => {}) };
+    const crawlService = new CrawlService(pageFetcher, htmlStorage, createTimeProvider());
+
+    // when
+    const result = await crawlService.crawl(unchangedRequest, 'watchtower-snapshot-dev');
+
+    // then
+    expect(htmlStorage.saveHtml).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      resultStatus: 'FETCHED',
+      httpStatusCode: 200,
+      htmlSha256: HTML_SHA256,
+      htmlObjectName: null
     });
   });
 

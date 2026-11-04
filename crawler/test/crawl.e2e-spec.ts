@@ -56,7 +56,8 @@ describe('크롤러 (e2e)', () => {
           towerId: 7,
           url: 'https://example.com',
           scheduledAt: '2026-10-30T00:00:00.000Z',
-          triggeredByMemberId: null
+          triggeredByMemberId: null,
+          previousHtmlSha256: null
         }),
         receipt: 'prod-1',
         deliveryCount: 1

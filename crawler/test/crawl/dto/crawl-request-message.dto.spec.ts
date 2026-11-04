@@ -1,13 +1,14 @@
 import { CrawlRequestMessage } from '../../../src/crawl/dto/crawl-request-message.dto.js';
 
 describe('CrawlRequestMessage.from', () => {
-  it('타워 ID, http(s) URL, 예정 시각, 요청한 회원이 모두 올바르면 요청으로 인정함', () => {
+  it('타워 ID, http(s) URL, 예정 시각, 요청한 회원, 직전 버전 HTML 해시가 모두 올바르면 요청으로 인정함', () => {
     // given
     const content = JSON.stringify({
       towerId: 1,
       url: 'https://example.com/a',
       scheduledAt: '2026-10-30T00:00:00.000Z',
-      triggeredByMemberId: 21
+      triggeredByMemberId: 21,
+      previousHtmlSha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
     });
 
     // when
@@ -18,8 +19,26 @@ describe('CrawlRequestMessage.from', () => {
       towerId: 1,
       url: 'https://example.com/a',
       scheduledAt: '2026-10-30T00:00:00.000Z',
-      triggeredByMemberId: 21
+      triggeredByMemberId: 21,
+      previousHtmlSha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
     });
+  });
+
+  it('직전 버전이 없어 HTML 해시가 null 인 요청도 요청으로 인정함', () => {
+    // given
+    const content = JSON.stringify({
+      towerId: 1,
+      url: 'https://example.com/a',
+      scheduledAt: '2026-10-30T00:00:00.000Z',
+      triggeredByMemberId: null,
+      previousHtmlSha256: null
+    });
+
+    // when
+    const request = CrawlRequestMessage.from(content);
+
+    // then
+    expect(request).toMatchObject({ towerId: 1, previousHtmlSha256: null });
   });
 
   it('요청한 회원이 null 인 자동 요청도 요청으로 인정함', () => {
@@ -28,7 +47,8 @@ describe('CrawlRequestMessage.from', () => {
       towerId: 1,
       url: 'https://example.com/a',
       scheduledAt: '2026-10-30T00:00:00.000Z',
-      triggeredByMemberId: null
+      triggeredByMemberId: null,
+      previousHtmlSha256: null
     });
 
     // when
@@ -44,7 +64,8 @@ describe('CrawlRequestMessage.from', () => {
       towerId: 1,
       url: 'https://example.com/a',
       scheduledAt: '2026-10-30T00:00:00.000Z',
-      triggeredByMemberId: null
+      triggeredByMemberId: null,
+      previousHtmlSha256: null
     });
 
     // when
@@ -64,7 +85,8 @@ describe('CrawlRequestMessage.from', () => {
         towerId: 1,
         url,
         scheduledAt: '2026-10-30T00:00:00.000Z',
-        triggeredByMemberId: null
+        triggeredByMemberId: null,
+        previousHtmlSha256: null
       });
 
       // when
@@ -82,7 +104,8 @@ describe('CrawlRequestMessage.from', () => {
         towerId: 1,
         url: 'https://example.com',
         scheduledAt,
-        triggeredByMemberId: null
+        triggeredByMemberId: null,
+        previousHtmlSha256: null
       });
 
       // when
@@ -100,33 +123,69 @@ describe('CrawlRequestMessage.from', () => {
       JSON.stringify({
         url: 'https://example.com',
         scheduledAt: '2026-10-30T00:00:00.000Z',
-        triggeredByMemberId: null
+        triggeredByMemberId: null,
+        previousHtmlSha256: null
       }),
       JSON.stringify({
         towerId: 0,
         url: 'https://example.com',
         scheduledAt: '2026-10-30T00:00:00.000Z',
-        triggeredByMemberId: null
+        triggeredByMemberId: null,
+        previousHtmlSha256: null
       }),
       JSON.stringify({
         towerId: '1',
         url: 'https://example.com',
         scheduledAt: '2026-10-30T00:00:00.000Z',
-        triggeredByMemberId: null
+        triggeredByMemberId: null,
+        previousHtmlSha256: null
       }),
-      JSON.stringify({ towerId: 1, url: 'https://example.com', scheduledAt: '어제', triggeredByMemberId: null }),
+      JSON.stringify({
+        towerId: 1,
+        url: 'https://example.com',
+        scheduledAt: '어제',
+        triggeredByMemberId: null,
+        previousHtmlSha256: null
+      }),
       JSON.stringify({
         towerId: 1.5,
         url: 'https://example.com',
         scheduledAt: '2026-10-30T00:00:00.000Z',
-        triggeredByMemberId: null
+        triggeredByMemberId: null,
+        previousHtmlSha256: null
       }),
-      JSON.stringify({ towerId: 1, url: 'https://example.com', scheduledAt: '2026-10-30T00:00:00.000Z' }),
       JSON.stringify({
         towerId: 1,
         url: 'https://example.com',
         scheduledAt: '2026-10-30T00:00:00.000Z',
-        triggeredByMemberId: '21'
+        previousHtmlSha256: null
+      }),
+      JSON.stringify({
+        towerId: 1,
+        url: 'https://example.com',
+        scheduledAt: '2026-10-30T00:00:00.000Z',
+        triggeredByMemberId: '21',
+        previousHtmlSha256: null
+      }),
+      JSON.stringify({
+        towerId: 1,
+        url: 'https://example.com',
+        scheduledAt: '2026-10-30T00:00:00.000Z',
+        triggeredByMemberId: null
+      }),
+      JSON.stringify({
+        towerId: 1,
+        url: 'https://example.com',
+        scheduledAt: '2026-10-30T00:00:00.000Z',
+        triggeredByMemberId: null,
+        previousHtmlSha256: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+      }),
+      JSON.stringify({
+        towerId: 1,
+        url: 'https://example.com',
+        scheduledAt: '2026-10-30T00:00:00.000Z',
+        triggeredByMemberId: null,
+        previousHtmlSha256: 'abc'
       })
     ]) {
       // given, when

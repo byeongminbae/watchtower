@@ -2,8 +2,10 @@ package kr.byeongmin.watchtower.domain.tower.service
 
 import kr.byeongmin.watchtower.domain.member.entity.Member
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
+import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
 import kr.byeongmin.watchtower.domain.tower.dto.TowerCreateRequestDto
 import kr.byeongmin.watchtower.domain.tower.entity.Tower
+import kr.byeongmin.watchtower.domain.tower.entity.TowerSnapshot
 import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
 import kr.byeongmin.watchtower.external.oci.queue.client.OciQueueClient
@@ -24,6 +26,7 @@ import kotlin.test.assertFailsWith
 class CrawlRequestProducerServiceTest {
     private val ociQueueClient = mock<OciQueueClient>()
     private val towerAccessor = mock<TowerAccessor>()
+    private val towerSnapshotAccessor = mock<TowerSnapshotAccessor>()
     private val transactionManager = mock<PlatformTransactionManager> {
         on { getTransaction(any()) } doReturn mock<TransactionStatus>()
     }
@@ -34,6 +37,7 @@ class CrawlRequestProducerServiceTest {
     private val crawlRequestProducerService = CrawlRequestProducerService(
         ociQueueClient = ociQueueClient,
         towerAccessor = towerAccessor,
+        towerSnapshotAccessor = towerSnapshotAccessor,
         transactionTemplate = TransactionTemplate(transactionManager),
         timeProvider = timeProvider
     )
@@ -68,7 +72,25 @@ class CrawlRequestProducerServiceTest {
 
         /** then */
         assertEquals(TowerStatus.CRAWLING, tower.status)
-        verify(ociQueueClient).sendCrawlRequests(listOf(CrawlRequestDto.from(tower, now, null)))
+        verify(ociQueueClient).sendCrawlRequests(listOf(CrawlRequestDto.from(tower, null, now, null)))
+    }
+
+    @Test
+    fun `가장 최근 스냅샷이 있는 타워는 그 스냅샷의 HTML 해시를 직전 버전 해시로 담아 요청함`() {
+        /** given */
+        val tower = readyTower(7L)
+        val latestSnapshot = mock<TowerSnapshot> {
+            on { htmlSha256 } doReturn "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+        whenever(towerAccessor.findCrawlDueTowersForUpdate(now, OciQueueClient.MAX_BATCH_SIZE))
+            .thenReturn(listOf(tower))
+        whenever(towerSnapshotAccessor.findLatestSnapshot(7L)).thenReturn(latestSnapshot)
+
+        /** when */
+        crawlRequestProducerService.requestDueCrawls()
+
+        /** then */
+        verify(ociQueueClient).sendCrawlRequests(listOf(CrawlRequestDto.from(tower, latestSnapshot, now, null)))
     }
 
     @Test
@@ -97,8 +119,8 @@ class CrawlRequestProducerServiceTest {
 
         /** then */
         verify(towerAccessor, times(2)).findCrawlDueTowersForUpdate(now, OciQueueClient.MAX_BATCH_SIZE)
-        verify(ociQueueClient).sendCrawlRequests(fullBatch.map { CrawlRequestDto.from(it, now, null) })
-        verify(ociQueueClient).sendCrawlRequests(remainingBatch.map { CrawlRequestDto.from(it, now, null) })
+        verify(ociQueueClient).sendCrawlRequests(fullBatch.map { CrawlRequestDto.from(it, null, now, null) })
+        verify(ociQueueClient).sendCrawlRequests(remainingBatch.map { CrawlRequestDto.from(it, null, now, null) })
         verify(transactionManager, times(2)).commit(any())
     }
 

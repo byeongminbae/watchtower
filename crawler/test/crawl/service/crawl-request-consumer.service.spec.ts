@@ -17,7 +17,8 @@ const message: ReceivedMessage = {
     towerId: 1,
     url: 'https://example.com',
     scheduledAt: '2026-10-30T00:00:00.000Z',
-    triggeredByMemberId: null
+    triggeredByMemberId: null,
+    previousHtmlSha256: null
   }),
   receipt: 'receipt-1',
   deliveryCount: 1

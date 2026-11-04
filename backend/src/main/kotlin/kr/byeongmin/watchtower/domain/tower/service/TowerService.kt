@@ -21,6 +21,7 @@ import kr.byeongmin.watchtower.global.dto.SuccessDataResponse
 import kr.byeongmin.watchtower.global.dto.SuccessResponse
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
+import kr.byeongmin.watchtower.global.utils.ifNullThrow
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -76,7 +77,14 @@ class TowerService(
     /** 첫 크롤링이나 재시도를 요청하지 못하면 타워를 확인할 방법이 없어서, 큐 기능이 꺼져 있으면 요청 자체를 실패시킴 */
     private fun sendCrawlRequest(tower: Tower, memberId: Long) {
         val queueClient = ociQueueClient ?: throw BusinessException(CommonError.EXTERNAL_API_ERROR)
-        queueClient.sendCrawlRequest(CrawlRequestDto.from(tower, timeProvider.now(), memberId))
+        queueClient.sendCrawlRequest(
+            CrawlRequestDto.from(
+                tower = tower,
+                latestSnapshot = towerSnapshotAccessor.findLatestSnapshot(tower.id.ifNullThrow()),
+                scheduledAt = timeProvider.now(),
+                triggeredByMemberId = memberId
+            )
+        )
     }
 
     private fun validateIsExternalIp(towerUrl: TowerUrl) {

@@ -53,6 +53,7 @@ class TowerTest {
             resultStatus = resultStatus,
             httpStatusCode = httpStatusCode,
             finalUrl = null,
+            htmlSha256 = null,
             htmlObjectName = null,
             errorCode = null,
             triggeredByMemberId = null
@@ -254,7 +255,12 @@ class TowerTest {
 
     @Test
     fun `타워를 삭제하면 삭제되지 않은 스냅샷과 감지 조건도 삭제됨`() {
-        val snapshot = TowerSnapshot.from(tower = tower, htmlObjectName = "towers/7/2026-11-04T01:00:00.000Z.html", changed = false)
+        val snapshot = TowerSnapshot.from(
+            tower = tower,
+            htmlObjectName = "towers/7/2026-11-04T01:00:00.000Z.html",
+            htmlSha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            changed = false
+        )
         val condition = KeywordCondition.from(tower, "재고", true)
 
         tower.delete()
@@ -266,7 +272,12 @@ class TowerTest {
 
     @Test
     fun `타워를 삭제할 때 이미 삭제된 스냅샷과 감지 조건 및 채널 연결은 건너뜀`() {
-        val snapshot = TowerSnapshot.from(tower = tower, htmlObjectName = "towers/7/2026-11-04T01:00:00.000Z.html", changed = false)
+        val snapshot = TowerSnapshot.from(
+            tower = tower,
+            htmlObjectName = "towers/7/2026-11-04T01:00:00.000Z.html",
+            htmlSha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            changed = false
+        )
         val condition = HtmlCondition.from(tower)
         val channel = NotificationChannel.from(
             member = owner,

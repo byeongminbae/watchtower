@@ -16,7 +16,7 @@ class CrawlResultDtoTest {
         val content = """
             {"towerId":7,"url":"https://example.com","scheduledAt":"2026-11-03T01:00:00.000Z",
             "crawlStartedAt":"2026-11-03T01:00:01.000Z","crawlEndedAt":"2026-11-03T01:00:05.123Z","triggeredByMemberId":21,
-            "htmlObjectName":"towers/7/2026-11-03T01:00:00.000Z.html","resultStatus":"FETCHED",
+            "htmlSha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","htmlObjectName":"towers/7/2026-11-03T01:00:00.000Z.html","resultStatus":"FETCHED",
             "httpStatusCode":200,"finalUrl":"https://example.com/"}
         """.trimIndent()
 
@@ -26,6 +26,7 @@ class CrawlResultDtoTest {
         /** then */
         assertEquals(CrawlResultDto.CrawlResultStatus.FETCHED, crawlResultDto.resultStatus)
         assertEquals(200, crawlResultDto.httpStatusCode)
+        assertEquals("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", crawlResultDto.htmlSha256)
         assertEquals("towers/7/2026-11-03T01:00:00.000Z.html", crawlResultDto.htmlObjectName)
         assertEquals(LocalDateTime.of(2026, 11, 3, 1, 0, 5, 123_000_000), crawlResultDto.crawlEndedAt)
         assertEquals(21L, crawlResultDto.triggeredByMemberId)
@@ -47,6 +48,7 @@ class CrawlResultDtoTest {
         assertEquals(CrawlResultDto.CrawlResultStatus.FAILED, crawlResultDto.resultStatus)
         assertEquals("CRW_002", crawlResultDto.errorCode)
         assertNull(crawlResultDto.httpStatusCode)
+        assertNull(crawlResultDto.htmlSha256)
         assertNull(crawlResultDto.htmlObjectName)
         assertNull(crawlResultDto.triggeredByMemberId)
     }

@@ -57,6 +57,8 @@ class CrawlResultConsumerServiceTest {
 
     private val owner = mock<Member>()
     private val htmlObjectName = "towers/7/2026-11-03T01:00:00.000Z.html"
+    private val htmlSha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    private val previousHtmlSha256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     private val crawlStartedAt = LocalDateTime.of(2026, 11, 3, 1, 0, 1)
     private val tower = spy(
         Tower.from(
@@ -79,7 +81,19 @@ class CrawlResultConsumerServiceTest {
                 {"towerId":7,"url":"https://example.com","scheduledAt":"2026-11-03T01:00:00.000Z",
                 "crawlStartedAt":"2026-11-03T01:00:01.000Z","crawlEndedAt":"2026-11-03T01:00:05.000Z",
                 "triggeredByMemberId":21,"resultStatus":"FETCHED","httpStatusCode":$httpStatusCode,
-                "finalUrl":"https://example.com/","htmlObjectName":"$htmlObjectName"}
+                "finalUrl":"https://example.com/","htmlSha256":"$htmlSha256","htmlObjectName":"$htmlObjectName"}
+            """.trimIndent()
+        )
+    }
+
+    private fun unchangedHtmlResultMessage(receipt: String): QueueResultMessageDto {
+        return QueueResultMessageDto(
+            receipt = receipt,
+            content = """
+                {"towerId":7,"url":"https://example.com","scheduledAt":"2026-11-03T01:00:00.000Z",
+                "crawlStartedAt":"2026-11-03T01:00:01.000Z","crawlEndedAt":"2026-11-03T01:00:05.000Z",
+                "triggeredByMemberId":null,"resultStatus":"FETCHED","httpStatusCode":200,
+                "finalUrl":"https://example.com/","htmlSha256":"$htmlSha256","htmlObjectName":null}
             """.trimIndent()
         )
     }
@@ -117,6 +131,7 @@ class CrawlResultConsumerServiceTest {
         assertNull(savedHistory.firstValue.errorCode)
         assertEquals(owner, savedHistory.firstValue.triggeredBy)
         assertEquals(htmlObjectName, savedSnapshot.firstValue.htmlObjectName)
+        assertEquals(htmlSha256, savedSnapshot.firstValue.htmlSha256)
         verify(ociQueueClient).deleteCrawlResults(listOf("receipt"))
     }
 
@@ -144,7 +159,7 @@ class CrawlResultConsumerServiceTest {
     fun `직전 버전과 비교해 조건을 충족하면 요청 이력과 새 버전에 변경으로 기록함`() {
         /** given */
         val previousHtmlObjectName = "towers/7/2026-11-03T00:50:00.000Z.html"
-        val previousSnapshot = TowerSnapshot.from(tower = tower, htmlObjectName = previousHtmlObjectName, changed = false)
+        val previousSnapshot = TowerSnapshot.from(tower = tower, htmlObjectName = previousHtmlObjectName, htmlSha256 = previousHtmlSha256, changed = false)
         whenever(ociQueueClient.fetchCrawlResults()).thenReturn(listOf(fetchedResultMessage("receipt", 200)))
         whenever(towerAccessor.findTower(7L)).thenReturn(tower)
         whenever(towerSnapshotAccessor.findLatestSnapshot(7L)).thenReturn(previousSnapshot)
@@ -184,10 +199,29 @@ class CrawlResultConsumerServiceTest {
     }
 
     @Test
+    fun `크롤러가 직전 버전과 같은 HTML 이라 저장을 생략한 결과는 새 버전 없이 변경 없음으로 요청 이력만 남김`() {
+        /** given */
+        whenever(ociQueueClient.fetchCrawlResults()).thenReturn(listOf(unchangedHtmlResultMessage("receipt")))
+        whenever(towerAccessor.findTower(7L)).thenReturn(tower)
+
+        /** when */
+        crawlResultConsumerService.applyCrawlResults()
+
+        /** then */
+        val savedHistory = argumentCaptor<TowerRequestHistory>()
+        verify(towerRequestHistoryAccessor).save(savedHistory.capture())
+        assertFalse(savedHistory.firstValue.changed)
+        assertEquals(TowerStatus.CRAWLING_READY, tower.status)
+        verify(towerSnapshotAccessor, never()).save(any())
+        verifyNoInteractions(ociSnapshotStorageClient, towerDetectionService)
+        verify(ociQueueClient).deleteCrawlResults(listOf("receipt"))
+    }
+
+    @Test
     fun `버킷에서 HTML 을 읽지 못하면 반영하지 않고 큐에 남겨 다시 전달받음`() {
         /** given */
         val previousHtmlObjectName = "towers/7/2026-11-03T00:50:00.000Z.html"
-        val previousSnapshot = TowerSnapshot.from(tower = tower, htmlObjectName = previousHtmlObjectName, changed = false)
+        val previousSnapshot = TowerSnapshot.from(tower = tower, htmlObjectName = previousHtmlObjectName, htmlSha256 = previousHtmlSha256, changed = false)
         whenever(ociQueueClient.fetchCrawlResults()).thenReturn(listOf(fetchedResultMessage("receipt", 200)))
         whenever(towerAccessor.findTower(7L)).thenReturn(tower)
         whenever(towerSnapshotAccessor.findLatestSnapshot(7L)).thenReturn(previousSnapshot)

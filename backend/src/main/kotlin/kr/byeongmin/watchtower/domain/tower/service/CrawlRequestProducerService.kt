@@ -1,9 +1,11 @@
 package kr.byeongmin.watchtower.domain.tower.service
 
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
+import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
 import kr.byeongmin.watchtower.external.oci.queue.client.OciQueueClient
 import kr.byeongmin.watchtower.external.oci.queue.dto.CrawlRequestDto
 import kr.byeongmin.watchtower.global.config.TimeProvider
+import kr.byeongmin.watchtower.global.utils.ifNullThrow
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -17,6 +19,7 @@ import java.util.concurrent.TimeUnit
 class CrawlRequestProducerService(
     private val ociQueueClient: OciQueueClient,
     private val towerAccessor: TowerAccessor,
+    private val towerSnapshotAccessor: TowerSnapshotAccessor,
     private val transactionTemplate: TransactionTemplate,
     private val timeProvider: TimeProvider
 ) {
@@ -42,7 +45,16 @@ class CrawlRequestProducerService(
         }
 
         towers.forEach { it.startCrawl() }
-        ociQueueClient.sendCrawlRequests(towers.map { CrawlRequestDto.from(it, now, null) })
+        ociQueueClient.sendCrawlRequests(
+            towers.map {
+                CrawlRequestDto.from(
+                    tower = it,
+                    latestSnapshot = towerSnapshotAccessor.findLatestSnapshot(it.id.ifNullThrow()),
+                    scheduledAt = now,
+                    triggeredByMemberId = null
+                )
+            }
+        )
         return towers.size
     }
 }

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { TimeProvider } from '../../common/time-provider.js';
 import type { CrawlRequestMessage } from '../dto/crawl-request-message.dto.js';
@@ -10,7 +11,7 @@ import { HTML_STORAGE, type HtmlStorage } from '../interfaces/html-storage.inter
 import { PAGE_FETCHER, type PageFetcher } from '../interfaces/page-fetcher.interface.js';
 
 /**
- * 크롤링 요청 단건을 처리함. 페이지를 받아오고, 받아왔으면 HTML 을 저장한 뒤 결과 메시지를 만듦
+ * 크롤링 요청 단건을 처리함. 페이지를 받아오고, 받아온 HTML 이 직전 버전과 다르면 저장한 뒤 결과 메시지를 만듦
  *
  * 큐 수신, 동시 처리 한도, 결과 발행과 요청 완료 처리는 CrawlRequestConsumer 가 맡음
  */
@@ -34,14 +35,19 @@ export class CrawlService {
       return new CrawlFailedResultMessage(crawlRequest, crawlStartedAt, this.timeProvider.now(), pageFetchResult.error);
     }
 
-    const htmlObjectName = crawlRequest.toHtmlObjectName();
-    await this.htmlStorage.saveHtml(bucketName, htmlObjectName, pageFetchResult.page.html);
+    const htmlSha256 = createHash('sha256').update(pageFetchResult.page.html).digest('hex');
+    let htmlObjectName: string | null = null;
+    if (htmlSha256 !== crawlRequest.previousHtmlSha256) {
+      htmlObjectName = crawlRequest.toHtmlObjectName();
+      await this.htmlStorage.saveHtml(bucketName, htmlObjectName, pageFetchResult.page.html);
+    }
 
     return new CrawlSuccessResultMessage(
       crawlRequest,
       crawlStartedAt,
       this.timeProvider.now(),
       pageFetchResult.page,
+      htmlSha256,
       htmlObjectName
     );
   }
