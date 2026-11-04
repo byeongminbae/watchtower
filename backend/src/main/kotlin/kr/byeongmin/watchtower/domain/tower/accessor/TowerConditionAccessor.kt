@@ -13,10 +13,6 @@ class TowerConditionAccessor(
     private val towerConditionRepository: TowerConditionRepository,
     private val towerConditionQuerydslRepository: TowerConditionQuerydslRepository
 ) {
-    fun getByTowerId(towerId: Long): List<TowerCondition> {
-        return towerConditionRepository.findByTower_IdAndDeletedAtIsNullAndTower_DeletedAtIsNull(towerId)
-    }
-
     fun getOwnedTowerConditions(towerId: Long, memberId: Long): List<TowerCondition> {
         return towerConditionQuerydslRepository.findByTowerIdAndMemberId(towerId, memberId)
             ?: throw BusinessException(CommonError.RESOURCE_NOT_FOUND)

@@ -241,6 +241,52 @@ class TowerTest {
     }
 
     @Test
+    fun `감지 조건이 없는 타워는 HTML 이 달라져도 조건을 충족하지 않음`() {
+        /** when */
+        val result = tower.isConditionSatisfied(previousHtml = "<p>품절</p>", currentHtml = "<p>재입고</p>")
+
+        /** then */
+        assertFalse(result)
+    }
+
+    @Test
+    fun `감지 조건을 하나도 충족하지 않으면 조건을 충족하지 않음`() {
+        /** given */
+        KeywordCondition.from(tower, "할인", true)
+
+        /** when */
+        val result = tower.isConditionSatisfied(previousHtml = "<p>품절</p>", currentHtml = "<p>재입고</p>")
+
+        /** then */
+        assertFalse(result)
+    }
+
+    @Test
+    fun `감지 조건 중 하나만 충족해도 조건을 충족함`() {
+        /** given */
+        KeywordCondition.from(tower, "할인", true)
+        KeywordCondition.from(tower, "재입고", true)
+
+        /** when */
+        val result = tower.isConditionSatisfied(previousHtml = "<p>품절</p>", currentHtml = "<p>재입고</p>")
+
+        /** then */
+        assertTrue(result)
+    }
+
+    @Test
+    fun `삭제된 감지 조건은 충족하더라도 판정에서 제외함`() {
+        /** given */
+        KeywordCondition.from(tower, "재입고", true).delete()
+
+        /** when */
+        val result = tower.isConditionSatisfied(previousHtml = "<p>품절</p>", currentHtml = "<p>재입고</p>")
+
+        /** then */
+        assertFalse(result)
+    }
+
+    @Test
     fun `전체 변경 감지 조건을 삭제한 타워에는 다시 추가할 수 있음`() {
         /** given */
         HtmlCondition.from(tower).delete()
@@ -256,10 +302,10 @@ class TowerTest {
     @Test
     fun `타워를 삭제하면 삭제되지 않은 스냅샷과 감지 조건도 삭제됨`() {
         val snapshot = TowerSnapshot.from(
-            tower = tower,
+            towerRequestHistory = mock<TowerRequestHistory> { on { tower } doReturn tower },
             htmlObjectName = "towers/7/2026-11-04T01:00:00.000Z.html",
             htmlSha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            changed = false
+            isConditionSatisfied = false
         )
         val condition = KeywordCondition.from(tower, "재고", true)
 
@@ -273,10 +319,10 @@ class TowerTest {
     @Test
     fun `타워를 삭제할 때 이미 삭제된 스냅샷과 감지 조건 및 채널 연결은 건너뜀`() {
         val snapshot = TowerSnapshot.from(
-            tower = tower,
+            towerRequestHistory = mock<TowerRequestHistory> { on { tower } doReturn tower },
             htmlObjectName = "towers/7/2026-11-04T01:00:00.000Z.html",
             htmlSha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            changed = false
+            isConditionSatisfied = false
         )
         val condition = HtmlCondition.from(tower)
         val channel = NotificationChannel.from(

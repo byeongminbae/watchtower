@@ -118,6 +118,11 @@ class Tower private constructor(
         return conditions.any { it is HtmlCondition && !it.isDeleted() }
     }
 
+    /** 삭제되지 않은 감지 조건 중 하나라도 직전 버전과 이번 버전의 HTML 비교에서 충족했는지 판정함. 조건이 없으면 false */
+    fun isConditionSatisfied(previousHtml: String, currentHtml: String): Boolean {
+        return conditions.any { !it.isDeleted() && it.isSatisfied(previousHtml = previousHtml, currentHtml = currentHtml) }
+    }
+
     /**
      * 크롤링 결과를 반영함. 크롤링 중인 타워만 결과([CrawlResultDto.isPageReceived])에 따라 [TowerStatus.CRAWLING_READY] 나 [TowerStatus.CRAWLING_ERROR] 로 바뀜
      *

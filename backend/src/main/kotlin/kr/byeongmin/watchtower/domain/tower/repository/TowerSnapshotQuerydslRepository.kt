@@ -26,7 +26,7 @@ class TowerSnapshotQuerydslRepository(
             .from(tower)
             .leftJoin(tower.snapshots, towerSnapshot)
             .on(
-                towerSnapshot.changed.isTrue,
+                towerSnapshot.isConditionSatisfied.isTrue,
                 towerSnapshot.deletedAt.isNull
             )
             .where(
@@ -58,7 +58,7 @@ class TowerSnapshotQuerydslRepository(
                         .from(towerSnapshot)
                         .where(
                             towerSnapshot.tower.id.`in`(towerIds),
-                            towerSnapshot.changed.isTrue,
+                            towerSnapshot.isConditionSatisfied.isTrue,
                             towerSnapshot.deletedAt.isNull
                         )
                         .groupBy(towerSnapshot.tower.id)

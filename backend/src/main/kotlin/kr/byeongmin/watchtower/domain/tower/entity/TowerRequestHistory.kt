@@ -14,7 +14,6 @@ import java.time.LocalDateTime
  * @property [endedAt] 확인 요청을 마친 시각
  * @property [httpStatusCode] 확인 응답의 HTTP 상태 코드. 응답을 받지 못하고 실패했으면 null
  * @property [errorCode] 크롤링에 실패한 이유(크롤러의 CrawlError 코드). 페이지를 받아왔으면 null
- * @property [changed] 이번 요청에서 변화가 감지되었는지 여부 (Hot 타워리스트 집계 기준)
  * @property [triggeredBy] 요청을 시작한 회원. null은 자동 요청
  */
 @Entity
@@ -26,7 +25,6 @@ class TowerRequestHistory private constructor(
     val endedAt: LocalDateTime,
     val httpStatusCode: Int?,
     val errorCode: String?,
-    val changed: Boolean,
     @ManyToOne(fetch = FetchType.LAZY)
     val triggeredBy: Member? = null
 ) : HistoryBase() {
@@ -43,11 +41,9 @@ class TowerRequestHistory private constructor(
     override val id: Long? = null
 
     companion object {
-        /** @param [changed] 이전 수집본과 비교해 변화를 감지했는지 */
         fun from(
             tower: Tower,
             crawlResultDto: CrawlResultDto,
-            changed: Boolean,
             triggeredBy: Member?
         ): TowerRequestHistory {
             return TowerRequestHistory(
@@ -57,7 +53,6 @@ class TowerRequestHistory private constructor(
                 endedAt = crawlResultDto.crawlEndedAt,
                 httpStatusCode = crawlResultDto.httpStatusCode,
                 errorCode = crawlResultDto.errorCode,
-                changed = changed,
                 triggeredBy = triggeredBy
             )
         }

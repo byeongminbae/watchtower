@@ -28,6 +28,7 @@ import java.time.LocalDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class CrawlResultConsumerServiceTest {
@@ -37,7 +38,6 @@ class CrawlResultConsumerServiceTest {
     private val towerRequestHistoryAccessor = mock<TowerRequestHistoryAccessor>()
     private val memberAccessor = mock<MemberAccessor>()
     private val slackClient = mock<SlackClient>()
-    private val towerDetectionService = mock<TowerDetectionService>()
     private val ociSnapshotStorageClient = mock<OciSnapshotStorageClient>()
     private val transactionManager = mock<PlatformTransactionManager> {
         on { getTransaction(any()) } doReturn mock<TransactionStatus>()
@@ -48,7 +48,6 @@ class CrawlResultConsumerServiceTest {
         towerSnapshotAccessor = towerSnapshotAccessor,
         towerRequestHistoryAccessor = towerRequestHistoryAccessor,
         memberAccessor = memberAccessor,
-        towerDetectionService = towerDetectionService,
         ociSnapshotStorageClient = ociSnapshotStorageClient,
         objectMapper = jacksonObjectMapper(),
         transactionTemplate = TransactionTemplate(transactionManager),
@@ -136,7 +135,7 @@ class CrawlResultConsumerServiceTest {
     }
 
     @Test
-    fun `직전 버전이 없는 첫 페이지는 비교하지 않고 변경 없음으로 저장함`() {
+    fun `직전 버전이 없는 첫 페이지는 비교하지 않고 조건을 충족하지 않은 버전으로 요청 이력과 연결해 저장함`() {
         /** given */
         whenever(ociQueueClient.fetchCrawlResults()).thenReturn(listOf(fetchedResultMessage("receipt", 200)))
         whenever(towerAccessor.findTower(7L)).thenReturn(tower)
@@ -150,22 +149,28 @@ class CrawlResultConsumerServiceTest {
         val savedSnapshot = argumentCaptor<TowerSnapshot>()
         verify(towerRequestHistoryAccessor).save(savedHistory.capture())
         verify(towerSnapshotAccessor).save(savedSnapshot.capture())
-        assertFalse(savedHistory.firstValue.changed)
-        assertFalse(savedSnapshot.firstValue.changed)
-        verifyNoInteractions(ociSnapshotStorageClient, towerDetectionService)
+        assertFalse(savedSnapshot.firstValue.isConditionSatisfied)
+        assertSame(savedHistory.firstValue, savedSnapshot.firstValue.towerRequestHistory)
+        verifyNoInteractions(ociSnapshotStorageClient)
+        verify(tower, never()).isConditionSatisfied(any(), any())
     }
 
     @Test
-    fun `직전 버전과 비교해 조건을 충족하면 요청 이력과 새 버전에 변경으로 기록함`() {
+    fun `직전 버전과 비교해 조건을 충족하면 조건을 충족한 버전으로 요청 이력과 연결해 저장함`() {
         /** given */
         val previousHtmlObjectName = "towers/7/2026-11-03T00:50:00.000Z.html"
-        val previousSnapshot = TowerSnapshot.from(tower = tower, htmlObjectName = previousHtmlObjectName, htmlSha256 = previousHtmlSha256, changed = false)
+        val previousSnapshot = TowerSnapshot.from(
+            towerRequestHistory = mock<TowerRequestHistory> { on { tower } doReturn tower },
+            htmlObjectName = previousHtmlObjectName,
+            htmlSha256 = previousHtmlSha256,
+            isConditionSatisfied = false
+        )
         whenever(ociQueueClient.fetchCrawlResults()).thenReturn(listOf(fetchedResultMessage("receipt", 200)))
         whenever(towerAccessor.findTower(7L)).thenReturn(tower)
         whenever(towerSnapshotAccessor.findLatestSnapshot(7L)).thenReturn(previousSnapshot)
         whenever(ociSnapshotStorageClient.getHtml(previousHtmlObjectName)).thenReturn("<p>품절</p>")
         whenever(ociSnapshotStorageClient.getHtml(htmlObjectName)).thenReturn("<p>재입고</p>")
-        whenever(towerDetectionService.isChanged(7L, "<p>품절</p>", "<p>재입고</p>")).thenReturn(true)
+        doReturn(true).whenever(tower).isConditionSatisfied("<p>품절</p>", "<p>재입고</p>")
 
         /** when */
         crawlResultConsumerService.applyCrawlResults()
@@ -175,8 +180,8 @@ class CrawlResultConsumerServiceTest {
         val savedSnapshot = argumentCaptor<TowerSnapshot>()
         verify(towerRequestHistoryAccessor).save(savedHistory.capture())
         verify(towerSnapshotAccessor).save(savedSnapshot.capture())
-        assertTrue(savedHistory.firstValue.changed)
-        assertTrue(savedSnapshot.firstValue.changed)
+        assertTrue(savedSnapshot.firstValue.isConditionSatisfied)
+        assertSame(savedHistory.firstValue, savedSnapshot.firstValue.towerRequestHistory)
         assertEquals(htmlObjectName, savedSnapshot.firstValue.htmlObjectName)
     }
 
@@ -193,13 +198,13 @@ class CrawlResultConsumerServiceTest {
         val savedHistory = argumentCaptor<TowerRequestHistory>()
         verify(towerRequestHistoryAccessor).save(savedHistory.capture())
         assertEquals(503, savedHistory.firstValue.httpStatusCode)
-        assertFalse(savedHistory.firstValue.changed)
         verify(towerSnapshotAccessor, never()).save(any())
-        verifyNoInteractions(ociSnapshotStorageClient, towerDetectionService)
+        verifyNoInteractions(ociSnapshotStorageClient)
+        verify(tower, never()).isConditionSatisfied(any(), any())
     }
 
     @Test
-    fun `크롤러가 직전 버전과 같은 HTML 이라 저장을 생략한 결과는 새 버전 없이 변경 없음으로 요청 이력만 남김`() {
+    fun `크롤러가 직전 버전과 같은 HTML 이라 저장을 생략한 결과는 새 버전 없이 요청 이력만 남김`() {
         /** given */
         whenever(ociQueueClient.fetchCrawlResults()).thenReturn(listOf(unchangedHtmlResultMessage("receipt")))
         whenever(towerAccessor.findTower(7L)).thenReturn(tower)
@@ -210,10 +215,10 @@ class CrawlResultConsumerServiceTest {
         /** then */
         val savedHistory = argumentCaptor<TowerRequestHistory>()
         verify(towerRequestHistoryAccessor).save(savedHistory.capture())
-        assertFalse(savedHistory.firstValue.changed)
         assertEquals(TowerStatus.CRAWLING_READY, tower.status)
         verify(towerSnapshotAccessor, never()).save(any())
-        verifyNoInteractions(ociSnapshotStorageClient, towerDetectionService)
+        verifyNoInteractions(ociSnapshotStorageClient)
+        verify(tower, never()).isConditionSatisfied(any(), any())
         verify(ociQueueClient).deleteCrawlResults(listOf("receipt"))
     }
 
@@ -221,7 +226,12 @@ class CrawlResultConsumerServiceTest {
     fun `버킷에서 HTML 을 읽지 못하면 반영하지 않고 큐에 남겨 다시 전달받음`() {
         /** given */
         val previousHtmlObjectName = "towers/7/2026-11-03T00:50:00.000Z.html"
-        val previousSnapshot = TowerSnapshot.from(tower = tower, htmlObjectName = previousHtmlObjectName, htmlSha256 = previousHtmlSha256, changed = false)
+        val previousSnapshot = TowerSnapshot.from(
+            towerRequestHistory = mock<TowerRequestHistory> { on { tower } doReturn tower },
+            htmlObjectName = previousHtmlObjectName,
+            htmlSha256 = previousHtmlSha256,
+            isConditionSatisfied = false
+        )
         whenever(ociQueueClient.fetchCrawlResults()).thenReturn(listOf(fetchedResultMessage("receipt", 200)))
         whenever(towerAccessor.findTower(7L)).thenReturn(tower)
         whenever(towerSnapshotAccessor.findLatestSnapshot(7L)).thenReturn(previousSnapshot)
@@ -233,7 +243,6 @@ class CrawlResultConsumerServiceTest {
 
         /** then */
         verify(towerSnapshotAccessor, never()).save(any())
-        verify(towerRequestHistoryAccessor, never()).save(any())
         verify(ociQueueClient, never()).deleteCrawlResults(any())
     }
 

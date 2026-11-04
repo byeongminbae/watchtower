@@ -9,21 +9,24 @@ import java.time.LocalDateTime
  *
  * 크롤러가 받아온 HTML 의 SHA-256 이 가장 최근 스냅샷의 [htmlSha256] 과 같으면 저장을 생략하므로, 첫 버전이 아닌 스냅샷은 모두 직전 버전과 HTML 이 다름
  *
+ * @property [towerRequestHistory] 이 버전을 받아온 크롤링 요청의 이력
  * @property [htmlObjectName] 크롤러가 HTML 을 저장한 버킷의 객체 이름
  * @property [htmlSha256] 저장한 HTML 의 SHA-256 (소문자 16진수). 다음 크롤링 요청에 직전 버전 해시로 담아 보냄
  * @property [highlightedScreenshotObjectName] 이번 스크린샷 위에 직전 버전과 달라진 영역을 표시한 이미지의 객체 이름. 첫 버전이거나 화면이 바뀌지 않았으면 null
- * @property [changed] 직전 버전과 비교해 타워의 조건 중 하나라도 충족했는지. 첫 버전은 비교 대상이 없어서 false
+ * @property [isConditionSatisfied] 직전 버전과 비교해 타워의 조건 중 하나라도 충족했는지. HTML 이 달라졌다는 뜻이 아님. 예를 들어 [KeywordCondition] 만 있는 타워는 HTML 이 달라져도 키워드 등장 횟수가 같으면 false. 첫 버전은 비교 대상이 없어서 false
  */
 @Entity
 class TowerSnapshot private constructor(
     @ManyToOne(fetch = FetchType.LAZY)
     val tower: Tower,
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    val towerRequestHistory: TowerRequestHistory,
     val htmlObjectName: String,
     val htmlSha256: String,
     // TODO: 크롤러가 스크린샷을 저장하게 되면 NOT NULL 로 변경
     val screenshotObjectName: String?,
     val highlightedScreenshotObjectName: String?,
-    val changed: Boolean,
+    val isConditionSatisfied: Boolean,
     val aiDiffSummary: String?,
     val notifiedAt: LocalDateTime?
 ) : Base() {
@@ -41,22 +44,24 @@ class TowerSnapshot private constructor(
 
     companion object {
         fun from(
-            tower: Tower,
+            towerRequestHistory: TowerRequestHistory,
             htmlObjectName: String,
             htmlSha256: String,
-            changed: Boolean,
+            isConditionSatisfied: Boolean,
             screenshotObjectName: String? = null,
             highlightedScreenshotObjectName: String? = null,
             aiDiffSummary: String? = null,
             notifiedAt: LocalDateTime? = null
         ): TowerSnapshot {
+            val tower = towerRequestHistory.tower
             val snapshot = TowerSnapshot(
                 tower = tower,
+                towerRequestHistory = towerRequestHistory,
                 htmlObjectName = htmlObjectName,
                 htmlSha256 = htmlSha256,
                 screenshotObjectName = screenshotObjectName,
                 highlightedScreenshotObjectName = highlightedScreenshotObjectName,
-                changed = changed,
+                isConditionSatisfied = isConditionSatisfied,
                 aiDiffSummary = aiDiffSummary,
                 notifiedAt = notifiedAt
             )

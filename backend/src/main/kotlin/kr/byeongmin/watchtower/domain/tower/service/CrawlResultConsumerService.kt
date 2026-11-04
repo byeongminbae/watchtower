@@ -5,7 +5,6 @@ import kr.byeongmin.watchtower.domain.member.accessor.MemberAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerRequestHistoryAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
-import kr.byeongmin.watchtower.domain.tower.entity.Tower
 import kr.byeongmin.watchtower.domain.tower.entity.TowerRequestHistory
 import kr.byeongmin.watchtower.domain.tower.entity.TowerSnapshot
 import kr.byeongmin.watchtower.external.oci.queue.client.OciQueueClient
@@ -30,7 +29,6 @@ class CrawlResultConsumerService(
     private val towerSnapshotAccessor: TowerSnapshotAccessor,
     private val towerRequestHistoryAccessor: TowerRequestHistoryAccessor,
     private val memberAccessor: MemberAccessor,
-    private val towerDetectionService: TowerDetectionService,
     private val ociSnapshotStorageClient: OciSnapshotStorageClient,
     private val objectMapper: ObjectMapper,
     private val transactionTemplate: TransactionTemplate,
@@ -82,43 +80,37 @@ class CrawlResultConsumerService(
 
         tower.applyCrawlResult(crawlResultDto)
 
-        // 오류 페이지가 직전 버전이 되면 다음 정상 페이지를 변경으로 판정하므로, 2xx 로 받아온 페이지만 버전으로 저장하고 비교함
-        // 크롤러가 직전 버전과 같은 HTML 이라 저장을 생략한 결과는 비교할 내용이 없어서 변경 없음으로 기록함
-        val changed = if (crawlResultDto.isNewHtmlVersion()) {
-            saveHtmlVersionAndDetectChange(tower, crawlResultDto)
-        } else {
-            false
-        }
-
-        towerRequestHistoryAccessor.save(
-            TowerRequestHistory.from(
-                tower = tower,
-                crawlResultDto = crawlResultDto,
-                changed = changed,
-                triggeredBy = crawlResultDto.triggeredByMemberId?.let { memberAccessor.findMember(it) }
-            )
+        val towerRequestHistory = TowerRequestHistory.from(
+            tower = tower,
+            crawlResultDto = crawlResultDto,
+            triggeredBy = crawlResultDto.triggeredByMemberId?.let { memberAccessor.findMember(it) }
         )
+        towerRequestHistoryAccessor.save(towerRequestHistory)
+
+        // 오류 페이지가 직전 버전이 되면 다음 정상 페이지를 변경으로 판정하므로, 2xx 로 받아온 페이지만 버전으로 저장하고 비교함
+        // 크롤러가 직전 버전과 같은 HTML 이라 저장을 생략한 결과는 비교할 내용이 없어서 버전을 만들지 않음
+        if (crawlResultDto.isNewHtmlVersion()) {
+            saveHtmlVersion(towerRequestHistory, crawlResultDto)
+        }
     }
 
-    /** 이번 HTML 을 직전 버전과 타워의 조건으로 비교하고 새 버전으로 저장함. 첫 버전은 비교 대상이 없어서 변경이 아님 */
-    private fun saveHtmlVersionAndDetectChange(tower: Tower, crawlResultDto: CrawlResultDto): Boolean {
+    /** 이번 HTML 을 직전 버전과 타워의 조건으로 비교한 결과와 함께 새 버전으로 저장함. 첫 버전은 비교 대상이 없어서 조건을 충족하지 않은 것으로 저장함 */
+    private fun saveHtmlVersion(towerRequestHistory: TowerRequestHistory, crawlResultDto: CrawlResultDto) {
         val htmlObjectName = crawlResultDto.htmlObjectName.ifNullThrow()
-        val towerId = tower.id.ifNullThrow()
-        val previousSnapshot = towerSnapshotAccessor.findLatestSnapshot(towerId)
-        val changed = previousSnapshot != null && towerDetectionService.isChanged(
-            towerId = towerId,
+        val tower = towerRequestHistory.tower
+        val previousSnapshot = towerSnapshotAccessor.findLatestSnapshot(tower.id.ifNullThrow())
+        val isConditionSatisfied = previousSnapshot != null && tower.isConditionSatisfied(
             previousHtml = ociSnapshotStorageClient.getHtml(previousSnapshot.htmlObjectName),
             currentHtml = ociSnapshotStorageClient.getHtml(htmlObjectName)
         )
 
         towerSnapshotAccessor.save(
             TowerSnapshot.from(
-                tower = tower,
+                towerRequestHistory = towerRequestHistory,
                 htmlObjectName = htmlObjectName,
                 htmlSha256 = crawlResultDto.htmlSha256.ifNullThrow(),
-                changed = changed
+                isConditionSatisfied = isConditionSatisfied
             )
         )
-        return changed
     }
 }
