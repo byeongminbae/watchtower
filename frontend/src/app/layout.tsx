@@ -10,8 +10,12 @@ export const metadata: Metadata = {
   title: "Watchtower — 대신 지켜보는 감시탑",
   description: "매일 새로고침하시죠? 이제 변화가 생기면 먼저 알려드릴게요!",
   icons: {
-    icon: [{ url: "/watchtower-icon.svg", type: "image/svg+xml", sizes: "any" }],
-    shortcut: ["/watchtower-icon.svg"],
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/watchtower-icon.png", type: "image/png", sizes: "512x512" },
+    ],
+    shortcut: ["/favicon.ico"],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
   },
 };
 
