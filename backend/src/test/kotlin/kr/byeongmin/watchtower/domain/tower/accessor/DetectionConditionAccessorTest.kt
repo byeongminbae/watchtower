@@ -1,7 +1,7 @@
 package kr.byeongmin.watchtower.domain.tower.accessor
 
-import kr.byeongmin.watchtower.domain.tower.repository.TowerConditionQuerydslRepository
-import kr.byeongmin.watchtower.domain.tower.repository.TowerConditionRepository
+import kr.byeongmin.watchtower.domain.tower.repository.DetectionConditionQuerydslRepository
+import kr.byeongmin.watchtower.domain.tower.repository.DetectionConditionRepository
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.junit.jupiter.api.Test
@@ -12,16 +12,16 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-class TowerConditionAccessorTest {
-    private val repository = mock<TowerConditionRepository>()
-    private val querydslRepository = mock<TowerConditionQuerydslRepository>()
-    private val accessor = TowerConditionAccessor(repository, querydslRepository)
+class DetectionConditionAccessorTest {
+    private val repository = mock<DetectionConditionRepository>()
+    private val querydslRepository = mock<DetectionConditionQuerydslRepository>()
+    private val accessor = DetectionConditionAccessor(repository, querydslRepository)
 
     @Test
     fun `소유한 타워에서 감지 조건을 찾지 못하면 조회 실패로 처리함`() {
         /** when */
         val exception = assertFailsWith<BusinessException> {
-            accessor.getOwnedCondition(conditionId = 3L, towerId = 7L, memberId = 21L)
+            accessor.getOwnedDetectionCondition(conditionId = 3L, towerId = 7L, memberId = 21L)
         }
 
         /** then */
@@ -37,7 +37,7 @@ class TowerConditionAccessorTest {
         whenever(querydslRepository.findByTowerIdAndMemberId(7L, 21L)).thenReturn(emptyList())
 
         /** when */
-        val conditions = accessor.getOwnedTowerConditions(towerId = 7L, memberId = 21L)
+        val conditions = accessor.getOwnedDetectionConditions(towerId = 7L, memberId = 21L)
 
         /** then */
         assertTrue(conditions.isEmpty())
@@ -50,7 +50,7 @@ class TowerConditionAccessorTest {
 
         /** when */
         val exception = assertFailsWith<BusinessException> {
-            accessor.getOwnedTowerConditions(towerId = 7L, memberId = 21L)
+            accessor.getOwnedDetectionConditions(towerId = 7L, memberId = 21L)
         }
 
         /** then */

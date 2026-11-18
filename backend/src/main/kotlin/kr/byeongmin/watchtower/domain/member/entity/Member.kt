@@ -3,7 +3,6 @@ package kr.byeongmin.watchtower.domain.member.entity
 import jakarta.persistence.*
 import kr.byeongmin.watchtower.domain.member.enums.MemberRole
 import kr.byeongmin.watchtower.domain.subscription.entity.Plan
-import kr.byeongmin.watchtower.external.naver.auth.dto.NaverProfileResponseDto
 import kr.byeongmin.watchtower.global.entity.Base
 import kr.byeongmin.watchtower.global.error.AuthError
 import kr.byeongmin.watchtower.global.exception.BusinessException
@@ -16,10 +15,11 @@ import java.time.LocalDateTime
 @Entity
 class Member private constructor(
     val email: String,
-    nickname: String,
-    profileImageUrl: String,
-    role: MemberRole,
-    lastSignInAt: LocalDateTime,
+    var nickname: String,
+    var profileImageUrl: String,
+    @Enumerated(EnumType.STRING)
+    var role: MemberRole,
+    var lastSignInAt: LocalDateTime,
     plan: Plan
 ) : Base() {
     @Id
@@ -34,23 +34,10 @@ class Member private constructor(
     )
     override val id: Long? = null
 
-    var nickname: String = nickname
-        protected set
-
-    var profileImageUrl: String = profileImageUrl
-        protected set
-
-    @Enumerated(EnumType.STRING)
-    var role: MemberRole = role
-        protected set
-
     var bannedAt: LocalDateTime? = null
         protected set
 
     var banReason: String? = null
-        protected set
-
-    var lastSignInAt: LocalDateTime = lastSignInAt
         protected set
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -64,19 +51,6 @@ class Member private constructor(
         if (bannedAt.isNotNull()) {
             throw BusinessException(AuthError.BANNED_ACCOUNT)
         }
-    }
-
-    fun completeSignIn(now: LocalDateTime) {
-        this.lastSignInAt = now
-    }
-
-    fun updateProfile(nickname: String, profileImageUrl: String) {
-        this.nickname = nickname
-        this.profileImageUrl = profileImageUrl
-    }
-
-    fun changeRole(role: MemberRole) {
-        this.role = role
     }
 
     fun isTowerAddable(currentTowerQuantity: Long): Boolean {
@@ -94,17 +68,19 @@ class Member private constructor(
     }
 
     companion object {
-        fun from(
-            naverProfileResponseDto: NaverProfileResponseDto,
-            now: LocalDateTime,
+        fun of(
+            email: String,
+            nickname: String,
+            profileImageUrl: String,
+            lastSignInAt: LocalDateTime,
             plan: Plan
         ): Member {
             return Member(
-                email = naverProfileResponseDto.response.email,
-                nickname = naverProfileResponseDto.response.nickname,
-                profileImageUrl = naverProfileResponseDto.response.profileImage,
+                email = email,
+                nickname = nickname,
+                profileImageUrl = profileImageUrl,
                 role = MemberRole.NORMAL,
-                lastSignInAt = now,
+                lastSignInAt = lastSignInAt,
                 plan = plan
             )
         }

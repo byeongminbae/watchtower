@@ -12,7 +12,10 @@ enum class TowerError(
     URL_NOT_ALLOWED("TOW_003", "내부망 등 허용되지 않는 주소는 등록할 수 없습니다."),
     UNSUPPORTED_CONDITION("TOW_004", "지원하지 않는 타워 조건입니다."),
     CRAWL_NOT_RETRYABLE("TOW_005", "크롤링에 실패한 타워만 다시 시도할 수 있습니다."),
-    HTML_CONDITION_DUPLICATED("TOW_006", "전체 변경 감지 조건은 타워에 하나만 등록할 수 있습니다.");
+    CRAWL_NOT_REQUESTABLE("TOW_009", "크롤링 대기 중인 타워만 크롤링을 요청할 수 있습니다."),
+    HAS_NO_DETECTION("TOW_008", "텍스트 변화, 이미지 변화, 감지 조건 중 하나 이상은 켜야 합니다."),
+    NOT_PAUSABLE("TOW_010", "이미 일시정지했거나 관리자가 정지한 타워는 일시정지할 수 없습니다."),
+    NOT_RESUMABLE("TOW_011", "일시정지한 타워만 다시 시작할 수 있습니다.");
 
     override fun toString(): String {
         return "TowerError(statusCode='$statusCode', message='$message')"

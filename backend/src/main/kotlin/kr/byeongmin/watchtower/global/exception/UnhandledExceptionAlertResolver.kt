@@ -2,7 +2,7 @@ package kr.byeongmin.watchtower.global.exception
 
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import kr.byeongmin.watchtower.external.slack.client.SlackClient
+import kr.byeongmin.watchtower.global.alert.AdminNotifier
 import org.springframework.core.Ordered
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.HandlerExceptionResolver
@@ -27,7 +27,7 @@ import org.springframework.web.servlet.ModelAndView
  */
 @Component
 class UnhandledExceptionAlertResolver(
-    private val slackClient: SlackClient
+    private val adminNotifier: AdminNotifier
 ) : HandlerExceptionResolver, Ordered {
     override fun resolveException(
         request: HttpServletRequest,
@@ -35,7 +35,7 @@ class UnhandledExceptionAlertResolver(
         handler: Any?,
         exception: Exception
     ): ModelAndView? {
-        slackClient.sendErrorAlert("처리하지 못한 예외. ${request.method} ${request.requestURI}", exception)
+        adminNotifier.sendErrorAlert("처리하지 못한 예외. ${request.method} ${request.requestURI}", exception)
         return null
     }
 

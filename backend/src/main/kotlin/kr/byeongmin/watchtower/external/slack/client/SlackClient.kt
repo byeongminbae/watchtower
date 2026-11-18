@@ -3,8 +3,10 @@ package kr.byeongmin.watchtower.external.slack.client
 import com.slack.api.Slack
 import com.slack.api.webhook.Payload
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kr.byeongmin.watchtower.global.alert.AdminNotifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.env.Environment
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 
 /**
@@ -16,20 +18,28 @@ import org.springframework.stereotype.Component
 class SlackClient(
     environment: Environment,
     @Value("\${backend-slack-webhook-url}") private val webhookUrl: String
-) {
+) : AdminNotifier {
     private val logger = KotlinLogging.logger {}
     private val slack = Slack.getInstance()
     private val activeProfile = environment.activeProfiles.first()
 
-    fun sendErrorAlert(message: String, exception: Throwable) {
+    override fun sendErrorAlert(message: String, exception: Throwable) {
         val stackTrace = exception.stackTraceToString().take(STACK_TRACE_MAX_LENGTH)
+        send("$message\n```$stackTrace```")
+    }
+
+    override fun sendWarningAlert(message: String) {
+        send(message)
+    }
+
+    private fun send(text: String) {
         val payload = Payload.builder()
-            .text(SensitiveValueMasker.mask("[backend:$activeProfile] $message\n```$stackTrace```"))
+            .text(SensitiveValueMasker.mask("[backend:$activeProfile] $text"))
             .build()
 
         try {
             val response = slack.send(webhookUrl, payload)
-            if (response.code != 200) {
+            if (response.code != HttpStatus.OK.value()) {
                 logger.error { "Slack 알림 전송 실패. code=${response.code}, body=${response.body}" }
             }
         } catch (sendException: Exception) {

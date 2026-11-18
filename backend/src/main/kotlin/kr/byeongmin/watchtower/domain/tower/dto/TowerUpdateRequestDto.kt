@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonFormat
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 import java.time.Duration
-import kr.byeongmin.watchtower.domain.tower.enums.UpdatableTowerStatus
 import kr.byeongmin.watchtower.domain.tower.policy.TowerPolicy
 import kr.byeongmin.watchtower.global.validation.DurationMultipleOf
 import org.hibernate.validator.constraints.time.DurationMax
@@ -26,5 +25,9 @@ data class TowerUpdateRequestDto(
     @field:JsonFormat(shape = JsonFormat.Shape.STRING)
     val fetchInterval: Duration,
     val includeInStat: Boolean,
-    val status: UpdatableTowerStatus
+    val detectTextChange: Boolean,
+    val detectImageChange: Boolean,
+    val ignoreDateTime: Boolean,
+    @field:Size(max = TowerPolicy.MAX_DETECTION_AREA_SELECTOR_LENGTH)
+    val detectionAreaSelector: String?
 )

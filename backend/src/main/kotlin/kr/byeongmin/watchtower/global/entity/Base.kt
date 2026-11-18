@@ -5,6 +5,7 @@ import jakarta.persistence.EntityListeners
 import jakarta.persistence.MappedSuperclass
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
+import kr.byeongmin.watchtower.global.utils.isNotNull
 import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
 import org.springframework.data.jpa.domain.support.AuditingEntityListener
@@ -39,16 +40,15 @@ abstract class Base {
     var updatedAt: LocalDateTime? = null
         protected set
 
-
     var deletedAt: LocalDateTime? = null
         protected set
 
     fun isDeleted(): Boolean {
-        return deletedAt != null
+        return deletedAt.isNotNull()
     }
 
     fun delete() {
-        if (deletedAt != null) {
+        if (deletedAt.isNotNull()) {
             throw BusinessException(CommonError.RESOURCE_ALREADY_DELETED)
         }
         deletedAt = LocalDateTime.now(ZoneId.of("UTC"))

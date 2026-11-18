@@ -4,31 +4,32 @@ import com.oracle.bmc.model.BmcException
 import com.oracle.bmc.objectstorage.ObjectStorageClient
 import com.oracle.bmc.objectstorage.model.CreatePreauthenticatedRequestDetails
 import com.oracle.bmc.objectstorage.requests.CreatePreauthenticatedRequestRequest
+import com.oracle.bmc.objectstorage.requests.DeleteObjectRequest
 import com.oracle.bmc.objectstorage.requests.GetObjectRequest
+import kr.byeongmin.watchtower.domain.tower.client.SnapshotStorageClient
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import java.time.LocalDateTime
 import java.time.ZoneOffset
-import java.util.Date
-import java.util.zip.GZIPInputStream
+import java.util.*
 
 /**
  * 크롤러가 스냅샷을 저장하는 OCI Object Storage 버킷. 버킷은 실행 프로파일(local, dev, prod)마다 다름
  *
- * Spring Cloud OCI 의 스토리지 기능 설정([STORAGE_ENABLED_PROPERTY])을 끈 환경(OCI 자격 증명이 없는 CI 등)에서는 만들지 않음
+ * Spring Cloud OCI 의 스토리지 기능 설정([SnapshotStorageClient.ENABLED_PROPERTY])을 끈 환경(OCI 자격 증명이 없는 CI 등)에서는 만들지 않음
  */
 @Component
-@ConditionalOnProperty(name = [OciSnapshotStorageClient.STORAGE_ENABLED_PROPERTY], havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = [SnapshotStorageClient.ENABLED_PROPERTY], havingValue = "true", matchIfMissing = true)
 class OciSnapshotStorageClient(
     private val objectStorageClient: ObjectStorageClient,
     @Value("\${watchtower.snapshot-storage.namespace}") private val namespaceName: String,
     @Value("\${watchtower.snapshot-storage.bucket-name}") private val bucketName: String
-) {
-    /** 크롤러가 UTF-8 로 저장한 HTML 을 읽음. gzip 으로 압축해 저장한 객체는 압축을 풀어 읽음 */
-    fun getHtml(objectName: String): String {
+) : SnapshotStorageClient {
+    override fun getText(objectName: String): String {
         val getObjectRequest = GetObjectRequest.builder()
             .namespaceName(namespaceName)
             .bucketName(bucketName)
@@ -37,8 +38,26 @@ class OciSnapshotStorageClient(
 
         try {
             val objectBytes = objectStorageClient.getObject(getObjectRequest).inputStream.use { it.readAllBytes() }
-            return decompressIfGzip(objectBytes).toString(Charsets.UTF_8)
+            return objectBytes.toString(Charsets.UTF_8)
         } catch (exception: BmcException) {
+            throw BusinessException(error = CommonError.EXTERNAL_API_ERROR, cause = exception)
+        }
+    }
+
+    /** 앞선 정리가 객체만 지우고 실패했을 때 다시 지울 수 있도록 이미 없는 객체는 지운 것으로 봄 */
+    override fun deleteObject(objectName: String) {
+        val deleteObjectRequest = DeleteObjectRequest.builder()
+            .namespaceName(namespaceName)
+            .bucketName(bucketName)
+            .objectName(objectName)
+            .build()
+
+        try {
+            objectStorageClient.deleteObject(deleteObjectRequest)
+        } catch (exception: BmcException) {
+            if (isObjectNotFound(exception)) {
+                return
+            }
             throw BusinessException(error = CommonError.EXTERNAL_API_ERROR, cause = exception)
         }
     }
@@ -48,7 +67,7 @@ class OciSnapshotStorageClient(
      *
      * URL 을 가진 누구나 만료 전까지 읽을 수 있으므로 소유자를 확인한 뒤에만 발급해야 함
      */
-    fun createReadUrl(objectName: String, expiresAt: LocalDateTime): String {
+    override fun createReadUrl(objectName: String, expiresAt: LocalDateTime): String {
         val createPreauthenticatedRequestRequest = CreatePreauthenticatedRequestRequest.builder()
             .namespaceName(namespaceName)
             .bucketName(bucketName)
@@ -72,26 +91,7 @@ class OciSnapshotStorageClient(
         }
     }
 
-    /**
-     * gzip 여부를 Content-Encoding 이 아니라 매직 넘버(1f 8b)로 판별함
-     *
-     * SDK 가 Content-Encoding 을 보고 압축을 미리 풀었는지와 상관없이 읽고, 압축하기 전에 저장한 객체도 그대로 읽기 위함
-     */
-    private fun decompressIfGzip(objectBytes: ByteArray): ByteArray {
-        val isGzip = objectBytes.size >= 2 &&
-                objectBytes[0] == GZIP_MAGIC_FIRST_BYTE &&
-                objectBytes[1] == GZIP_MAGIC_SECOND_BYTE
-        if (!isGzip) {
-            return objectBytes
-        }
-        return GZIPInputStream(objectBytes.inputStream()).use { it.readAllBytes() }
-    }
-
-    companion object {
-        private const val GZIP_MAGIC_FIRST_BYTE: Byte = 0x1f
-        private const val GZIP_MAGIC_SECOND_BYTE: Byte = 0x8b.toByte()
-
-        /** Spring Cloud OCI 가 스토리지 자동 설정을 켜고 끄는 설정. 기본값은 true */
-        const val STORAGE_ENABLED_PROPERTY = "spring.cloud.oci.storage.enabled"
+    private fun isObjectNotFound(exception: BmcException): Boolean {
+        return exception.statusCode == HttpStatus.NOT_FOUND.value()
     }
 }

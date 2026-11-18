@@ -1,9 +1,11 @@
 package kr.byeongmin.watchtower.domain.tower.service
 
+import kr.byeongmin.watchtower.domain.member.entity.Member
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
-import kr.byeongmin.watchtower.external.oci.queue.client.OciQueueClient
-import kr.byeongmin.watchtower.external.oci.queue.dto.CrawlRequestDto
+import kr.byeongmin.watchtower.domain.tower.client.CrawlQueueClient
+import kr.byeongmin.watchtower.domain.tower.dto.CrawlRequestMessageDto
+import kr.byeongmin.watchtower.domain.tower.entity.Tower
 import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.utils.ifNullThrow
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -13,48 +15,48 @@ import org.springframework.transaction.support.TransactionTemplate
 import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
 
-/** 수집 주기가 지난 타워의 크롤링을 요청 큐에 넣음. 큐 기능을 끈 환경에서는 요청하지 않음 */
 @Service
-@ConditionalOnProperty(name = [OciQueueClient.QUEUE_ENABLED_PROPERTY], havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = [CrawlQueueClient.ENABLED_PROPERTY], havingValue = "true", matchIfMissing = true)
 class CrawlRequestProducerService(
-    private val ociQueueClient: OciQueueClient,
+    private val crawlQueueClient: CrawlQueueClient,
     private val towerAccessor: TowerAccessor,
     private val towerSnapshotAccessor: TowerSnapshotAccessor,
     private val transactionTemplate: TransactionTemplate,
     private val timeProvider: TimeProvider
 ) {
-    /**
-     * 수집 주기가 지난 타워를 [OciQueueClient.MAX_BATCH_SIZE] 개씩 크롤링 중으로 바꾸고 요청 큐에 넣음. 남은 타워가 없을 때까지 반복함
-     *
-     * 묶음마다 트랜잭션을 따로 커밋함. 큐에 넣지 못한 묶음은 롤백되어 크롤링 대기로 남고 다음 실행에서 다시 요청됨
-     *
-     * 이전 실행이 끝나고 1분 뒤에 다시 실행함
-     */
     @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.MINUTES)
-    fun requestDueCrawls() {
+    fun requestScheduledCrawls() {
         val now = timeProvider.now()
         do {
-            val requestedCount = transactionTemplate.execute { requestDueCrawlBatch(now) }
-        } while (requestedCount == OciQueueClient.MAX_BATCH_SIZE)
+            /** 묶음마다 트랜잭션을 나눠서, 큐에 넣지 못하면 그 묶음의 상태 변경만 되돌림 */
+            val scheduledTowerCount = transactionTemplate.execute { requestScheduledCrawlBatch(now) }.ifNullThrow()
+        } while (scheduledTowerCount == CrawlQueueClient.MAX_BATCH_SIZE)
     }
 
-    private fun requestDueCrawlBatch(now: LocalDateTime): Int {
-        val towers = towerAccessor.findCrawlDueTowersForUpdate(now = now, limit = OciQueueClient.MAX_BATCH_SIZE)
+    private fun requestScheduledCrawlBatch(now: LocalDateTime): Int {
+        val scheduledTowers =
+            towerAccessor.findCrawlScheduledTowersForUpdate(now = now, limit = CrawlQueueClient.MAX_BATCH_SIZE)
+        scheduledTowers.forEach { it.markCrawlRequested() }
+
+        requestCrawls(scheduledTowers, triggeredBy = null)
+        return scheduledTowers.size
+    }
+
+    fun requestCrawls(towers: List<Tower>, triggeredBy: Member?) {
         if (towers.isEmpty()) {
-            return 0
+            return
         }
 
-        towers.forEach { it.startCrawl() }
-        ociQueueClient.sendCrawlRequests(
+        val latestSnapshots = towerSnapshotAccessor.findLatestSnapshots(towers.map { it.id.ifNullThrow() })
+        crawlQueueClient.sendCrawlRequests(
             towers.map {
-                CrawlRequestDto.from(
+                CrawlRequestMessageDto.from(
                     tower = it,
-                    latestSnapshot = towerSnapshotAccessor.findLatestSnapshot(it.id.ifNullThrow()),
-                    scheduledAt = now,
-                    triggeredByMemberId = null
+                    latestSnapshot = latestSnapshots[it.id],
+                    triggeredBy = triggeredBy,
+                    jobStartedAt = timeProvider.now()
                 )
             }
         )
-        return towers.size
     }
 }

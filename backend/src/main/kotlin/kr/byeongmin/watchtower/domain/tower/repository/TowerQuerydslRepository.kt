@@ -49,11 +49,11 @@ class TowerQuerydslRepository(
      * 한 번도 수집하지 않은 타워([Tower.lastFetchedAt] 이 null)도 수집 주기가 지난 것으로 봄.
      * 수집 시각에서 주기를 빼는 계산은 Querydsl 이 지원하지 않아서 템플릿으로 작성함
      */
-    fun findCrawlDueForUpdate(now: LocalDateTime, limit: Long): List<Tower> {
+    fun findCrawlScheduledForUpdate(now: LocalDateTime, limit: Long): List<Tower> {
         return queryFactory
             .selectFrom(tower)
             .where(
-                tower.status.eq(TowerStatus.CRAWLING_READY),
+                tower.status.eq(TowerStatus.READY),
                 tower.deletedAt.isNull,
                 tower.lastFetchedAt.isNull.or(
                     Expressions.booleanTemplate("{0} <= {1} - {2}", tower.lastFetchedAt, now, tower.fetchInterval)
@@ -68,15 +68,15 @@ class TowerQuerydslRepository(
 
     /**
      * 특정 시점 이후로 접속하지 않은 [kr.byeongmin.watchtower.domain.member.entity.Member] 의 크롤링 대기 중이거나 크롤링 중인 [Tower] 를 일시정지
-     * 회원이 돌아와 크롤링 대기로 되돌릴 수 있게 [TowerStatus.USER_PAUSED] 로 바꿈
+     * 회원이 돌아와 크롤링 대기로 되돌릴 수 있게 [TowerStatus.PAUSED] 로 바꿈
      */
     fun pauseByMemberLastSignInAtBefore(lastSignInBefore: LocalDateTime, updatedAt: LocalDateTime): Long {
         return queryFactory
             .update(tower)
-            .set(tower.status, TowerStatus.USER_PAUSED)
+            .set(tower.status, TowerStatus.PAUSED)
             .set(tower.updatedAt, updatedAt)
             .where(
-                tower.status.`in`(TowerStatus.CRAWLING_READY, TowerStatus.CRAWLING),
+                tower.status.`in`(TowerStatus.READY, TowerStatus.RUNNING),
                 tower.deletedAt.isNull,
                 tower.createdBy.id.`in`(
                     JPAExpressions.select(member.id)

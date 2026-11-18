@@ -4,6 +4,8 @@ import jakarta.validation.Constraint
 import jakarta.validation.ConstraintValidator
 import jakarta.validation.ConstraintValidatorContext
 import jakarta.validation.Payload
+import kr.byeongmin.watchtower.global.error.CommonError
+import kr.byeongmin.watchtower.global.exception.BusinessException
 import kr.byeongmin.watchtower.global.utils.isNull
 import java.time.Duration
 import kotlin.reflect.KClass
@@ -23,7 +25,9 @@ class DurationMultipleOfValidator : ConstraintValidator<DurationMultipleOf, Dura
 
     override fun initialize(constraintAnnotation: DurationMultipleOf) {
         multipleSeconds = constraintAnnotation.seconds
-        require(multipleSeconds > 0)
+        if (multipleSeconds <= 0) {
+            throw BusinessException(CommonError.INTERNAL_SERVER_ERROR)
+        }
     }
 
     override fun isValid(value: Duration?, context: ConstraintValidatorContext): Boolean {

@@ -1,5 +1,6 @@
 package kr.byeongmin.watchtower.external.google
 
+import kr.byeongmin.watchtower.global.utils.isNull
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -44,7 +45,7 @@ class GoogleFaviconClientTest {
         val faviconUrls = siteUrls.map { googleFaviconClient.buildFaviconUrl(it) }
 
         /** then */
-        assertTrue(faviconUrls.all { it == null })
+        assertTrue(faviconUrls.all { it.isNull() })
     }
 
     @Test
@@ -55,7 +56,7 @@ class GoogleFaviconClientTest {
         }
 
         /** then */
-        assertTrue(faviconUrls.all { it == null })
+        assertTrue(faviconUrls.all { it.isNull() })
     }
 
     @Test

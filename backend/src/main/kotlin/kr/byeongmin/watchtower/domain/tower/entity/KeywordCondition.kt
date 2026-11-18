@@ -2,54 +2,43 @@ package kr.byeongmin.watchtower.domain.tower.entity
 
 import jakarta.persistence.DiscriminatorValue
 import jakarta.persistence.Entity
-import kr.byeongmin.watchtower.global.error.CommonError
-import kr.byeongmin.watchtower.global.exception.BusinessException
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
+import kr.byeongmin.watchtower.domain.tower.enums.PresenceChange
+import kr.byeongmin.watchtower.domain.tower.vo.DetectionContent
+import kr.byeongmin.watchtower.domain.tower.vo.Keyword
 
 /**
- * @property [keyword] 감지 대상 키워드
- * @property [isSatisfiedAtAppearance] true이면 키워드가 새로 등장할 때, false이면 사라질 때 조건을 충족
+ * @property [satisfiedWhen] 키워드가 새로 등장할 때와 사라질 때 중 조건을 충족하는 시점
  */
 @Entity
 @DiscriminatorValue("KEYWORD")
 class KeywordCondition private constructor(
     tower: Tower,
-    keyword: String,
-    isSatisfiedAtAppearance: Boolean
-) : TowerCondition(tower) {
-    var keyword: String = keyword
+    keyword: Keyword,
+    @Enumerated(EnumType.STRING)
+    var satisfiedWhen: PresenceChange
+) : DetectionCondition(tower) {
+    var keyword: String = keyword.value
         protected set
 
-    var isSatisfiedAtAppearance: Boolean = isSatisfiedAtAppearance
-        protected set
-
-    fun changeKeyword(keyword: String) {
-        sanityCheck(keyword)
-        this.keyword = keyword
+    fun changeKeyword(keyword: Keyword) {
+        this.keyword = keyword.value
     }
 
-    fun changeSatisfactionDirection(isSatisfiedAtAppearance: Boolean) {
-        this.isSatisfiedAtAppearance = isSatisfiedAtAppearance
+    override fun isConditionSatisfied(previous: DetectionContent, current: DetectionContent): Boolean {
+        val previousOccurrenceCount = countKeywordAppearances(previous.text)
+        val currentOccurrenceCount = countKeywordAppearances(current.text)
+
+        return satisfiedWhen.hasOccurred(previousCount = previousOccurrenceCount, currentCount = currentOccurrenceCount)
     }
 
-    override fun isSatisfied(previousHtml: String, currentHtml: String): Boolean {
-        val previousOccurrenceCount = countKeywordAppearances(previousHtml)
-        val currentOccurrenceCount = countKeywordAppearances(currentHtml)
-
-        return if (isSatisfiedAtAppearance) {
-            currentOccurrenceCount > previousOccurrenceCount
-        } else {
-            currentOccurrenceCount < previousOccurrenceCount
-        }
-    }
-
-    /** html에서 지정한 키워드가 나타난 횟수 카운트 */
-    // TODO: html 길이에 비례해서 반복 횟수가 크게 증가함. 다른 방식으로 개선이 필요해보임
-    private fun countKeywordAppearances(html: String): Int {
+    private fun countKeywordAppearances(text: String): Int {
         var appearanceCount = 0
         var searchStartIndex = 0
 
         while (true) {
-            val appearanceIndex = html.indexOf(keyword, startIndex = searchStartIndex)
+            val appearanceIndex = text.indexOf(keyword, startIndex = searchStartIndex)
             if (appearanceIndex < 0) {
                 return appearanceCount
             }
@@ -60,23 +49,15 @@ class KeywordCondition private constructor(
     }
 
     companion object {
-        private fun sanityCheck(keyword: String) {
-            if (keyword.isBlank()) {
-                throw BusinessException(CommonError.INVALID_INPUT_VALUE)
-            }
-        }
-
         fun from(
             tower: Tower,
-            keyword: String,
-            isSatisfiedAtAppearance: Boolean
+            keyword: Keyword,
+            satisfiedWhen: PresenceChange
         ): KeywordCondition {
-            sanityCheck(keyword)
-
             val condition = KeywordCondition(
                 tower = tower,
                 keyword = keyword,
-                isSatisfiedAtAppearance = isSatisfiedAtAppearance
+                satisfiedWhen = satisfiedWhen
             )
             tower.addCondition(condition)
             return condition

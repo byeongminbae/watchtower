@@ -1,15 +1,11 @@
 package kr.byeongmin.watchtower.domain.tower.entity
 
-import kr.byeongmin.watchtower.global.error.CommonError
-import kr.byeongmin.watchtower.global.exception.BusinessException
+import kr.byeongmin.watchtower.domain.tower.enums.PresenceChange
+import kr.byeongmin.watchtower.domain.tower.vo.DetectionContent
+import kr.byeongmin.watchtower.domain.tower.vo.Keyword
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.verify
-import org.mockito.kotlin.verifyNoMoreInteractions
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -19,10 +15,10 @@ class KeywordConditionTest {
     @Test
     fun `키워드가 겹쳐서 등장해도 등장 횟수의 증가를 감지함`() {
         /** given */
-        val condition = KeywordCondition.from(tower, "aa", true)
+        val condition = KeywordCondition.from(tower, Keyword("aa"), PresenceChange.APPEAR)
 
         /** when */
-        val result = condition.isSatisfied(previousHtml = "aa", currentHtml = "aaa")
+        val result = condition.isConditionSatisfied(previous = textContent("aa"), current = textContent("aaa"))
 
         /** then */
         assertTrue(result)
@@ -33,12 +29,12 @@ class KeywordConditionTest {
         /** given */
         val condition = KeywordCondition.from(
             tower = tower,
-            keyword = "재고 있음",
-            isSatisfiedAtAppearance = true
+            keyword = Keyword("재고 있음"),
+            satisfiedWhen = PresenceChange.APPEAR
         )
 
         /** when */
-        condition.changeKeyword("품절")
+        condition.changeKeyword(Keyword("품절"))
 
         /** then */
         assertEquals("품절", condition.keyword)
@@ -49,14 +45,14 @@ class KeywordConditionTest {
         /** given */
         val condition = KeywordCondition.from(
             tower = tower,
-            keyword = "재고 있음",
-            isSatisfiedAtAppearance = true
+            keyword = Keyword("재고 있음"),
+            satisfiedWhen = PresenceChange.APPEAR
         )
 
         /** when */
-        val result = condition.isSatisfied(
-            previousHtml = "<p>품절</p>",
-            currentHtml = "<p>재고 있음</p>"
+        val result = condition.isConditionSatisfied(
+            previous = textContent("품절"),
+            current = textContent("재고 있음")
         )
 
         /** then */
@@ -68,14 +64,14 @@ class KeywordConditionTest {
         /** given */
         val condition = KeywordCondition.from(
             tower = tower,
-            keyword = "재고 있음",
-            isSatisfiedAtAppearance = true
+            keyword = Keyword("재고 있음"),
+            satisfiedWhen = PresenceChange.APPEAR
         )
 
         /** when */
-        val result = condition.isSatisfied(
-            previousHtml = "<p>재고 있음</p>",
-            currentHtml = "<p>재고 있음</p><p>재고 있음</p>"
+        val result = condition.isConditionSatisfied(
+            previous = textContent("재고 있음"),
+            current = textContent("재고 있음\n재고 있음")
         )
 
         /** then */
@@ -87,14 +83,14 @@ class KeywordConditionTest {
         /** given */
         val condition = KeywordCondition.from(
             tower = tower,
-            keyword = "재고 있음",
-            isSatisfiedAtAppearance = false
+            keyword = Keyword("재고 있음"),
+            satisfiedWhen = PresenceChange.DISAPPEAR
         )
 
         /** when */
-        val result = condition.isSatisfied(
-            previousHtml = "<p>재고 있음</p>",
-            currentHtml = "<p>품절</p>"
+        val result = condition.isConditionSatisfied(
+            previous = textContent("재고 있음"),
+            current = textContent("품절")
         )
 
         /** then */
@@ -106,14 +102,14 @@ class KeywordConditionTest {
         /** given */
         val condition = KeywordCondition.from(
             tower = tower,
-            keyword = "재고 있음",
-            isSatisfiedAtAppearance = false
+            keyword = Keyword("재고 있음"),
+            satisfiedWhen = PresenceChange.DISAPPEAR
         )
 
         /** when */
-        val result = condition.isSatisfied(
-            previousHtml = "<p>재고 있음</p><p>재고 있음</p>",
-            currentHtml = "<p>재고 있음</p>"
+        val result = condition.isConditionSatisfied(
+            previous = textContent("재고 있음\n재고 있음"),
+            current = textContent("재고 있음")
         )
 
         /** then */
@@ -125,14 +121,14 @@ class KeywordConditionTest {
         /** given */
         val condition = KeywordCondition.from(
             tower = tower,
-            keyword = "재고 있음",
-            isSatisfiedAtAppearance = true
+            keyword = Keyword("재고 있음"),
+            satisfiedWhen = PresenceChange.APPEAR
         )
 
         /** when */
-        val result = condition.isSatisfied(
-            previousHtml = "<p>재고 있음</p>",
-            currentHtml = "<p>품절</p>"
+        val result = condition.isConditionSatisfied(
+            previous = textContent("재고 있음"),
+            current = textContent("품절")
         )
 
         /** then */
@@ -144,14 +140,14 @@ class KeywordConditionTest {
         /** given */
         val condition = KeywordCondition.from(
             tower = tower,
-            keyword = "재고 있음",
-            isSatisfiedAtAppearance = false
+            keyword = Keyword("재고 있음"),
+            satisfiedWhen = PresenceChange.DISAPPEAR
         )
 
         /** when */
-        val result = condition.isSatisfied(
-            previousHtml = "<p>품절</p>",
-            currentHtml = "<p>재고 있음</p>"
+        val result = condition.isConditionSatisfied(
+            previous = textContent("품절"),
+            current = textContent("재고 있음")
         )
 
         /** then */
@@ -163,14 +159,14 @@ class KeywordConditionTest {
         /** given */
         val condition = KeywordCondition.from(
             tower = tower,
-            keyword = "재고 있음",
-            isSatisfiedAtAppearance = true
+            keyword = Keyword("재고 있음"),
+            satisfiedWhen = PresenceChange.APPEAR
         )
 
         /** when */
-        val result = condition.isSatisfied(
-            previousHtml = "<p>재고 있음 1개</p>",
-            currentHtml = "<p>재고 있음 5개</p>"
+        val result = condition.isConditionSatisfied(
+            previous = textContent("재고 있음 1개"),
+            current = textContent("재고 있음 5개")
         )
 
         /** then */
@@ -182,39 +178,27 @@ class KeywordConditionTest {
         /** given */
         val condition = KeywordCondition.from(
             tower = tower,
-            keyword = "재고 있음",
-            isSatisfiedAtAppearance = true
+            keyword = Keyword("재고 있음"),
+            satisfiedWhen = PresenceChange.APPEAR
         )
 
         /** when */
-        val result = condition.isSatisfied(
-            previousHtml = "<p>품절</p>",
-            currentHtml = "<p>일시 품절</p>"
+        val result = condition.isConditionSatisfied(
+            previous = textContent("품절"),
+            current = textContent("일시 품절")
         )
 
         /** then */
         assertFalse(result)
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = ["", " "])
-    fun `공백뿐인 키워드로 조건을 만들거나 변경할 수 없음`(value: String) {
-        /** given */
-        val condition = KeywordCondition.from(tower, "재고", true)
-
-        /** when */
-        val creationError = assertFailsWith<BusinessException> {
-            KeywordCondition.from(tower, value, true)
-        }
-        val updateError = assertFailsWith<BusinessException> {
-            condition.changeKeyword(value)
-        }
-
-        /** then */
-        assertEquals(CommonError.INVALID_INPUT_VALUE, creationError.error)
-        assertEquals(CommonError.INVALID_INPUT_VALUE, updateError.error)
-        assertEquals("재고", condition.keyword)
-        verify(tower).addCondition(condition)
-        verifyNoMoreInteractions(tower)
+    /** 텍스트만 비교하는 조건용 내용. 해시는 텍스트마다 다른 값이면 충분함 */
+    private fun textContent(text: String): DetectionContent {
+        return DetectionContent(
+            textHash = "hash-of-$text",
+            detectionAreaSelector = null,
+            imageHash = null,
+            textLoader = { text }
+        )
     }
 }

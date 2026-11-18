@@ -1,15 +1,15 @@
 package kr.byeongmin.watchtower.domain.tower.accessor
 
+import kr.byeongmin.watchtower.domain.tower.entity.DetectionCondition
 import kr.byeongmin.watchtower.domain.tower.entity.Tower
-import kr.byeongmin.watchtower.domain.tower.entity.TowerCondition
 import kr.byeongmin.watchtower.domain.tower.entity.TowerNotificationChannel
 import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
 import kr.byeongmin.watchtower.domain.tower.repository.*
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
+import kr.byeongmin.watchtower.global.pagination.BaseSortField
 import kr.byeongmin.watchtower.global.pagination.CursorPaginationRequestDto
 import kr.byeongmin.watchtower.global.pagination.OffsetPaginationRequestDto
-import kr.byeongmin.watchtower.global.pagination.BaseSortField
 import org.springframework.data.domain.Page
 import org.springframework.stereotype.Component
 import java.time.LocalDateTime
@@ -18,10 +18,10 @@ import java.time.LocalDateTime
 class TowerAccessor(
     private val towerRepository: TowerRepository,
     private val towerQuerydslRepository: TowerQuerydslRepository,
-    private val towerConditionRepository: TowerConditionRepository,
+    private val detectionConditionRepository: DetectionConditionRepository,
     private val towerNotificationChannelRepository: TowerNotificationChannelRepository,
     private val towerSnapshotQuerydslRepository: TowerSnapshotQuerydslRepository,
-    private val towerConditionQuerydslRepository: TowerConditionQuerydslRepository,
+    private val detectionConditionQuerydslRepository: DetectionConditionQuerydslRepository,
     private val towerNotificationChannelQuerydslRepository: TowerNotificationChannelQuerydslRepository
 ) {
     fun getTower(towerId: Long): Tower {
@@ -61,36 +61,36 @@ class TowerAccessor(
         return towerRepository.countByCreatedBy_IdAndDeletedAtIsNull(memberId)
     }
 
-    fun countByStatus(status: TowerStatus): Long {
+    fun countTowers(status: TowerStatus): Long {
         return towerRepository.countByStatusAndDeletedAtIsNull(status)
     }
 
     fun saveTower(
         tower: Tower,
-        conditions: List<TowerCondition>,
+        conditions: List<DetectionCondition>,
         notificationChannels: List<TowerNotificationChannel>
     ): Tower {
         val savedTower = towerRepository.save(tower)
         if (notificationChannels.isNotEmpty()) {
             towerNotificationChannelRepository.saveAll(notificationChannels)
         }
-        towerConditionRepository.saveAll(conditions)
+        detectionConditionRepository.saveAll(conditions)
         return savedTower
     }
 
-    fun deleteAllRelatedByMemberId(memberId: Long, deletedAt: LocalDateTime) {
+    fun deleteAllOwnedTowers(memberId: Long, deletedAt: LocalDateTime) {
         towerSnapshotQuerydslRepository.deleteByMemberId(memberId, deletedAt)
-        towerConditionQuerydslRepository.deleteByMemberId(memberId, deletedAt)
+        detectionConditionQuerydslRepository.deleteByMemberId(memberId, deletedAt)
         towerNotificationChannelQuerydslRepository.deleteByMemberId(memberId, deletedAt)
         towerQuerydslRepository.deleteByMemberId(memberId, deletedAt)
     }
 
     /** 다른 트랜잭션이 잠근 타워는 건너뛰고, 조회한 타워는 트랜잭션이 끝날 때까지 잠김 */
-    fun findCrawlDueTowersForUpdate(now: LocalDateTime, limit: Int): List<Tower> {
-        return towerQuerydslRepository.findCrawlDueForUpdate(now, limit.toLong())
+    fun findCrawlScheduledTowersForUpdate(now: LocalDateTime, limit: Int): List<Tower> {
+        return towerQuerydslRepository.findCrawlScheduledForUpdate(now, limit.toLong())
     }
 
-    fun pauseByMemberLastSignInAtBefore(lastSignInBefore: LocalDateTime, updatedAt: LocalDateTime): Long {
+    fun pauseTowersOfInactiveMembers(lastSignInBefore: LocalDateTime, updatedAt: LocalDateTime): Long {
         return towerQuerydslRepository.pauseByMemberLastSignInAtBefore(lastSignInBefore, updatedAt)
     }
 }

@@ -3,9 +3,9 @@ package kr.byeongmin.watchtower.global.config
 import kr.byeongmin.watchtower.domain.auth.controller.AuthController
 import kr.byeongmin.watchtower.domain.auth.service.AuthService
 import kr.byeongmin.watchtower.domain.member.enums.MemberRole
+import kr.byeongmin.watchtower.global.alert.AdminNotifier
 import kr.byeongmin.watchtower.global.error.AuthError
 import kr.byeongmin.watchtower.global.exception.BusinessException
-import kr.byeongmin.watchtower.external.slack.client.SlackClient
 import kr.byeongmin.watchtower.global.exception.GlobalExceptionHandler
 import kr.byeongmin.watchtower.global.security.MemberPrinciple
 import kr.byeongmin.watchtower.global.security.SecurityConfig
@@ -169,7 +169,7 @@ class OpenApiTestSessionTest {
         private val objectMapper = jacksonObjectMapper()
 
         @Bean
-        fun slackClient(): SlackClient {
+        fun adminNotifier(): AdminNotifier {
             return mock()
         }
 

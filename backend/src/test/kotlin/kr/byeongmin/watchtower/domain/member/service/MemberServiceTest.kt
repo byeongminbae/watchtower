@@ -9,10 +9,8 @@ import kr.byeongmin.watchtower.domain.notification.accessor.NotificationChannelA
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
 import kr.byeongmin.watchtower.domain.tower.dto.TowerCreateRequestDto
-import kr.byeongmin.watchtower.domain.tower.entity.Tower
+import kr.byeongmin.watchtower.domain.tower.vo.LatestChangeAiSummary
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
-import kr.byeongmin.watchtower.external.naver.auth.dto.NaverProfileResponseDto
-import kr.byeongmin.watchtower.external.naver.auth.dto.NaverTokenResponseDto
 import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
@@ -48,18 +46,13 @@ class MemberServiceTest {
         timeProvider = timeProvider
     )
 
-    private val naverProfile = NaverProfileResponseDto(
-        resultCode = "00",
-        message = "성공",
-        response = NaverProfileResponseDto.NaverProfileDetailDto(
-            providerId = "naver-id",
-            email = "member@example.com",
-            nickname = "회원",
-            profileImage = "https://example.com/profile.png"
-        )
-    )
-
-    private val member = spy(Member.from(naverProfile, now, mock())) {
+    private val member = spy(Member.of(
+        email = "member@example.com",
+        nickname = "회원",
+        profileImageUrl = "https://example.com/profile.png",
+        lastSignInAt = now,
+        plan = mock()
+    )) {
         on { id } doReturn 21L
     }
     private val request = TowerCreateRequestDto(
@@ -68,7 +61,7 @@ class MemberServiceTest {
         fetchInterval = Duration.ofMinutes(10),
         includeInStat = true
     )
-    private val tower = spy(Tower.from(member, request)) {
+    private val tower = spy(request.to(member)) {
         on { id } doReturn 7L
     }
 
@@ -106,14 +99,14 @@ class MemberServiceTest {
     fun `타워 목록에는 타워마다 마지막 변경의 AI 요약이 표시되고 변경이 없던 타워는 요약이 없음`() {
         /** given */
         val memberId = 21L
-        val towerWithoutChange = spy(Tower.from(member, request)) {
+        val towerWithoutChange = spy(request.to(member)) {
             on { id } doReturn 6L
         }
         val pagination = CursorPaginationRequestDto(size = 20)
         whenever(towerAccessor.findOwnedTowers(memberId, pagination, BaseSortField.CREATED_AT))
             .thenReturn(listOf(tower, towerWithoutChange))
         whenever(towerSnapshotAccessor.findLatestChangeAiSummaries(listOf(7L, 6L)))
-            .thenReturn(mapOf(7L to "마지막 변경 내용"))
+            .thenReturn(listOf(LatestChangeAiSummary(towerId = 7L, aiSummary = "마지막 변경 내용")))
 
         /** when */
         val response = memberService.getMemberTowers(memberId, pagination, BaseSortField.CREATED_AT)
@@ -140,6 +133,8 @@ class MemberServiceTest {
         )
         whenever(towerAccessor.findOwnedTowers(memberId, pagination, BaseSortField.CREATED_AT))
             .thenReturn(listOf(tower))
+        whenever(towerSnapshotAccessor.findLatestChangeAiSummaries(listOf(3L)))
+            .thenReturn(emptyList())
 
         /** when */
         val response = memberService.getMemberTowers(memberId, pagination, BaseSortField.CREATED_AT)
@@ -195,7 +190,7 @@ class MemberServiceTest {
         /** given */
         val memberId = 21L
         whenever(memberAccessor.getMember(memberId)).thenReturn(member)
-        whenever(naverOAuthAccessor.findByMemberId(memberId)).thenReturn(null)
+        whenever(naverOAuthAccessor.findMemberNaverOAuth(memberId)).thenReturn(null)
 
         /** when */
         memberService.deleteMember(memberId)
@@ -208,18 +203,15 @@ class MemberServiceTest {
     fun `회원이 탈퇴하면 네이버 연동 정보도 삭제 처리됨`() {
         /** given */
         val memberId = 21L
-        val oauth = NaverOAuth.from(
-            member,
-            naverProfile,
-            NaverTokenResponseDto(
-                accessToken = "access",
-                refreshToken = "refresh",
-                tokenType = "bearer",
-                expiresIn = 3600L
-            )
+        val oauth = NaverOAuth.of(
+            member = member,
+            providerId = "naver-id",
+            accessToken = "access",
+            refreshToken = "refresh",
+            expiresIn = 3600L
         )
         whenever(memberAccessor.getMember(memberId)).thenReturn(member)
-        whenever(naverOAuthAccessor.findByMemberId(memberId)).thenReturn(oauth)
+        whenever(naverOAuthAccessor.findMemberNaverOAuth(memberId)).thenReturn(oauth)
 
         /** when */
         memberService.deleteMember(memberId)
@@ -256,8 +248,8 @@ class MemberServiceTest {
 
         /** then */
         inOrder(towerAccessor, notificationChannelAccessor, member) {
-            verify(towerAccessor).deleteAllRelatedByMemberId(memberId, now)
-            verify(notificationChannelAccessor).deleteByMemberId(memberId, now)
+            verify(towerAccessor).deleteAllOwnedTowers(memberId, now)
+            verify(notificationChannelAccessor).deleteAllOwnedNotificationChannels(memberId, now)
             verify(member).delete()
         }
     }
@@ -267,7 +259,7 @@ class MemberServiceTest {
         /** given */
         val memberId = 21L
         whenever(memberAccessor.getMember(memberId)).thenReturn(member)
-        whenever(towerAccessor.deleteAllRelatedByMemberId(memberId, now))
+        whenever(towerAccessor.deleteAllOwnedTowers(memberId, now))
             .thenThrow(IllegalStateException("snapshot update failed"))
 
         /** when */
@@ -285,7 +277,7 @@ class MemberServiceTest {
         /** given */
         val memberId = 21L
         whenever(memberAccessor.getMember(memberId)).thenReturn(member)
-        whenever(notificationChannelAccessor.deleteByMemberId(memberId, now))
+        whenever(notificationChannelAccessor.deleteAllOwnedNotificationChannels(memberId, now))
             .thenThrow(IllegalStateException("channel update failed"))
 
         /** when */
@@ -295,6 +287,6 @@ class MemberServiceTest {
 
         /** then */
         assertNull(member.deletedAt)
-        verify(towerAccessor).deleteAllRelatedByMemberId(memberId, now)
+        verify(towerAccessor).deleteAllOwnedTowers(memberId, now)
     }
 }

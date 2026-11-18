@@ -33,8 +33,8 @@ private constructor(
      * 현재 DNS 조회 결과가 비어 있거나 내부 주소를 하나라도 포함하면 거부함
      * 조회 후 실제 접속까지 주소를 고정하지 않으므로 이 검사만으로 DNS rebinding을 막지는 못함
      */
-    // TODO: 크롤러는 무조건 내부망과 별도로 격리된 네트워크에 분리해야 함
-    //  애초에 앱단위에서 검증하더라도 원자적이지 않아서 검증 <-> 요청 사이에 DNS rebinding 이 성공할 수도 있음.
+    // 크롤러는 무조건 내부망과 별도로 격리된 네트워크에 분리해야 함
+    // 애초에 앱단위에서 검증하더라도 원자적이지 않아서 검증 <-> 요청 사이에 DNS rebinding 이 성공할 수도 있음.
     fun validateIsExternalIp(dnsResolver: DnsResolver) {
         if (!isExternalAddress(dnsResolver)) {
             throw BusinessException(TowerError.URL_NOT_ALLOWED)
@@ -45,10 +45,10 @@ private constructor(
         val resolvedAddresses = dnsResolver.resolveAll(host)
         return resolvedAddresses.isNotEmpty() && resolvedAddresses.none {
             it.isAnyLocalAddress ||
-                it.isLoopbackAddress ||
-                it.isSiteLocalAddress ||
-                it.isLinkLocalAddress ||
-                it.isMulticastAddress
+                    it.isLoopbackAddress ||
+                    it.isSiteLocalAddress ||
+                    it.isLinkLocalAddress ||
+                    it.isMulticastAddress
         }
     }
 

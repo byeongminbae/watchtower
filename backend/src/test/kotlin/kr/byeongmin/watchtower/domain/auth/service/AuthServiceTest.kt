@@ -118,6 +118,13 @@ class AuthServiceTest {
             on { role } doReturn MemberRole.NORMAL
         }
         private val providerId = profileResponse.response.providerId
+        private val naverOAuth = NaverOAuth.of(
+            member = member,
+            providerId = providerId,
+            accessToken = tokenResponse.accessToken,
+            refreshToken = tokenResponse.refreshToken,
+            expiresIn = tokenResponse.expiresIn
+        )
         private val code = "code"
         private val state = "state"
 
@@ -131,8 +138,7 @@ class AuthServiceTest {
         @Test
         fun `이미 가입한 네이버 회원은 로그인 시각을 저장한 뒤 세션 인증을 저장함`() {
             /** given */
-            val naverOAuth = NaverOAuth.from(member, profileResponse, tokenResponse)
-            whenever(naverOAuthAccessor.findByProviderId(providerId)).thenReturn(naverOAuth)
+            whenever(naverOAuthAccessor.findNaverOAuth(providerId)).thenReturn(naverOAuth)
 
             /** when */
             val result = authService.signInWithNaverCallback(code, state, request, response)
@@ -151,7 +157,7 @@ class AuthServiceTest {
             ) {
                 verify(authorizationRequestRepository).removeAuthorizationRequest(request, response)
                 verify(member).ensureSignInAllowed()
-                verify(member).completeSignIn(now)
+                verify(member).lastSignInAt = now
                 verify(transactionManager).commit(transactionStatus)
                 verify(sessionAuthenticationStrategy).onAuthentication(
                     authentication.capture(),
@@ -168,8 +174,8 @@ class AuthServiceTest {
         @Test
         fun `처음 로그인하는 네이버 회원은 무료 플랜으로 회원가입함`() {
             /** given */
-            whenever(naverOAuthAccessor.findByProviderId(providerId)).thenReturn(null)
-            whenever(planAccessor.findByType(PlanType.FREE)).thenReturn(freePlan)
+            whenever(naverOAuthAccessor.findNaverOAuth(providerId)).thenReturn(null)
+            whenever(planAccessor.findPlan(PlanType.FREE)).thenReturn(freePlan)
             whenever(memberAccessor.save(any<Member>())).thenReturn(member)
 
             /** when */
@@ -190,14 +196,14 @@ class AuthServiceTest {
             assertEquals(now, savedMember.firstValue.lastSignInAt)
             assertEquals(PlanType.FREE, savedMember.firstValue.plan.type)
             verify(member).ensureSignInAllowed()
-            verify(member).completeSignIn(now)
+            verify(member).lastSignInAt = now
         }
 
         @Test
         fun `로그인할 수 없는 회원은 로그인 시각을 갱신하지 않음`() {
             /** given */
-            whenever(naverOAuthAccessor.findByProviderId(providerId))
-                .thenReturn(NaverOAuth.from(member, profileResponse, tokenResponse))
+            whenever(naverOAuthAccessor.findNaverOAuth(providerId))
+                .thenReturn(naverOAuth)
             doThrow(BusinessException(AuthError.BANNED_ACCOUNT)).whenever(member).ensureSignInAllowed()
 
             /** when */
@@ -207,15 +213,15 @@ class AuthServiceTest {
 
             /** then */
             assertEquals(AuthError.BANNED_ACCOUNT, exception.error)
-            verify(member, never()).completeSignIn(any())
+            verify(member, never()).lastSignInAt = any()
             verify(memberAccessor, never()).save(any<Member>())
         }
 
         @Test
         fun `무료 플랜이 준비되지 않으면 신규 회원이 가입할 수 없음`() {
             /** given */
-            whenever(naverOAuthAccessor.findByProviderId(providerId)).thenReturn(null)
-            whenever(planAccessor.findByType(PlanType.FREE)).thenReturn(null)
+            whenever(naverOAuthAccessor.findNaverOAuth(providerId)).thenReturn(null)
+            whenever(planAccessor.findPlan(PlanType.FREE)).thenReturn(null)
 
             /** when */
             val exception = assertFailsWith<BusinessException> {
@@ -267,8 +273,8 @@ class AuthServiceTest {
         @Test
         fun `로그인 변경 사항을 저장하지 못하면 세션 인증을 저장하지 않음`() {
             /** given */
-            whenever(naverOAuthAccessor.findByProviderId(providerId))
-                .thenReturn(NaverOAuth.from(member, profileResponse, tokenResponse))
+            whenever(naverOAuthAccessor.findNaverOAuth(providerId))
+                .thenReturn(naverOAuth)
             val commitException = IllegalStateException("transaction commit failed")
             doThrow(commitException).whenever(transactionManager).commit(transactionStatus)
 

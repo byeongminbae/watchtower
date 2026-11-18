@@ -11,11 +11,11 @@ import kr.byeongmin.watchtower.domain.subscription.accessor.PlanAccessor
 import kr.byeongmin.watchtower.external.naver.auth.client.NaverAuthClient
 import kr.byeongmin.watchtower.external.naver.auth.dto.NaverProfileResponseDto
 import kr.byeongmin.watchtower.external.naver.auth.dto.NaverTokenResponseDto
+import kr.byeongmin.watchtower.global.alert.AdminNotifier
 import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.dto.SuccessResponse
 import kr.byeongmin.watchtower.global.error.AuthError
 import kr.byeongmin.watchtower.global.exception.BusinessException
-import kr.byeongmin.watchtower.external.slack.client.SlackClient
 import kr.byeongmin.watchtower.global.exception.GlobalExceptionHandler
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -106,8 +106,16 @@ class SessionAuthenticationTest {
         }
         whenever(naverAuthClient.fetchToken("code", "state")).thenReturn(token)
         whenever(naverAuthClient.fetchProfile(token.accessToken)).thenReturn(profile)
-        whenever(naverOAuthAccessor.findByProviderId(profile.response.providerId))
-            .thenReturn(NaverOAuth.from(member, profile, token))
+        whenever(naverOAuthAccessor.findNaverOAuth(profile.response.providerId))
+            .thenReturn(
+                NaverOAuth.of(
+                    member = member,
+                    providerId = profile.response.providerId,
+                    accessToken = token.accessToken,
+                    refreshToken = token.refreshToken,
+                    expiresIn = token.expiresIn
+                )
+            )
         whenever(timeProvider.now()).thenReturn(LocalDateTime.of(2026, 10, 26, 12, 0))
         whenever(sessionMemberLoader.getMemberPrinciple(principal.memberId)).thenReturn(principal)
         mvc = webAppContextSetup(context)
@@ -442,7 +450,7 @@ class SessionAuthenticationTest {
         private val objectMapper = jacksonObjectMapper()
 
         @Bean
-        fun slackClient(): SlackClient {
+        fun adminNotifier(): AdminNotifier {
             return mock()
         }
 

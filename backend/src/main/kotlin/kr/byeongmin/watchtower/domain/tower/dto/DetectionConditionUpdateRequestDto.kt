@@ -3,6 +3,7 @@ package kr.byeongmin.watchtower.domain.tower.dto
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import jakarta.validation.constraints.NotBlank
+import kr.byeongmin.watchtower.domain.tower.enums.PresenceChange
 
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME,
@@ -10,19 +11,12 @@ import jakarta.validation.constraints.NotBlank
     property = "type"
 )
 @JsonSubTypes(
-    JsonSubTypes.Type(value = RegexConditionUpdateRequestDto::class, name = "REGEX"),
     JsonSubTypes.Type(value = KeywordConditionUpdateRequestDto::class, name = "KEYWORD")
 )
-sealed interface TowerConditionUpdateRequestDto
-
-data class RegexConditionUpdateRequestDto(
-    @field:NotBlank
-    val regex: String,
-    val isSatisfiedAtAppearance: Boolean
-) : TowerConditionUpdateRequestDto
+sealed interface DetectionConditionUpdateRequestDto
 
 data class KeywordConditionUpdateRequestDto(
     @field:NotBlank
     val keyword: String,
-    val isSatisfiedAtAppearance: Boolean
-) : TowerConditionUpdateRequestDto
+    val satisfiedWhen: PresenceChange
+) : DetectionConditionUpdateRequestDto

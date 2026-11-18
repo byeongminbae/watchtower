@@ -5,6 +5,9 @@ import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 import java.time.Duration
+import kr.byeongmin.watchtower.domain.member.entity.Member
+import kr.byeongmin.watchtower.domain.tower.entity.Tower
+import kr.byeongmin.watchtower.domain.tower.vo.CssSelector
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
 import kr.byeongmin.watchtower.domain.tower.policy.TowerPolicy
 import kr.byeongmin.watchtower.global.validation.DurationMultipleOf
@@ -28,9 +31,26 @@ data class TowerCreateRequestDto(
     @field:JsonFormat(shape = JsonFormat.Shape.STRING)
     val fetchInterval: Duration,
     val includeInStat: Boolean,
+    val detectTextChange: Boolean = true,
+    val detectImageChange: Boolean = false,
+    val ignoreDateTime: Boolean = false,
+    @field:Size(max = TowerPolicy.MAX_DETECTION_AREA_SELECTOR_LENGTH)
+    val detectionAreaSelector: String? = null,
     val notificationChannelIds: Set<Long> = emptySet(),
     @field:Valid
-    val conditions: List<TowerConditionCreateRequestDto> = listOf(
-        HtmlConditionCreateRequestDto
-    )
-)
+    val conditions: List<DetectionConditionCreateRequestDto> = emptyList()
+) {
+    fun to(createdBy: Member): Tower {
+        return Tower.of(
+            createdBy = createdBy,
+            name = name,
+            url = url,
+            fetchInterval = fetchInterval,
+            includeInStat = includeInStat,
+            detectTextChange = detectTextChange,
+            detectImageChange = detectImageChange,
+            ignoreDateTime = ignoreDateTime,
+            detectionAreaSelector = detectionAreaSelector?.let { CssSelector(it) }
+        )
+    }
+}

@@ -40,27 +40,27 @@ class MemberAccessor(
         )
     }
 
-    fun count(): Long {
+    fun countMembers(): Long {
         return memberRepository.countByDeletedAtIsNull()
     }
 
-    fun countActive(): Long {
+    fun countActiveMembers(): Long {
         return memberRepository.countByBannedAtIsNullAndDeletedAtIsNull()
     }
 
-    fun countDeleted(): Long {
+    fun countDeletedMembers(): Long {
         return memberRepository.countByDeletedAtIsNotNull()
     }
 
-    fun countBanned(): Long {
+    fun countBannedMembers(): Long {
         return memberRepository.countByBannedAtIsNotNull()
     }
 
-    fun countByCreatedAtAfter(createdAt: LocalDateTime): Long {
-        return memberRepository.countByCreatedAtAfter(createdAt)
+    fun countSignedUpMembers(signedUpAfter: LocalDateTime): Long {
+        return memberRepository.countByCreatedAtAfter(signedUpAfter)
     }
 
-    fun countByLastSignInAtAfter(lastSignInAt: LocalDateTime): Long {
-        return memberRepository.countByLastSignInAtAfter(lastSignInAt)
+    fun countSignedInMembers(signedInAfter: LocalDateTime): Long {
+        return memberRepository.countByLastSignInAtAfter(signedInAfter)
     }
 }

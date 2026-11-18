@@ -1,7 +1,7 @@
 package kr.byeongmin.watchtower.domain.tower.accessor
 
+import kr.byeongmin.watchtower.domain.tower.entity.DetectionCondition
 import kr.byeongmin.watchtower.domain.tower.entity.Tower
-import kr.byeongmin.watchtower.domain.tower.entity.TowerCondition
 import kr.byeongmin.watchtower.domain.tower.entity.TowerNotificationChannel
 import kr.byeongmin.watchtower.domain.tower.repository.*
 import kr.byeongmin.watchtower.global.error.CommonError
@@ -10,24 +10,24 @@ import org.junit.jupiter.api.Test
 import org.mockito.kotlin.*
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
-import kotlin.test.assertSame
 import kotlin.test.assertFailsWith
+import kotlin.test.assertSame
 
 class TowerAccessorTest {
     private val towerRepository = mock<TowerRepository>()
     private val towerQuerydslRepository = mock<TowerQuerydslRepository>()
-    private val towerConditionRepository = mock<TowerConditionRepository>()
+    private val detectionConditionRepository = mock<DetectionConditionRepository>()
     private val towerNotificationChannelRepository = mock<TowerNotificationChannelRepository>()
     private val towerSnapshotQuerydslRepository = mock<TowerSnapshotQuerydslRepository>()
-    private val towerConditionQuerydslRepository = mock<TowerConditionQuerydslRepository>()
+    private val detectionConditionQuerydslRepository = mock<DetectionConditionQuerydslRepository>()
     private val towerNotificationChannelQuerydslRepository = mock<TowerNotificationChannelQuerydslRepository>()
     private val accessor = TowerAccessor(
         towerRepository = towerRepository,
         towerQuerydslRepository = towerQuerydslRepository,
-        towerConditionRepository = towerConditionRepository,
+        detectionConditionRepository = detectionConditionRepository,
         towerNotificationChannelRepository = towerNotificationChannelRepository,
         towerSnapshotQuerydslRepository = towerSnapshotQuerydslRepository,
-        towerConditionQuerydslRepository = towerConditionQuerydslRepository,
+        detectionConditionQuerydslRepository = detectionConditionQuerydslRepository,
         towerNotificationChannelQuerydslRepository = towerNotificationChannelQuerydslRepository
     )
 
@@ -36,7 +36,7 @@ class TowerAccessorTest {
         /** given */
         val tower = mock<Tower>()
         val savedTower = mock<Tower>()
-        val conditions = listOf(mock<TowerCondition>())
+        val conditions = listOf(mock<DetectionCondition>())
         val channels = listOf(mock<TowerNotificationChannel>())
         whenever(towerRepository.save(tower)).thenReturn(savedTower)
 
@@ -45,10 +45,10 @@ class TowerAccessorTest {
 
         /** then */
         assertSame(savedTower, result)
-        inOrder(towerRepository, towerNotificationChannelRepository, towerConditionRepository) {
+        inOrder(towerRepository, towerNotificationChannelRepository, detectionConditionRepository) {
             verify(towerRepository).save(tower)
             verify(towerNotificationChannelRepository).saveAll(channels)
-            verify(towerConditionRepository).saveAll(conditions)
+            verify(detectionConditionRepository).saveAll(conditions)
         }
     }
 
@@ -56,7 +56,7 @@ class TowerAccessorTest {
     fun `알림 채널을 선택하지 않은 타워는 채널 연결을 저장하지 않음`() {
         /** given */
         val tower = mock<Tower>()
-        val conditions = listOf(mock<TowerCondition>())
+        val conditions = listOf(mock<DetectionCondition>())
         whenever(towerRepository.save(tower)).thenReturn(tower)
 
         /** when */
@@ -64,9 +64,9 @@ class TowerAccessorTest {
 
         /** then */
         verifyNoInteractions(towerNotificationChannelRepository)
-        inOrder(towerRepository, towerConditionRepository) {
+        inOrder(towerRepository, detectionConditionRepository) {
             verify(towerRepository).save(tower)
-            verify(towerConditionRepository).saveAll(conditions)
+            verify(detectionConditionRepository).saveAll(conditions)
         }
     }
 
@@ -104,17 +104,17 @@ class TowerAccessorTest {
         val deletedAt = LocalDateTime.of(2026, 10, 22, 12, 0)
 
         /** when */
-        accessor.deleteAllRelatedByMemberId(21L, deletedAt)
+        accessor.deleteAllOwnedTowers(21L, deletedAt)
 
         /** then */
         inOrder(
             towerSnapshotQuerydslRepository,
-            towerConditionQuerydslRepository,
+            detectionConditionQuerydslRepository,
             towerNotificationChannelQuerydslRepository,
             towerQuerydslRepository
         ) {
             verify(towerSnapshotQuerydslRepository).deleteByMemberId(21L, deletedAt)
-            verify(towerConditionQuerydslRepository).deleteByMemberId(21L, deletedAt)
+            verify(detectionConditionQuerydslRepository).deleteByMemberId(21L, deletedAt)
             verify(towerNotificationChannelQuerydslRepository).deleteByMemberId(21L, deletedAt)
             verify(towerQuerydslRepository).deleteByMemberId(21L, deletedAt)
         }
@@ -129,12 +129,12 @@ class TowerAccessorTest {
 
         /** when */
         assertFailsWith<IllegalStateException> {
-            accessor.deleteAllRelatedByMemberId(21L, deletedAt)
+            accessor.deleteAllOwnedTowers(21L, deletedAt)
         }
 
         /** then */
         verifyNoInteractions(
-            towerConditionQuerydslRepository,
+            detectionConditionQuerydslRepository,
             towerNotificationChannelQuerydslRepository,
             towerQuerydslRepository
         )

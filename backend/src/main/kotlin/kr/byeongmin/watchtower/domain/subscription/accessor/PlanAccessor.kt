@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component
 class PlanAccessor(
     private val planRepository: PlanRepository
 ) {
-    fun findByType(planType: PlanType): Plan? {
+    fun findPlan(planType: PlanType): Plan? {
         return planRepository.findFirstByTypeAndDeletedAtIsNullOrderByIdAsc(planType)
     }
 }

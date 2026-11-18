@@ -25,11 +25,11 @@ class StatsControllerTest {
             SuccessDataResponse(
                 TowerStatsResponseDto(
                     totalCount = 15,
-                    crawlingReadyCount = 5,
-                    crawlingErrorCount = 4,
-                    crawlingCount = 2,
-                    userPausedCount = 3,
-                    adminPausedCount = 1
+                    readyCount = 5,
+                    errorCount = 4,
+                    runningCount = 2,
+                    pausedCount = 3,
+                    suspendedCount = 1
                 )
             )
         )
@@ -41,11 +41,11 @@ class StatsControllerTest {
         result
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.totalCount").value(15))
-            .andExpect(jsonPath("$.data.crawlingReadyCount").value(5))
-            .andExpect(jsonPath("$.data.crawlingErrorCount").value(4))
-            .andExpect(jsonPath("$.data.crawlingCount").value(2))
-            .andExpect(jsonPath("$.data.userPausedCount").value(3))
-            .andExpect(jsonPath("$.data.adminPausedCount").value(1))
+            .andExpect(jsonPath("$.data.readyCount").value(5))
+            .andExpect(jsonPath("$.data.errorCount").value(4))
+            .andExpect(jsonPath("$.data.runningCount").value(2))
+            .andExpect(jsonPath("$.data.pausedCount").value(3))
+            .andExpect(jsonPath("$.data.suspendedCount").value(1))
     }
 
     @Test

@@ -5,7 +5,6 @@ import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
-import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.SequenceGenerator
 import jakarta.persistence.Table
@@ -21,11 +20,9 @@ import kr.byeongmin.watchtower.domain.notification.entity.NotificationChannel
 @Table(name = "tower_notification_channel")
 class TowerNotificationChannel private constructor(
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tower_id")
     val tower: Tower,
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "notification_channel_id")
     val notificationChannel: NotificationChannel
 ) : Base() {
     @Id

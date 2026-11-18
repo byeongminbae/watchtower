@@ -2,7 +2,7 @@ package kr.byeongmin.watchtower.global.exception
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.servlet.http.HttpServletRequest
-import kr.byeongmin.watchtower.external.slack.client.SlackClient
+import kr.byeongmin.watchtower.global.alert.AdminNotifier
 import kr.byeongmin.watchtower.global.dto.ErrorResponse
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
  * */
 @RestControllerAdvice
 class GlobalExceptionHandler(
-    private val slackClient: SlackClient
+    private val adminNotifier: AdminNotifier
 ) {
     private val logger = KotlinLogging.logger {}
 
@@ -25,7 +25,7 @@ class GlobalExceptionHandler(
     ): ErrorResponse {
         if (businessException.error.isOperatorAlertRequired()) {
             logger.error(businessException) { getHttpHeader(request) }
-            slackClient.sendErrorAlert("${businessException.error.statusCode} 요청 처리 실패${getHttpHeader(request)}", businessException)
+            adminNotifier.sendErrorAlert("${businessException.error.statusCode} 요청 처리 실패${getHttpHeader(request)}", businessException)
         } else {
             logger.debug(businessException) { getHttpHeader(request) }
         }

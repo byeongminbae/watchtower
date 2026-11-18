@@ -1,8 +1,8 @@
 package kr.byeongmin.watchtower.domain.tower.controller
 
 import kr.byeongmin.watchtower.domain.tower.dto.*
+import kr.byeongmin.watchtower.domain.tower.enums.PresenceChange
 import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
-import kr.byeongmin.watchtower.domain.tower.enums.UpdatableTowerStatus
 import kr.byeongmin.watchtower.domain.tower.service.HotTowerService
 import kr.byeongmin.watchtower.domain.tower.service.TowerService
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
@@ -40,7 +40,11 @@ class TowerControllerTest {
         url = "https://example.com/products",
         fetchInterval = Duration.ofMinutes(10),
         includeInStat = true,
-        status = TowerStatus.CRAWLING_READY,
+        detectTextChange = true,
+        detectImageChange = false,
+        ignoreDateTime = false,
+        detectionAreaSelector = null,
+        status = TowerStatus.READY,
         faviconUrl = "https://example.com/favicon.ico",
         lastFetchedAt = LocalDateTime.of(2026, 10, 20, 12, 34, 56),
         lastNotifiedAt = LocalDateTime.of(2026, 10, 20, 12, 35, 6)
@@ -78,7 +82,7 @@ class TowerControllerTest {
                             fetchInterval = Duration.ofMinutes(10),
                             includeInStat = true,
                             notificationChannelIds = setOf(31L),
-                            conditions = listOf(KeywordConditionCreateRequestDto("재입고", true))
+                            conditions = listOf(KeywordConditionCreateRequestDto("재입고", PresenceChange.APPEAR))
                         )
                     )
                 )
@@ -97,7 +101,7 @@ class TowerControllerTest {
                 fetchInterval = Duration.ofMinutes(10),
                 includeInStat = true,
                 notificationChannelIds = setOf(31L),
-                conditions = listOf(KeywordConditionCreateRequestDto("재입고", true))
+                conditions = listOf(KeywordConditionCreateRequestDto("재입고", PresenceChange.APPEAR))
             )
         )
     }
@@ -116,11 +120,11 @@ class TowerControllerTest {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.id").value(7))
             .andExpect(jsonPath("$.data.fetchInterval").value("PT10M"))
-            .andExpect(jsonPath("$.data.status").value(TowerStatus.CRAWLING_READY.name))
+            .andExpect(jsonPath("$.data.status").value(TowerStatus.READY.name))
     }
 
     @Test
-    fun `타워 이름과 수집 주기를 바꾸면서 일시정지할 수 있음`() {
+    fun `타워 이름과 수집 주기를 바꿀 수 있음`() {
         /** given */
         whenever(towerService.updateTower(eq(21L), eq(7L), any()))
             .thenReturn(
@@ -129,7 +133,10 @@ class TowerControllerTest {
                         name = "배송 감시",
                         fetchInterval = Duration.ofMinutes(15),
                         includeInStat = false,
-                        status = TowerStatus.USER_PAUSED
+                        detectTextChange = true,
+                        detectImageChange = false,
+                        ignoreDateTime = false,
+                        detectionAreaSelector = null
                     )
                 )
             )
@@ -144,7 +151,10 @@ class TowerControllerTest {
                             name = "배송 감시",
                             fetchInterval = Duration.ofMinutes(15),
                             includeInStat = false,
-                            status = UpdatableTowerStatus.USER_PAUSED
+                            detectTextChange = true,
+                            detectImageChange = true,
+                            ignoreDateTime = true,
+                            detectionAreaSelector = null
                         )
                     )
                 )
@@ -155,7 +165,6 @@ class TowerControllerTest {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.name").value("배송 감시"))
             .andExpect(jsonPath("$.data.fetchInterval").value("PT15M"))
-            .andExpect(jsonPath("$.data.status").value(TowerStatus.USER_PAUSED.name))
 
         verify(towerService).updateTower(
             memberId = 21L,
@@ -164,7 +173,10 @@ class TowerControllerTest {
                 name = "배송 감시",
                 fetchInterval = Duration.ofMinutes(15),
                 includeInStat = false,
-                status = UpdatableTowerStatus.USER_PAUSED
+                detectTextChange = true,
+                detectImageChange = true,
+                ignoreDateTime = true,
+                detectionAreaSelector = null
             )
         )
     }
@@ -207,7 +219,7 @@ class TowerControllerTest {
     fun `크롤링에 실패한 타워를 재시도하면 바뀐 타워 상태를 응답함`() {
         /** given */
         whenever(towerService.retryCrawl(21L, 7L))
-            .thenReturn(SuccessDataResponse(towerResponseDto.copy(status = TowerStatus.CRAWLING)))
+            .thenReturn(SuccessDataResponse(towerResponseDto.copy(status = TowerStatus.RUNNING)))
 
         /** when */
         val result = mvc.perform(post("/api/v1/towers/7/crawl-retry"))
@@ -215,17 +227,51 @@ class TowerControllerTest {
         /** then */
         result
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.status").value(TowerStatus.CRAWLING.name))
+            .andExpect(jsonPath("$.data.status").value(TowerStatus.RUNNING.name))
 
         verify(towerService).retryCrawl(memberId = 21L, towerId = 7L)
     }
 
     @Test
+    fun `타워를 일시정지하면 바뀐 타워 상태를 응답함`() {
+        /** given */
+        whenever(towerService.pauseTower(21L, 7L))
+            .thenReturn(SuccessDataResponse(towerResponseDto.copy(status = TowerStatus.PAUSED)))
+
+        /** when */
+        val result = mvc.perform(post("/api/v1/towers/7/pause"))
+
+        /** then */
+        result
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.status").value(TowerStatus.PAUSED.name))
+
+        verify(towerService).pauseTower(memberId = 21L, towerId = 7L)
+    }
+
+    @Test
+    fun `일시정지한 타워를 다시 시작하면 바뀐 타워 상태를 응답함`() {
+        /** given */
+        whenever(towerService.resumeTower(21L, 7L))
+            .thenReturn(SuccessDataResponse(towerResponseDto.copy(status = TowerStatus.READY)))
+
+        /** when */
+        val result = mvc.perform(post("/api/v1/towers/7/resume"))
+
+        /** then */
+        result
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.status").value(TowerStatus.READY.name))
+
+        verify(towerService).resumeTower(memberId = 21L, towerId = 7L)
+    }
+
+    @Test
     fun `타워에 등록된 감지 조건 목록을 조회할 수 있음`() {
         /** given */
-        whenever(towerService.getTowerConditions(21L, 7L)).thenReturn(
+        whenever(towerService.getDetectionConditions(21L, 7L)).thenReturn(
             SuccessDataResponse(
-                listOf(KeywordConditionResponseDto(id = 2L, keyword = "품절", isSatisfiedAtAppearance = false))
+                listOf(KeywordConditionResponseDto(id = 2L, keyword = "품절", satisfiedWhen = PresenceChange.DISAPPEAR))
             )
         )
 
@@ -240,9 +286,9 @@ class TowerControllerTest {
     }
 
     @Test
-    fun `기존 타워에 정규식 감지 조건을 추가할 수 있음`() {
+    fun `기존 타워에 키워드 감지 조건을 추가할 수 있음`() {
         /** given */
-        whenever(towerService.createTowerCondition(eq(21L), eq(7L), any()))
+        whenever(towerService.createDetectionCondition(eq(21L), eq(7L), any()))
             .thenReturn(SuccessResponse())
 
         /** when */
@@ -251,10 +297,7 @@ class TowerControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     objectMapper.writeValueAsBytes(
-                        RegexConditionCreateRequestDto(
-                            regex = "재고: [1-9][0-9]*",
-                            isSatisfiedAtAppearance = true
-                        )
+                        KeywordConditionCreateRequestDto(keyword = "재입고", satisfiedWhen = PresenceChange.APPEAR)
                     )
                 )
         )
@@ -264,20 +307,17 @@ class TowerControllerTest {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.isSuccess").value(true))
 
-        verify(towerService).createTowerCondition(
+        verify(towerService).createDetectionCondition(
             memberId = 21L,
             towerId = 7L,
-            towerConditionCreateRequestDto = RegexConditionCreateRequestDto(
-                regex = "재고: [1-9][0-9]*",
-                isSatisfiedAtAppearance = true
-            )
+            detectionConditionCreateRequestDto = KeywordConditionCreateRequestDto(keyword = "재입고", satisfiedWhen = PresenceChange.APPEAR)
         )
     }
 
     @Test
     fun `타워에서 더 이상 사용하지 않을 감지 조건을 삭제할 수 있음`() {
         /** given */
-        whenever(towerService.deleteTowerCondition(21L, 7L, 3L))
+        whenever(towerService.deleteDetectionCondition(21L, 7L, 3L))
             .thenReturn(SuccessResponse())
 
         /** when */
@@ -288,7 +328,7 @@ class TowerControllerTest {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.isSuccess").value(true))
 
-        verify(towerService).deleteTowerCondition(memberId = 21L, towerId = 7L, conditionId = 3L)
+        verify(towerService).deleteDetectionCondition(memberId = 21L, towerId = 7L, conditionId = 3L)
     }
 
     @Test
@@ -325,13 +365,13 @@ class TowerControllerTest {
     @Test
     fun `타워의 키워드 조건에서 감지할 단어와 감지 방향을 변경할 수 있음`() {
         /** given */
-        whenever(towerService.updateTowerCondition(eq(21L), eq(7L), eq(3L), any()))
+        whenever(towerService.updateDetectionCondition(eq(21L), eq(7L), eq(3L), any()))
             .thenReturn(
                 SuccessDataResponse(
                     KeywordConditionResponseDto(
                         id = 3L,
                         keyword = "품절",
-                        isSatisfiedAtAppearance = false
+                        satisfiedWhen = PresenceChange.DISAPPEAR
                     )
                 )
             )
@@ -345,7 +385,7 @@ class TowerControllerTest {
                         objectMapper.writeValueAsBytes(
                             KeywordConditionUpdateRequestDto(
                                 keyword = "품절",
-                                isSatisfiedAtAppearance = false
+                                satisfiedWhen = PresenceChange.DISAPPEAR
                             )
                         )
                     )
@@ -355,15 +395,15 @@ class TowerControllerTest {
         result
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.keyword").value("품절"))
-            .andExpect(jsonPath("$.data.isSatisfiedAtAppearance").value(false))
+            .andExpect(jsonPath("$.data.satisfiedWhen").value(PresenceChange.DISAPPEAR.name))
 
-        verify(towerService).updateTowerCondition(
+        verify(towerService).updateDetectionCondition(
             memberId = 21L,
             towerId = 7L,
             conditionId = 3L,
-            towerConditionUpdateRequestDto = KeywordConditionUpdateRequestDto(
+            detectionConditionUpdateRequestDto = KeywordConditionUpdateRequestDto(
                 keyword = "품절",
-                isSatisfiedAtAppearance = false
+                satisfiedWhen = PresenceChange.DISAPPEAR
             )
         )
     }
@@ -378,7 +418,7 @@ class TowerControllerTest {
                         HotTowerResponseDto(
                             domain = "example.com",
                             url = "https://example.com",
-                            changeCount = 12
+                            detectionCount = 12
                         )
                     )
                 )
@@ -391,7 +431,7 @@ class TowerControllerTest {
         /** then */
         result
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data[0].changeCount").value(12))
+            .andExpect(jsonPath("$.data[0].detectionCount").value(12))
 
         verifyNoInteractions(towerService)
     }

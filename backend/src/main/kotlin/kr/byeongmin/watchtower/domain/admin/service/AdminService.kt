@@ -75,7 +75,7 @@ class AdminService(
     ): SuccessDataResponse<MemberResponseDto> {
         val member = memberAccessor.getMember(memberId)
 
-        member.changeRole(memberRoleUpdateRequestDto.role)
+        member.role = memberRoleUpdateRequestDto.role
 
         return SuccessDataResponse(MemberResponseDto.from(member))
     }

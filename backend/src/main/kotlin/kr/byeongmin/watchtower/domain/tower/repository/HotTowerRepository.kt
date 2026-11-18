@@ -1,8 +1,7 @@
 package kr.byeongmin.watchtower.domain.tower.repository
 
-import com.querydsl.core.types.Projections
 import com.querydsl.jpa.impl.JPAQueryFactory
-import kr.byeongmin.watchtower.domain.tower.dto.HotTowerResponseDto
+import kr.byeongmin.watchtower.domain.tower.entity.HotTower
 import kr.byeongmin.watchtower.domain.tower.entity.QHotTower.hotTower
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
@@ -12,18 +11,10 @@ class HotTowerRepository(
     private val queryFactory: JPAQueryFactory,
     private val jdbcClient: JdbcClient
 ) {
-    fun findAll(): List<HotTowerResponseDto> {
+    fun findAll(): List<HotTower> {
         return queryFactory
-            .select(
-                Projections.constructor(
-                    HotTowerResponseDto::class.java,
-                    hotTower.domain,
-                    hotTower.url,
-                    hotTower.changeCount
-                )
-            )
-            .from(hotTower)
-            .orderBy(hotTower.changeCount.desc(), hotTower.domain.asc())
+            .selectFrom(hotTower)
+            .orderBy(hotTower.detectionCount.desc(), hotTower.domain.asc())
             .fetch()
     }
 

@@ -5,13 +5,18 @@ import kr.byeongmin.watchtower.domain.member.accessor.MemberAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerRequestHistoryAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
+import kr.byeongmin.watchtower.domain.tower.client.CrawlQueueClient
+import kr.byeongmin.watchtower.domain.tower.client.SnapshotStorageClient
+import kr.byeongmin.watchtower.domain.tower.dto.CrawlResultMessageDto
+import kr.byeongmin.watchtower.domain.tower.dto.CrawlResultMessageDto.PageContent
+import kr.byeongmin.watchtower.domain.tower.dto.QueueResultMessageDto
+import kr.byeongmin.watchtower.domain.tower.entity.Tower
 import kr.byeongmin.watchtower.domain.tower.entity.TowerRequestHistory
 import kr.byeongmin.watchtower.domain.tower.entity.TowerSnapshot
-import kr.byeongmin.watchtower.external.oci.queue.client.OciQueueClient
-import kr.byeongmin.watchtower.external.oci.queue.dto.CrawlResultDto
-import kr.byeongmin.watchtower.external.oci.storage.client.OciSnapshotStorageClient
-import kr.byeongmin.watchtower.external.slack.client.SlackClient
+import kr.byeongmin.watchtower.global.alert.AdminNotifier
+import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.utils.ifNullThrow
+import kr.byeongmin.watchtower.global.utils.isNull
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -22,94 +27,121 @@ import java.util.concurrent.TimeUnit
 
 /** 크롤러가 결과 큐에 보낸 크롤링 결과를 타워에 반영. 큐 기능을 끈 환경에서는 결과 큐를 받지 않음 */
 @Service
-@ConditionalOnProperty(name = [OciQueueClient.QUEUE_ENABLED_PROPERTY], havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = [CrawlQueueClient.ENABLED_PROPERTY], havingValue = "true", matchIfMissing = true)
 class CrawlResultConsumerService(
-    private val ociQueueClient: OciQueueClient,
+    private val crawlQueueClient: CrawlQueueClient,
     private val towerAccessor: TowerAccessor,
     private val towerSnapshotAccessor: TowerSnapshotAccessor,
     private val towerRequestHistoryAccessor: TowerRequestHistoryAccessor,
     private val memberAccessor: MemberAccessor,
-    private val ociSnapshotStorageClient: OciSnapshotStorageClient,
+    private val snapshotStorageClient: SnapshotStorageClient,
     private val objectMapper: ObjectMapper,
     private val transactionTemplate: TransactionTemplate,
-    private val slackClient: SlackClient
+    private val adminNotifier: AdminNotifier,
+    private val timeProvider: TimeProvider
 ) {
     private val logger = KotlinLogging.logger {}
 
-    /**
-     * 결과 큐를 long polling 으로 받아 반영하고, 반영한 결과만 큐에서 지움
-     *
-     * 반영하지 못한 결과는 지우지 않아서 다시 전달되고, 전달 횟수가 큐의 한도를 넘으면 dead letter queue 로 옮겨짐
-     *
-     * 이전 실행이 끝나고 5초 뒤에 다시 받음. 큐 장애로 받기가 바로 실패할 때 요청이 1초마다 쌓이지 않게 하기 위함
-     */
     @Scheduled(fixedDelay = 5, timeUnit = TimeUnit.SECONDS)
     fun applyCrawlResults() {
-        val appliedReceipts = mutableListOf<String>()
-
-        ociQueueClient.fetchCrawlResults().forEach { queueResultMessageDto ->
-            /**
-             * 결과마다 트랜잭션을 따로 커밋함. 한 결과가 실패해도 나머지 결과는 반영하고 지울 수 있게 하기 위함
-             *
-             * 큐는 같은 결과를 다시 전달할 수 있어서, 다시 반영해도 상태가 바뀌지 않아야 함
-             */
-            try {
-                val crawlResultDto = objectMapper.readValue<CrawlResultDto>(queueResultMessageDto.content)
-                transactionTemplate.execute { applyCrawlResult(crawlResultDto) }
-                appliedReceipts.add(queueResultMessageDto.receipt)
-            } catch (exception: Exception) {
-                val message = "크롤링 결과 반영 실패. content=${queueResultMessageDto.content}"
-                logger.error(exception) { message }
-                slackClient.sendErrorAlert(message, exception)
-            }
-        }
-
-        if (appliedReceipts.isNotEmpty()) {
-            ociQueueClient.deleteCrawlResults(appliedReceipts)
+        val appliedResults = crawlQueueClient.fetchCrawlResults().filter { tryApplyInOwnTransaction(it) }
+        if (appliedResults.isNotEmpty()) {
+            crawlQueueClient.deleteCrawlResults(appliedResults.map { it.receipt })
         }
     }
 
-    private fun applyCrawlResult(crawlResultDto: CrawlResultDto) {
-        // 삭제된 타워의 결과는 반영하지 않고 버림
-        val tower = towerAccessor.findTower(crawlResultDto.towerId) ?: return
+    private fun tryApplyInOwnTransaction(queueResultMessage: QueueResultMessageDto): Boolean {
+        try {
+            val crawlResult = objectMapper.readValue<CrawlResultMessageDto>(queueResultMessage.content)
+            transactionTemplate.executeWithoutResult { applyCrawlResult(crawlResult) }
+            if (crawlResult.hasUnknownResultCode()) {
+                adminNotifier.sendWarningAlert("크롤러와 백엔드간의 enum 불일치 발생 content=${queueResultMessage.content}")
+            }
+            return true
+        } catch (exception: Exception) {
+            val message = "크롤링 결과 반영 실패 content=${queueResultMessage.content}"
+            logger.error(exception) { message }
+            adminNotifier.sendErrorAlert(message, exception)
+            return false
+        }
+    }
 
-        // 이력이 있으면 큐가 같은 결과를 다시 전달한 것이라 이미 반영했음
-        if (towerRequestHistoryAccessor.existsByTowerIdAndStartedAt(tower.id.ifNullThrow(), crawlResultDto.crawlStartedAt)) {
+    private fun applyCrawlResult(crawlResult: CrawlResultMessageDto) {
+        if (towerRequestHistoryAccessor.isCrawlResultApplied(crawlResult.towerId, crawlResult.crawlingStartedAt)) {
+            return
+        }
+        val tower = towerAccessor.findTower(crawlResult.towerId) ?: return
+
+        tower.recordCrawlResult(
+            crawlingEndedAt = crawlResult.crawlingEndedAt,
+            isCrawlingSucceed = crawlResult.isCrawlingSucceed()
+        )
+        val requestHistory = saveRequestHistory(tower, crawlResult)
+        if (crawlResult.isCrawlingSucceed()) {
+            saveSnapshotIfChanged(requestHistory, crawlResult.pageContent.ifNullThrow())
+        }
+    }
+
+    private fun saveRequestHistory(tower: Tower, crawlResult: CrawlResultMessageDto): TowerRequestHistory {
+        val requestHistory = TowerRequestHistory.of(
+            tower = tower,
+            requestedUrl = crawlResult.requestedUrl,
+            finalUrl = crawlResult.finalUrl,
+            jobStartedAt = crawlResult.jobStartedAt,
+            jobEndedAt = timeProvider.now(),
+            crawlingStartedAt = crawlResult.crawlingStartedAt,
+            crawlingEndedAt = crawlResult.crawlingEndedAt,
+            triggeredBy = crawlResult.triggeredByMemberId?.let { memberAccessor.findMember(it) },
+            crawlerResultCode = crawlResult.crawlerResultCode,
+            pageHttpStatusCode = crawlResult.pageHttpStatusCode
+        )
+        towerRequestHistoryAccessor.save(requestHistory)
+        return requestHistory
+    }
+
+    private fun saveSnapshotIfChanged(requestHistory: TowerRequestHistory, pageContent: PageContent) {
+        val textObjectName = pageContent.textObjectName ?: return
+        val tower = requestHistory.tower
+        val latestSnapshot = towerSnapshotAccessor.findLatestSnapshot(tower.id.ifNullThrow())
+        if (latestSnapshot.isNull()) {
+            saveSnapshot(requestHistory, pageContent, textObjectName, isChangeDetected = false)
             return
         }
 
-        tower.applyCrawlResult(crawlResultDto)
-
-        val towerRequestHistory = TowerRequestHistory.from(
-            tower = tower,
-            crawlResultDto = crawlResultDto,
-            triggeredBy = crawlResultDto.triggeredByMemberId?.let { memberAccessor.findMember(it) }
-        )
-        towerRequestHistoryAccessor.save(towerRequestHistory)
-
-        // 오류 페이지가 직전 버전이 되면 다음 정상 페이지를 변경으로 판정하므로, 2xx 로 받아온 페이지만 버전으로 저장하고 비교함
-        // 크롤러가 직전 버전과 같은 HTML 이라 저장을 생략한 결과는 비교할 내용이 없어서 버전을 만들지 않음
-        if (crawlResultDto.isNewHtmlVersion()) {
-            saveHtmlVersion(towerRequestHistory, crawlResultDto)
+        val previous = latestSnapshot.to(tower.ignoreDateTime) {
+            snapshotStorageClient.getText(latestSnapshot.textObjectName)
         }
+        val current = pageContent.to(tower.ignoreDateTime) {
+            snapshotStorageClient.getText(textObjectName)
+        }
+        if (previous.hasSameContent(current)) {
+            // 크롤링 도중 날짜무시를 켜면 여기에 걸릴 수 있음
+            return
+        }
+
+        saveSnapshot(
+            requestHistory = requestHistory,
+            pageContent = pageContent,
+            textObjectName = textObjectName,
+            isChangeDetected = tower.detectsChange(previous = previous, current = current)
+        )
     }
 
-    /** 이번 HTML 을 직전 버전과 타워의 조건으로 비교한 결과와 함께 새 버전으로 저장함. 첫 버전은 비교 대상이 없어서 조건을 충족하지 않은 것으로 저장함 */
-    private fun saveHtmlVersion(towerRequestHistory: TowerRequestHistory, crawlResultDto: CrawlResultDto) {
-        val htmlObjectName = crawlResultDto.htmlObjectName.ifNullThrow()
-        val tower = towerRequestHistory.tower
-        val previousSnapshot = towerSnapshotAccessor.findLatestSnapshot(tower.id.ifNullThrow())
-        val isConditionSatisfied = previousSnapshot != null && tower.isConditionSatisfied(
-            previousHtml = ociSnapshotStorageClient.getHtml(previousSnapshot.htmlObjectName),
-            currentHtml = ociSnapshotStorageClient.getHtml(htmlObjectName)
-        )
-
+    private fun saveSnapshot(
+        requestHistory: TowerRequestHistory,
+        pageContent: PageContent,
+        textObjectName: String,
+        isChangeDetected: Boolean
+    ) {
         towerSnapshotAccessor.save(
-            TowerSnapshot.from(
-                towerRequestHistory = towerRequestHistory,
-                htmlObjectName = htmlObjectName,
-                htmlSha256 = crawlResultDto.htmlSha256.ifNullThrow(),
-                isConditionSatisfied = isConditionSatisfied
+            TowerSnapshot.of(
+                towerRequestHistory = requestHistory,
+                textObjectName = textObjectName,
+                textHash = pageContent.textHash,
+                dateTimeIgnoredTextHash = pageContent.dateTimeIgnoredTextHash,
+                detectionAreaSelector = pageContent.detectionAreaSelector,
+                imageHash = pageContent.imageHash,
+                isChangeDetected = isChangeDetected
             )
         )
     }

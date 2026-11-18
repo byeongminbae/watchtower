@@ -96,7 +96,11 @@ class AdminControllerTest {
                             url = "https://example.com/products",
                             fetchInterval = Duration.ofMinutes(10),
                             includeInStat = true,
-                            status = TowerStatus.ADMIN_PAUSED,
+                            detectTextChange = true,
+                            detectImageChange = false,
+                            ignoreDateTime = false,
+                            detectionAreaSelector = null,
+                            status = TowerStatus.SUSPENDED,
                             faviconUrl = null,
                             lastFetchedAt = null,
                             lastNotifiedAt = null
@@ -182,7 +186,11 @@ class AdminControllerTest {
                         url = "https://example.com",
                         fetchInterval = Duration.ofMinutes(10),
                         includeInStat = true,
-                        status = TowerStatus.ADMIN_PAUSED,
+                        detectTextChange = true,
+                        detectImageChange = false,
+                        ignoreDateTime = false,
+                        detectionAreaSelector = null,
+                        status = TowerStatus.SUSPENDED,
                         faviconUrl = null,
                         lastFetchedAt = null,
                         lastNotifiedAt = null
@@ -197,7 +205,7 @@ class AdminControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         objectMapper.writeValueAsBytes(
-                            TowerStatusUpdateRequestDto(status = TowerStatus.ADMIN_PAUSED)
+                            TowerStatusUpdateRequestDto(status = TowerStatus.SUSPENDED)
                         )
                     )
             )
@@ -205,11 +213,11 @@ class AdminControllerTest {
         /** then */
         result
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.status").value(TowerStatus.ADMIN_PAUSED.name))
+            .andExpect(jsonPath("$.data.status").value(TowerStatus.SUSPENDED.name))
 
         verify(adminService).updateTowerStatus(
             towerId = 7L,
-            towerStatusUpdateRequestDto = TowerStatusUpdateRequestDto(status = TowerStatus.ADMIN_PAUSED)
+            towerStatusUpdateRequestDto = TowerStatusUpdateRequestDto(status = TowerStatus.SUSPENDED)
         )
     }
 
