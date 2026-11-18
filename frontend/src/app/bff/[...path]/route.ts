@@ -11,6 +11,7 @@ const routes: readonly [RegExp, readonly string[]][] = [
   [/^towers\/[1-9]\d*\/conditions\/[1-9]\d*$/, ["PUT", "DELETE"]],
   [/^towers\/[1-9]\d*\/snapshots$/, ["GET"]],
   [/^towers\/[1-9]\d*\/crawl-retry$/, ["POST"]],
+  [/^towers\/[1-9]\d*\/(pause|resume)$/, ["POST"]],
   [/^notification\/channels$/, ["GET", "POST"]],
   [/^notification\/channels\/[1-9]\d*$/, ["GET", "PUT", "DELETE"]],
   [/^admin\/(towers|members)$/, ["GET"]],

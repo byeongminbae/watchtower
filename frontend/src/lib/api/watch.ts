@@ -1,9 +1,9 @@
 import { apiClient } from "./client";
 import { arrayOf, cursorOf, isCondition, isHotUrl, isSnapshot, isWatch } from "./guards";
 import type { SearchCriteria } from "@/types/pagination";
-import type { MemberWatchStatus, WatchConditionInput } from "@/types/tower";
+import type { WatchConditionInput, WatchDetection } from "@/types/tower";
 
-export interface CreateWatchRequest {
+export interface CreateWatchRequest extends WatchDetection {
   readonly name: string;
   readonly url: string;
   readonly fetchInterval: string;
@@ -11,14 +11,13 @@ export interface CreateWatchRequest {
   readonly notificationChannelIds: readonly number[];
   readonly conditions: readonly WatchConditionInput[];
 }
-export interface UpdateWatchRequest {
+export interface UpdateWatchRequest extends WatchDetection {
   readonly name: string;
   readonly fetchInterval: string;
   readonly includeInStat: boolean;
-  readonly status: MemberWatchStatus;
 }
 export type CreateWatchConditionRequest = WatchConditionInput;
-export type UpdateWatchConditionRequest = Exclude<WatchConditionInput, { readonly type: "HTML" }>;
+export type UpdateWatchConditionRequest = WatchConditionInput;
 const basePath = "/bff/towers";
 export const watchApi = {
   listMemberWatches: (memberId: number, options: Partial<SearchCriteria> & { readonly cursorId?: number; readonly cursorValue?: string } = {}) => {
@@ -34,6 +33,8 @@ export const watchApi = {
   updateWatch: (watchId: number, body: UpdateWatchRequest) => apiClient.put(`${basePath}/${watchId}`, body, isWatch),
   deleteWatch: (watchId: number) => apiClient.deleteEmpty(`${basePath}/${watchId}`),
   retryCrawl: (watchId: number) => apiClient.post(`${basePath}/${watchId}/crawl-retry`, undefined, isWatch),
+  pauseWatch: (watchId: number) => apiClient.post(`${basePath}/${watchId}/pause`, undefined, isWatch),
+  resumeWatch: (watchId: number) => apiClient.post(`${basePath}/${watchId}/resume`, undefined, isWatch),
   getWatchConditions: (watchId: number) => apiClient.get(`${basePath}/${watchId}/conditions`, arrayOf(isCondition)),
   createWatchCondition: (watchId: number, body: CreateWatchConditionRequest) => apiClient.postEmpty(`${basePath}/${watchId}/conditions`, body),
   updateWatchCondition: (watchId: number, conditionId: number, body: UpdateWatchConditionRequest) => apiClient.put(`${basePath}/${watchId}/conditions/${conditionId}`, body, isCondition),

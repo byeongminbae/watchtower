@@ -18,11 +18,11 @@ export default function WatchActivity({ watch }: { readonly watch: Watch }) {
   const now = useNow();
   const interval = intervalMinutes(watch.fetchInterval) * 60_000;
   const elapsed = watch.lastFetchedAt && now !== null ? now - new Date(watch.lastFetchedAt).getTime() : null;
-  const running = watch.status === "CRAWLING_READY" || watch.status === "CRAWLING";
+  const running = watch.status === "READY" || watch.status === "RUNNING";
   const progress = running && elapsed !== null && Number.isFinite(interval) && interval > 0 ? Math.min(1, Math.max(0, elapsed / interval)) : 0;
   const remaining = elapsed === null ? null : Math.max(0, Math.ceil((interval - elapsed) / 60_000));
-  const checkMessage = watch.status === "CRAWLING" ? "지금 페이지를 확인하고 있어요"
-    : watch.status === "CRAWLING_ERROR" ? "확인에 실패해서 감시가 멈춰 있어요"
+  const checkMessage = watch.status === "RUNNING" ? "지금 페이지를 확인하고 있어요"
+    : watch.status === "ERROR" ? "확인에 실패해서 감시가 멈춰 있어요"
     : !running ? "감시가 멈춰 있어요"
     : remaining === null ? "첫 확인을 기다리고 있어요" : remaining > 0 ? `다음 확인까지 약 ${remaining}분` : "다음 확인을 기다리고 있어요";
 

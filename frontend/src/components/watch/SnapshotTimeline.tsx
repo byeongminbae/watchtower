@@ -15,7 +15,7 @@ function ElapsedTime({ value, now }: { readonly value: string; readonly now: num
 export default function SnapshotTimeline({ snapshots }: { readonly snapshots: readonly WatchSnapshot[] }) {
   const now = useNow();
   return <section aria-label="변화 기록" className="flex min-w-0 flex-col gap-4">
-    <p className="text-sm text-muted-foreground">변화가 감지된 순간을 기록해요. 기록은 한 달간 보관돼요.</p>
+    <p className="text-sm text-muted-foreground">변화가 감지된 순간을 기록해요. 기록은 일주일간 보관돼요.</p>
     {snapshots.length === 0 && <Empty className="border border-dashed bg-card"><EmptyHeader><EmptyMedia variant="icon"><History /></EmptyMedia><EmptyTitle>아직 기록된 변화가 없어요</EmptyTitle><EmptyDescription>아직 저장된 스냅샷이 없어요.</EmptyDescription></EmptyHeader></Empty>}
     {snapshots.map(snapshot => <Card key={snapshot.id} size="sm">
       <CardHeader><CardTitle><span className="flex items-center gap-2"><History aria-hidden="true" className="size-4 text-primary" /><ElapsedTime value={snapshot.detectedAt} now={now} /></span></CardTitle></CardHeader>

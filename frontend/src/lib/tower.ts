@@ -1,12 +1,20 @@
-import type { WatchConditionInput } from "@/types/tower";
+import type { WatchConditionInput, WatchDetection } from "@/types/tower";
+
+/** 백엔드 CssSelector.MAX_LENGTH 와 같은 값 */
+export const MAX_DETECTION_AREA_SELECTOR_LENGTH = 500;
 
 export function isConditionComplete(condition: WatchConditionInput): boolean {
-  switch (condition.type) {
-    case "HTML": return true;
-    case "KEYWORD": return condition.keyword.trim().length > 0;
-    case "REGEX": return condition.regex.trim().length > 0;
-    default: { const exhaustive: never = condition; return exhaustive; }
-  }
+  return condition.keyword.trim().length > 0;
+}
+
+/** 빈 칸이면 페이지 전체를 감시하므로 null 로 보냄 */
+export function toDetectionAreaSelector(input: string): string | null {
+  return input.trim().length === 0 ? null : input;
+}
+
+/** 텍스트와 이미지 감지를 모두 끄고 감지 조건도 없으면 알림이 가지 않아서 백엔드가 저장을 거부함 */
+export function detectsChange(detection: WatchDetection, conditionCount: number): boolean {
+  return detection.detectTextChange || detection.detectImageChange || conditionCount > 0;
 }
 
 export function intervalMinutes(duration: string): number {

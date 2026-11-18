@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import type { CreateWatchRequest } from "@/lib/api/watch";
-import type { WatchConditionInput } from "@/types/tower";
+import type { WatchConditionInput, WatchDetection } from "@/types/tower";
 import { ApiError } from "@/lib/api/errors";
-import { isConditionComplete } from "@/lib/tower";
+import { detectsChange, isConditionComplete } from "@/lib/tower";
 import ConditionFields from "./ConditionFields";
+import DetectionFields from "./DetectionFields";
 import ChannelSelection from "./ChannelSelection";
 
 export default function CreateWatchDialog({ open, onClose, onSubmit }: {
@@ -23,20 +24,24 @@ export default function CreateWatchDialog({ open, onClose, onSubmit }: {
   const id = React.useId();
   const [name, setName] = React.useState("");
   const [url, setUrl] = React.useState("");
-  const [condition, setCondition] = React.useState<WatchConditionInput>({ type: "HTML" });
+  const [detection, setDetection] = React.useState<WatchDetection>({ detectTextChange: true, detectImageChange: false, ignoreDateTime: false, detectionAreaSelector: null });
+  const [addsCondition, setAddsCondition] = React.useState(false);
+  const [condition, setCondition] = React.useState<WatchConditionInput>({ type: "KEYWORD", keyword: "", satisfiedWhen: "APPEAR" });
   const [minutes, setMinutes] = React.useState(5);
   const [includeInStat, setIncludeInStat] = React.useState(true);
   const [channels, setChannels] = React.useState<readonly number[]>([]);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const valid = name.trim().length > 0 && name.length <= 255 && /^https?:\/\//i.test(url) && minutes >= 5 && minutes <= 1440 && minutes % 5 === 0 && isConditionComplete(condition);
+  const detecting = detectsChange(detection, addsCondition ? 1 : 0);
+  const valid = name.trim().length > 0 && name.length <= 255 && /^https?:\/\//i.test(url) && minutes >= 5 && minutes <= 1440 && minutes % 5 === 0 &&
+    detecting && (!addsCondition || isConditionComplete(condition));
   const close = () => { if (!submitting) onClose(); };
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!valid || submitting) return;
     setSubmitting(true); setError(null);
     try {
-      await onSubmit({ name, url, fetchInterval: `PT${minutes}M`, includeInStat, notificationChannelIds: channels, conditions: [condition] });
+      await onSubmit({ name, url, fetchInterval: `PT${minutes}M`, includeInStat, ...detection, notificationChannelIds: channels, conditions: addsCondition ? [condition] : [] });
       onClose();
     } catch (reason) {
       if (!(reason instanceof Error)) throw reason;
@@ -52,7 +57,13 @@ export default function CreateWatchDialog({ open, onClose, onSubmit }: {
           <Field><FieldLabel htmlFor={`${id}-name`}>사이트 이름</FieldLabel><Input id={`${id}-name`} required value={name} onChange={event => setName(event.target.value)} placeholder="예: 채용 공고" maxLength={255} /></Field>
           <Field><FieldLabel htmlFor={`${id}-url`}>감시할 URL</FieldLabel><Input id={`${id}-url`} type="url" required value={url} onChange={event => setUrl(event.target.value)} placeholder="https://example.com" /></Field>
           <Separator />
-          <ConditionFields value={condition} onChange={setCondition} />
+          <DetectionFields value={detection} onChange={setDetection} detecting={detecting} />
+          <Field orientation="horizontal">
+            <Switch id={`${id}-adds-condition`} checked={addsCondition} onCheckedChange={setAddsCondition} />
+            <FieldLabel htmlFor={`${id}-adds-condition`}>키워드 감지 조건도 함께 추가</FieldLabel>
+          </Field>
+          {addsCondition && <ConditionFields value={condition} onChange={setCondition} />}
+          <Separator />
           <Field><FieldLabel htmlFor={`${id}-interval`}>확인 주기 (분)</FieldLabel><Input id={`${id}-interval`} type="number" required min={5} max={1440} step={5} value={minutes} onChange={event => setMinutes(Number(event.target.value))} /><FieldDescription>5분부터 24시간까지, 5분 단위로 설정해요.</FieldDescription></Field>
           <Field orientation="horizontal"><Switch id={`${id}-statistics`} checked={includeInStat} onCheckedChange={setIncludeInStat} /><FieldLabel htmlFor={`${id}-statistics`}>인기 URL 통계에 포함</FieldLabel></Field>
           <Separator />

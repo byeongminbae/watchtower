@@ -44,7 +44,7 @@ for (const { route, endpoint, label, query } of [
   });
 }
 
-test("제목 옆 아이콘으로 감시를 멈추고 다시 시작하면 기존 타워 설정을 유지할 것이다", async ({ page, login, request }) => {
+test("제목 옆 아이콘으로 감시를 멈추고 다시 시작하면 일시정지와 다시 시작을 각각 요청할 것이다", async ({ page, login, request }) => {
   // given
   const session = await login();
   await page.goto("/watches");
@@ -59,8 +59,8 @@ test("제목 옆 아이콘으로 감시를 멈추고 다시 시작하면 기존 
   // then
   await expect(page.getByRole("button", { name: "감시 일시정지", exact: true })).toBeVisible();
   const records = await (await request.get(`http://127.0.0.1:4100/__test/records?session=${session}`)).json();
-  for (const status of ["USER_PAUSED", "CRAWLING_READY"]) {
-    expect(records.data).toContainEqual(expect.objectContaining({ method: "PUT", path: "/api/v1/towers/9", body: { name: "채용 공고", fetchInterval: "PT5M", includeInStat: true, status }, csrf: "csrf-fixture" }));
+  for (const action of ["pause", "resume"]) {
+    expect(records.data).toContainEqual(expect.objectContaining({ method: "POST", path: `/api/v1/towers/9/${action}`, csrf: "csrf-fixture" }));
   }
 });
 
@@ -69,7 +69,7 @@ test("감시 상태 변경이 실패하면 기존 상태를 유지하고 오류�
   await login();
   await page.goto("/watches");
   await expect(page.getByRole("status")).toHaveCount(0);
-  await page.route("**/bff/towers/9", route => route.request().method() === "PUT" ? route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ isSuccess: false, statusCode: "COM_001", message: "상태 변경 실패", timestamp: "2026-10-27T12:00:00" }) }) : route.continue());
+  await page.route("**/bff/towers/9/pause", route => route.request().method() === "POST" ? route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ isSuccess: false, statusCode: "COM_001", message: "상태 변경 실패", timestamp: "2026-10-27T12:00:00" }) }) : route.continue());
   // when
   await page.getByRole("button", { name: "감시 일시정지", exact: true }).click();
   // then
