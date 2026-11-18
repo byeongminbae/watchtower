@@ -44,8 +44,10 @@ class CrawlRequestMessageDtoTest {
 
         /** then */
         assertEquals(
-            """{"towerId":7,"url":"https://example.com","extraction":{"detectionAreaSelector":".stock","collectImageHashes":true,"ignoreDateTime":true},"triggeredByMemberId":21,"previousTextHash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","previousImageHash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","jobStartedAt":"2026-11-03T01:00:00.123456"}""",
-            json
+            objectMapper.readTree(
+                """{"towerId":7,"url":"https://example.com","extraction":{"detectionAreaSelector":".stock","collectImageHashes":true,"ignoreDateTime":true},"triggeredByMemberId":21,"previousTextHash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","previousImageHash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","jobStartedAt":"2026-11-03T01:00:00.123456"}"""
+            ),
+            objectMapper.readTree(json)
         )
     }
 
