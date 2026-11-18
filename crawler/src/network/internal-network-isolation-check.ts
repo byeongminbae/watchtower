@@ -21,15 +21,13 @@ export class InternalNetworkIsolationCheck implements OnModuleInit {
   }
 
   /** 응답 코드와 상관없이 응답을 받았으면 닿은 것이고, 연결이 거부되거나 시간 안에 연결되지 않으면 차단된 것임 */
-  private static async isInstanceMetadataReachable(): Promise<boolean> {
-    try {
-      await fetch(InternalNetworkIsolationCheck.INSTANCE_METADATA_URL, {
-        headers: { Authorization: 'Bearer Oracle' },
-        signal: AbortSignal.timeout(InternalNetworkIsolationCheck.TIMEOUT_MILLIS)
-      });
-      return true;
-    } catch {
-      return false;
-    }
+  private static isInstanceMetadataReachable(): Promise<boolean> {
+    return fetch(InternalNetworkIsolationCheck.INSTANCE_METADATA_URL, {
+      headers: { Authorization: 'Bearer Oracle' },
+      signal: AbortSignal.timeout(InternalNetworkIsolationCheck.TIMEOUT_MILLIS)
+    }).then(
+      () => true,
+      () => false
+    );
   }
 }

@@ -6,6 +6,7 @@ export default defineConfig({
     globals: true,
     root: './',
     include: ['**/*.spec.ts'],
-    setupFiles: ['reflect-metadata']
+    setupFiles: ['reflect-metadata'],
+    restoreMocks: true
   }
 });

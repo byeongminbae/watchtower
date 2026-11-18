@@ -1,11 +1,12 @@
+import { hash } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { WebSocketServer } from 'ws';
-import { CrawlError } from '../../../src/crawl/dto/crawl-result-message.dto.js';
 import { Policy } from '../../../src/config/policy.js';
-import { PageFetchFailure } from '../../../src/crawl/interfaces/page-fetcher.interface.js';
-import { DnsResolver } from '../../../src/external/dns/dns-resolver.js';
+import type { Extraction } from '../../../src/crawl/dto/crawl-request-message.dto.js';
+import { PageFetchFailure } from '../../../src/crawl/interfaces/page-fetcher.js';
 import { PlaywrightPageFetcher } from '../../../src/external/playwright/playwright-page-fetcher.js';
+import { DnsResolver } from '../../../src/network/dns-resolver.js';
 
 /** 127.0.0.1 은 외부 주소로 조회되게 하고 localhost 는 그대로 두어, 같은 테스트 서버로 허용과 차단을 모두 재현함 */
 class TestDnsResolver extends DnsResolver {
@@ -15,6 +16,12 @@ class TestDnsResolver extends DnsResolver {
 }
 
 const pageFetcher = new PlaywrightPageFetcher(new TestDnsResolver());
+const wholePage: Extraction = { detectionAreaSelector: null, collectImageHashes: false, ignoreDateTime: false };
+const IMAGE_BODIES: Record<string, Buffer> = {
+  '/image-a.png': Buffer.from('이미지 A'),
+  '/image-b.png': Buffer.from('이미지 B'),
+  '/image-c.png': Buffer.from('이미지 C')
+};
 
 let server: Server;
 let allowedOrigin: string;
@@ -28,6 +35,12 @@ beforeAll(async () => {
       secretRequestCount++;
     }
     const blockedSecretUrl = `${blockedOrigin}/secret`;
+    const imageBody = IMAGE_BODIES[request.url ?? ''];
+    if (imageBody !== undefined) {
+      response.setHeader('content-type', 'image/png');
+      response.end(imageBody);
+      return;
+    }
     response.setHeader('content-type', 'text/html; charset=utf-8');
     switch (request.url) {
       case '/page':
@@ -57,11 +70,29 @@ beforeAll(async () => {
       case '/missing':
         response.writeHead(404).end('<html><body>없음</body></html>');
         return;
+      case '/areas':
+        response.end(
+          `<html><body><p class="notice">공지 1</p><p>무관한 글</p><div class="notice">공지 2 <span class="notice">중첩</span></div></body></html>`
+        );
+        return;
+      case '/images':
+        response.end(
+          `<html><body><div class="area"><img src="/image-a.png"><img loading="lazy" style="display:block; margin-top:5000px" src="/image-b.png"></div><img src="/image-c.png"><img src="${blockedSecretUrl}"></body></html>`
+        );
+        return;
+      case '/hidden-elements':
+        response.end(
+          `<html><head><style>.hidden { display: none; }</style></head><body><p data-ved="요청마다 바뀌는 값">보이는 공지</p><p class="hidden">숨긴 공지</p><input type="hidden" value="숨긴 입력값"><script>window.trackingValue = '스크립트 값';</script></body></html>`
+        );
+        return;
       case '/redirect-to-blocked':
         response.writeHead(302, { location: blockedSecretUrl }).end();
         return;
+      case '/redirect-to-page':
+        response.writeHead(302, { location: '/page' }).end();
+        return;
       case '/large':
-        response.end(`<html><body>${'a'.repeat(Policy.MAX_HTML_BYTES)}</body></html>`);
+        response.end(`<html><body>${'a'.repeat(Policy.MAX_TEXT_BYTES + 1)}</body></html>`);
         return;
       default:
         response.end('<html><body>내부 비밀</body></html>');
@@ -95,13 +126,85 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
     secretRequestCount = 0;
 
     // when
-    const outcome = await pageFetcher.fetchPage(url);
+    const outcome = await pageFetcher.fetchPage(url, wholePage);
 
     // then
     expect(outcome).toMatchObject({
-      page: { httpStatusCode: 200, finalUrl: url, html: expect.stringContaining('감시 대상') }
+      finalUrl: url,
+      httpStatusCode: 200,
+      text: expect.stringContaining('감시 대상'),
+      imageHashes: null
     });
     expect(secretRequestCount).toBe(0);
+  });
+
+  it('감시 영역을 고르면 그 영역의 텍스트만 문서 순서대로 수집하고 영역 안에 겹친 영역은 한 번만 담음', async () => {
+    // given
+    const url = `${allowedOrigin}/areas`;
+
+    // when
+    const outcome = await pageFetcher.fetchPage(url, { ...wholePage, detectionAreaSelector: '.notice' });
+
+    // then
+    expect(outcome).toMatchObject({ text: '공지 1\n공지 2 중첩' });
+  });
+
+  it('영역 선택자 문법이 틀리면 선택자 오류로 실패함', async () => {
+    // given
+    const url = `${allowedOrigin}/areas`;
+
+    // when
+    const outcome = await pageFetcher.fetchPage(url, { ...wholePage, detectionAreaSelector: '>>>' });
+
+    // then
+    expect(outcome).toEqual(new PageFetchFailure('INVALID_SELECTOR'));
+  });
+
+  it('이미지를 수집하면 지연 로딩 이미지까지 받아 img 요소 순서대로 해시를 담고 내부 주소 이미지는 막음', async () => {
+    // given
+    const url = `${allowedOrigin}/images`;
+    secretRequestCount = 0;
+
+    // when
+    const outcome = await pageFetcher.fetchPage(url, { ...wholePage, collectImageHashes: true });
+
+    // then
+    expect(outcome).toMatchObject({
+      imageHashes: [
+        hash('sha256', IMAGE_BODIES['/image-a.png']!),
+        hash('sha256', IMAGE_BODIES['/image-b.png']!),
+        hash('sha256', IMAGE_BODIES['/image-c.png']!)
+      ]
+    });
+    expect(secretRequestCount).toBe(0);
+  });
+
+  it('감시 영역을 고르고 이미지를 수집하면 영역 안 이미지의 해시만 담음', async () => {
+    // given
+    const url = `${allowedOrigin}/images`;
+
+    // when
+    const outcome = await pageFetcher.fetchPage(url, {
+      ...wholePage,
+      detectionAreaSelector: '.area',
+      collectImageHashes: true
+    });
+
+    // then
+    expect(outcome).toMatchObject({
+      imageHashes: [hash('sha256', IMAGE_BODIES['/image-a.png']!), hash('sha256', IMAGE_BODIES['/image-b.png']!)]
+    });
+  });
+
+  it('화면에 보이는 텍스트만 수집하고 숨긴 요소, 속성 값, 스크립트는 수집하지 않음', async () => {
+    // given
+    const url = `${allowedOrigin}/hidden-elements`;
+
+    // when
+    const outcome = await pageFetcher.fetchPage(url, wholePage);
+
+    // then
+    expect(outcome).toMatchObject({ text: '보이는 공지' });
   });
 
   it('load 이후 스크립트가 받아와 그린 내용도 함께 수집함', async () => {
@@ -109,10 +212,10 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
     const url = `${allowedOrigin}/client-rendered`;
 
     // when
-    const result = await pageFetcher.fetchPage(url);
+    const result = await pageFetcher.fetchPage(url, wholePage);
 
     // then
-    expect(result).toMatchObject({ page: { html: expect.stringContaining('나중에 그려진 감시 대상') } });
+    expect(result).toMatchObject({ text: expect.stringContaining('나중에 그려진 감시 대상') });
   });
 
   it('load 이후 스크립트가 내부 주소로 리다이렉트되는 주소로 이동하려 하면 막고 처음 페이지를 수집함', async () => {
@@ -121,11 +224,11 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
     secretRequestCount = 0;
 
     // when
-    const result = await pageFetcher.fetchPage(url);
+    const result = await pageFetcher.fetchPage(url, wholePage);
 
     // then
-    expect(result).toMatchObject({ page: { finalUrl: url, html: expect.stringContaining('처음 페이지') } });
-    expect(result).not.toMatchObject({ page: { html: expect.stringContaining('내부 비밀') } });
+    expect(result).toMatchObject({ text: expect.stringContaining('처음 페이지') });
+    expect(result).not.toMatchObject({ text: expect.stringContaining('내부 비밀') });
     expect(secretRequestCount).toBe(0);
   });
 
@@ -134,10 +237,10 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
     const url = `${allowedOrigin}/web-socket-allowed`;
 
     // when
-    const result = await pageFetcher.fetchPage(url);
+    const result = await pageFetcher.fetchPage(url, wholePage);
 
     // then
-    expect(result).toMatchObject({ page: { html: expect.stringContaining('WebSocket 으로 받은 감시 대상') } });
+    expect(result).toMatchObject({ text: expect.stringContaining('WebSocket 으로 받은 감시 대상') });
   });
 
   it('페이지가 내부 주소로 WebSocket 을 연결하려 하면 서버에 연결하지 않고 끊음', async () => {
@@ -146,11 +249,11 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
     webSocketConnectionCount = 0;
 
     // when
-    const result = await pageFetcher.fetchPage(url);
+    const result = await pageFetcher.fetchPage(url, wholePage);
 
     // then
-    expect(result).toMatchObject({ page: { html: expect.stringContaining('처음 페이지') } });
-    expect(result).not.toMatchObject({ page: { html: expect.stringContaining('WebSocket 으로 받은 감시 대상') } });
+    expect(result).toMatchObject({ text: expect.stringContaining('처음 페이지') });
+    expect(result).not.toMatchObject({ text: expect.stringContaining('WebSocket 으로 받은 감시 대상') });
     expect(webSocketConnectionCount).toBe(0);
   });
 
@@ -159,10 +262,10 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
     const url = `${allowedOrigin}/missing`;
 
     // when
-    const outcome = await pageFetcher.fetchPage(url);
+    const outcome = await pageFetcher.fetchPage(url, wholePage);
 
     // then
-    expect(outcome).toMatchObject({ page: { httpStatusCode: 404 } });
+    expect(outcome).toMatchObject({ httpStatusCode: 404 });
   });
 
   it('내부 주소로 바로 접근하면 허용되지 않은 주소로 실패함', async () => {
@@ -170,10 +273,21 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
     const url = `${blockedOrigin}/secret`;
 
     // when
-    const outcome = await pageFetcher.fetchPage(url);
+    const outcome = await pageFetcher.fetchPage(url, wholePage);
 
     // then
-    expect(outcome).toEqual(new PageFetchFailure(CrawlError.URL_NOT_ALLOWED));
+    expect(outcome).toEqual(new PageFetchFailure('URL_NOT_ALLOWED'));
+  });
+
+  it('허용된 주소로 리다이렉트하면 리다이렉트를 따라간 뒤 페이지를 응답한 URL 을 최종 URL 로 담음', async () => {
+    // given
+    const url = `${allowedOrigin}/redirect-to-page`;
+
+    // when
+    const outcome = await pageFetcher.fetchPage(url, wholePage);
+
+    // then
+    expect(outcome).toMatchObject({ finalUrl: `${allowedOrigin}/page`, httpStatusCode: 200 });
   });
 
   it('외부 주소가 내부 주소로 리다이렉트하면 받아온 내부 페이지를 버리고 허용되지 않은 주소로 실패함', async () => {
@@ -181,21 +295,21 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
     const url = `${allowedOrigin}/redirect-to-blocked`;
 
     // when
-    const outcome = await pageFetcher.fetchPage(url);
+    const outcome = await pageFetcher.fetchPage(url, wholePage);
 
     // then
-    expect(outcome).toEqual(new PageFetchFailure(CrawlError.URL_NOT_ALLOWED));
+    expect(outcome).toEqual(new PageFetchFailure('URL_NOT_ALLOWED'));
   });
 
-  it('HTML 이 수집 한도를 넘으면 크기 초과로 실패함', async () => {
+  it('페이지 텍스트가 수집 한도를 넘으면 크기 초과로 실패함', async () => {
     // given
     const url = `${allowedOrigin}/large`;
 
     // when
-    const outcome = await pageFetcher.fetchPage(url);
+    const outcome = await pageFetcher.fetchPage(url, wholePage);
 
     // then
-    expect(outcome).toEqual(new PageFetchFailure(CrawlError.HTML_TOO_LARGE));
+    expect(outcome).toEqual(new PageFetchFailure('TEXT_TOO_LARGE'));
   });
 
   it('연결할 수 없는 주소는 탐색 실패로 돌려줌', async () => {
@@ -206,9 +320,9 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
     await new Promise<void>((resolve) => closedServer.close(() => resolve()));
 
     // when
-    const outcome = await pageFetcher.fetchPage(`http://127.0.0.1:${port}/`);
+    const outcome = await pageFetcher.fetchPage(`http://127.0.0.1:${port}/`, wholePage);
 
     // then
-    expect(outcome).toEqual(new PageFetchFailure(CrawlError.NAVIGATION_FAILED));
+    expect(outcome).toEqual(new PageFetchFailure('NAVIGATION_FAILED'));
   });
 });

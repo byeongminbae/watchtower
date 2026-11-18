@@ -1,34 +1,33 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { RuntimeConfig } from '../../../src/config/config.js';
-import { EnvironmentResource, EnvironmentResources } from '../../../src/crawl/environment-resources.js';
-import {
-  CrawlError,
-  type CrawlResult,
-  CrawlFailedResultMessage
-} from '../../../src/crawl/dto/crawl-result-message.dto.js';
-import { CrawlRequestMessage } from '../../../src/crawl/dto/crawl-request-message.dto.js';
-import type { CrawlService } from '../../../src/crawl/service/crawl.service.js';
-import { CrawlRequestConsumer } from '../../../src/crawl/service/crawl-request-consumer.service.js';
-import type { ReceivedMessage, RequestQueue } from '../../../src/crawl/interfaces/queue.interface.js';
+import type { DeploymentEnvironment, RuntimeConfig } from '../../src/config/profile.js';
+import { CrawlEnvironment, CrawlEnvironments } from '../../src/crawl/crawl-environment.js';
+import { CrawlRequestConsumer } from '../../src/crawl/crawl-request-consumer.js';
+import type { CrawlService } from '../../src/crawl/crawl.service.js';
+import { CrawlRequestMessage } from '../../src/crawl/dto/crawl-request-message.dto.js';
+import { CrawlResultMessage } from '../../src/crawl/dto/crawl-result-message.dto.js';
+import type { ReceivedMessage, RequestQueue, ResultQueue } from '../../src/crawl/interfaces/queue.js';
+import type { SnapshotStorage } from '../../src/crawl/interfaces/snapshot-storage.js';
 
 const message: ReceivedMessage = {
   content: JSON.stringify({
     towerId: 1,
     url: 'https://example.com',
-    scheduledAt: '2026-10-30T00:00:00.000Z',
+    extraction: { detectionAreaSelector: null, collectImageHashes: false, ignoreDateTime: false },
     triggeredByMemberId: null,
-    previousHtmlSha256: null
+    previousTextHash: null,
+    previousImageHash: null,
+    jobStartedAt: '2026-10-30T00:00:00.123456Z'
   }),
   receipt: 'receipt-1',
   deliveryCount: 1
 };
 
-const result: CrawlResult = new CrawlFailedResultMessage(
+const result = CrawlResultMessage.failed(
   CrawlRequestMessage.from(message.content)!,
   new Date('2026-10-30T00:00:01.000Z'),
   new Date('2026-10-30T00:00:02.000Z'),
-  CrawlError.NAVIGATION_TIMEOUT
+  'NAVIGATION_TIMEOUT'
 );
 
 const configService = new ConfigService<RuntimeConfig, true>({ concurrency: 2 });
@@ -47,16 +46,31 @@ function createRequestQueue(messages: ReceivedMessage[]): RequestQueue {
   };
 }
 
+type TestEnvironment = {
+  environment: CrawlEnvironment;
+  requestQueue: RequestQueue;
+  resultQueue: ResultQueue;
+  snapshotStorage: SnapshotStorage;
+};
+
 function createEnvironment(
-  deploymentEnvironment: EnvironmentResource['deploymentEnvironment'],
+  deploymentEnvironment: DeploymentEnvironment,
   messages: ReceivedMessage[] = []
-): EnvironmentResource {
-  return new EnvironmentResource(
-    deploymentEnvironment,
-    createRequestQueue(messages),
-    { publishAll: vi.fn(async () => {}) },
-    `watchtower-snapshot-${deploymentEnvironment}`
-  );
+): TestEnvironment {
+  const requestQueue = createRequestQueue(messages);
+  const resultQueue: ResultQueue = { publishAll: vi.fn(async () => {}) };
+  const snapshotStorage: SnapshotStorage = { saveText: vi.fn(async () => {}) };
+  return {
+    environment: new CrawlEnvironment(deploymentEnvironment, requestQueue, resultQueue, snapshotStorage),
+    requestQueue,
+    resultQueue,
+    snapshotStorage
+  };
+}
+
+function createConsumer(testEnvironments: TestEnvironment[], crawlService: CrawlService): CrawlRequestConsumer {
+  const environments = new CrawlEnvironments(testEnvironments.map(({ environment }) => environment));
+  return new CrawlRequestConsumer(environments, configService, crawlService);
 }
 
 describe('CrawlRequestConsumer', () => {
@@ -64,16 +78,12 @@ describe('CrawlRequestConsumer', () => {
     vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
   });
 
-  it('결과는 요청을 받은 환경의 버킷과 결과 큐로만 보내고 요청을 완료 처리함', async () => {
+  it('결과는 요청을 받은 환경의 저장소와 결과 큐로만 보내고 요청을 완료 처리함', async () => {
     // given
     const dev = createEnvironment('dev');
     const prod = createEnvironment('prod', [message]);
     const crawlService = { crawl: vi.fn(async () => result) } as unknown as CrawlService;
-    const requestConsumer = new CrawlRequestConsumer(
-      new EnvironmentResources([dev, prod]),
-      configService,
-      crawlService
-    );
+    const requestConsumer = createConsumer([dev, prod], crawlService);
 
     // when
     requestConsumer.onApplicationBootstrap();
@@ -81,10 +91,7 @@ describe('CrawlRequestConsumer', () => {
     await requestConsumer.beforeApplicationShutdown();
 
     // then
-    expect(crawlService.crawl).toHaveBeenCalledWith(
-      expect.objectContaining({ towerId: 1 }),
-      'watchtower-snapshot-prod'
-    );
+    expect(crawlService.crawl).toHaveBeenCalledWith(expect.objectContaining({ towerId: 1 }), prod.snapshotStorage);
     expect(prod.resultQueue.publishAll).toHaveBeenCalledWith([JSON.stringify(result)]);
     expect(prod.requestQueue.completeAll).toHaveBeenCalledWith(['receipt-1']);
     expect(dev.resultQueue.publishAll).not.toHaveBeenCalled();
@@ -98,7 +105,7 @@ describe('CrawlRequestConsumer', () => {
         throw new Error('Object Storage 장애');
       })
     } as unknown as CrawlService;
-    const requestConsumer = new CrawlRequestConsumer(new EnvironmentResources([dev]), configService, crawlService);
+    const requestConsumer = createConsumer([dev], crawlService);
 
     // when
     requestConsumer.onApplicationBootstrap();
@@ -114,7 +121,7 @@ describe('CrawlRequestConsumer', () => {
     // given
     const dev = createEnvironment('dev', [{ ...message, content: 'not json' }]);
     const crawlService = { crawl: vi.fn(async () => result) } as unknown as CrawlService;
-    const requestConsumer = new CrawlRequestConsumer(new EnvironmentResources([dev]), configService, crawlService);
+    const requestConsumer = createConsumer([dev], crawlService);
 
     // when
     requestConsumer.onApplicationBootstrap();
@@ -138,7 +145,7 @@ describe('CrawlRequestConsumer', () => {
         return result;
       })
     } as unknown as CrawlService;
-    const requestConsumer = new CrawlRequestConsumer(new EnvironmentResources([dev]), configService, crawlService);
+    const requestConsumer = createConsumer([dev], crawlService);
     requestConsumer.onApplicationBootstrap();
     await vi.waitFor(() => expect(crawlService.crawl).toHaveBeenCalled());
 
@@ -176,11 +183,7 @@ describe('CrawlRequestConsumer', () => {
         return result;
       })
     } as unknown as CrawlService;
-    const requestConsumer = new CrawlRequestConsumer(
-      new EnvironmentResources([dev, prod]),
-      configService,
-      crawlService
-    );
+    const requestConsumer = createConsumer([dev, prod], crawlService);
 
     // when
     requestConsumer.onApplicationBootstrap();

@@ -1,10 +1,6 @@
-import { InternalNetworkIsolationCheck } from '../../../src/external/network/internal-network-isolation-check.js';
+import { InternalNetworkIsolationCheck } from '../../src/network/internal-network-isolation-check.js';
 
 describe('InternalNetworkIsolationCheck', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('인스턴스 메타데이터에서 응답이 오면 호스트 방화벽이 빠진 것이라 기동을 멈춤', async () => {
     // given
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 401 }));

@@ -1,4 +1,4 @@
-import { ConfigLoader } from '../../src/config/config.js';
+import { ConfigLoader } from '../../src/config/profile.js';
 
 const { getSecretBundleByName } = vi.hoisted(() => ({ getSecretBundleByName: vi.fn() }));
 

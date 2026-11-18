@@ -1,6 +1,6 @@
 import ipaddr from 'ipaddr.js';
-import type { DnsResolver } from '../../external/dns/dns-resolver.js';
-import { HttpUrl } from '../vo/http-url.vo.js';
+import type { DnsResolver } from './dns-resolver.js';
+import { WebUrl } from './web-url.js';
 
 /**
  * 크롤링 한 건 동안 접근하려는 주소가 공인 주소(public unicast)인지 검사함. 같은 호스트는 한 번만 조회함
@@ -14,18 +14,13 @@ export class CrawlHostValidator {
   constructor(private readonly dnsResolver: DnsResolver) {}
 
   async isAllowedUrl(url: string): Promise<boolean> {
-    const parsedUrl = HttpUrl.from(url);
-    return parsedUrl !== undefined && (await this.isAllowedHost(parsedUrl.host));
+    const webUrl = WebUrl.from(url);
+    return webUrl !== null && webUrl.isHttp() && (await this.isAllowedHost(webUrl.host));
   }
 
-  /** WebSocket 주소(ws, wss)의 호스트가 공인 주소인지 검사함. 호스트 검사 기준은 isAllowedUrl 과 같음 */
   async isAllowedWebSocketUrl(url: string): Promise<boolean> {
-    const parsedUrl = URL.parse(url);
-    if (parsedUrl === null || parsedUrl.hostname === '') {
-      return false;
-    }
-    const isWebSocketProtocol = parsedUrl.protocol === 'ws:' || parsedUrl.protocol === 'wss:';
-    return isWebSocketProtocol && (await this.isAllowedHost(parsedUrl.hostname));
+    const webUrl = WebUrl.from(url);
+    return webUrl !== null && webUrl.isWebSocket() && (await this.isAllowedHost(webUrl.host));
   }
 
   private isAllowedHost(host: string): Promise<boolean> {

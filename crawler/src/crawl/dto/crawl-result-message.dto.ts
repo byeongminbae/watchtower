@@ -1,76 +1,73 @@
+import type { CrawlerResultCode, CrawlFailureCode } from '../type/crawler-result-code.js';
+import type { FetchedPage } from '../interfaces/page-fetcher.js';
+import type { ContentHashes } from '../vo/content-hashes.js';
 import type { CrawlRequestMessage } from './crawl-request-message.dto.js';
 
-/**
- * 크롤링이 정상적으로 끝나지 못한 이유. 결과 메시지로 백엔드에 전달됨
- *
- * 재시도해도 결과가 같은 실패만 여기에 정의함. 일시적인 인프라 오류는 결과로 보내지 않고 메시지를 재전달 받아 다시 처리함
- */
-export class CrawlError {
-  static readonly URL_NOT_ALLOWED = new CrawlError('CRW_001', '내부망 등 허용되지 않는 주소로 접근하려 함');
-  static readonly NAVIGATION_TIMEOUT = new CrawlError('CRW_002', '제한 시간 안에 페이지를 불러오지 못함');
-  static readonly HTML_TOO_LARGE = new CrawlError('CRW_003', 'HTML 크기가 수집 한도를 넘음');
-  static readonly NAVIGATION_FAILED = new CrawlError('CRW_004', 'DNS 조회 실패, 연결 거부 등으로 페이지를 열지 못함');
-
-  private constructor(
-    readonly code: string,
-    private readonly description: string
-  ) {}
-}
+type PageContent = {
+  readonly textHash: string;
+  readonly dateTimeIgnoredTextHash: string;
+  readonly detectionAreaSelector: string | null;
+  readonly textObjectName: string | null;
+  readonly imageHash: string | null;
+};
 
 /**
  * 크롤러가 결과 큐에 넣는 크롤링 결과. 필드가 그대로 JSON 으로 직렬화됨
  *
- * 4xx, 5xx 응답도 페이지를 받아온 것이므로 FETCHED 로 보냄. 접근 가능 여부와 변경 여부는 백엔드가 판단함
+ * @property pageHttpStatusCode 감시 대상 페이지가 돌려준 HTTP 상태 코드. 응답을 받지 못했으면 null
  */
-export type CrawlResult = CrawlSuccessResultMessage | CrawlFailedResultMessage;
-
-abstract class CrawlResultMessage {
+export class CrawlResultMessage {
   readonly towerId: number;
-  readonly url: string;
-  readonly scheduledAt: string;
-  readonly crawlStartedAt: string;
-  readonly crawlEndedAt: string;
+  readonly requestedUrl: string;
+  readonly jobStartedAt: string;
   readonly triggeredByMemberId: number | null;
 
-  protected constructor(request: CrawlRequestMessage, startedAt: Date, endedAt: Date) {
+  private constructor(
+    request: CrawlRequestMessage,
+    readonly crawlingStartedAt: Date,
+    readonly crawlingEndedAt: Date,
+    readonly crawlerResultCode: CrawlerResultCode,
+    readonly finalUrl: string | null,
+    readonly pageHttpStatusCode: number | null,
+    readonly pageContent: PageContent | null
+  ) {
     this.towerId = request.towerId;
-    this.url = request.url;
-    this.scheduledAt = request.scheduledAt;
-    this.crawlStartedAt = startedAt.toISOString();
-    this.crawlEndedAt = endedAt.toISOString();
+    this.requestedUrl = request.url;
+    this.jobStartedAt = request.jobStartedAt;
     this.triggeredByMemberId = request.triggeredByMemberId;
   }
-}
 
-/**
- * @property htmlSha256 받아온 HTML 의 SHA-256 (소문자 16진수)
- * @property htmlObjectName HTML 을 저장한 객체 이름. 요청의 previousHtmlSha256 과 같아서 저장하지 않았으면 null
- */
-export class CrawlSuccessResultMessage extends CrawlResultMessage {
-  readonly resultStatus = 'FETCHED';
-  readonly httpStatusCode: number;
-  readonly finalUrl: string;
-
-  constructor(
+  static fetched(
     request: CrawlRequestMessage,
-    startedAt: Date,
-    endedAt: Date,
-    fetchedPage: { httpStatusCode: number; finalUrl: string },
-    readonly htmlSha256: string,
-    readonly htmlObjectName: string | null
-  ) {
-    super(request, startedAt, endedAt);
-    this.httpStatusCode = fetchedPage.httpStatusCode;
-    this.finalUrl = fetchedPage.finalUrl;
+    crawlingStartedAt: Date,
+    crawlingEndedAt: Date,
+    page: FetchedPage,
+    contentHashes: ContentHashes,
+    textObjectName: string | null
+  ): CrawlResultMessage {
+    return new CrawlResultMessage(
+      request,
+      crawlingStartedAt,
+      crawlingEndedAt,
+      'FETCHED',
+      page.finalUrl,
+      page.httpStatusCode,
+      {
+        textHash: contentHashes.textHash,
+        dateTimeIgnoredTextHash: contentHashes.dateTimeIgnoredTextHash,
+        detectionAreaSelector: request.extraction.detectionAreaSelector,
+        textObjectName,
+        imageHash: contentHashes.imageHash
+      }
+    );
   }
-}
 
-export class CrawlFailedResultMessage extends CrawlResultMessage {
-  readonly resultStatus = 'FAILED';
-  readonly errorCode: string;
-
-  constructor(request: CrawlRequestMessage, startedAt: Date, endedAt: Date, error: CrawlError) {
-    super(request, startedAt, endedAt);
-    this.errorCode = error.code;
+  static failed(
+    request: CrawlRequestMessage,
+    crawlingStartedAt: Date,
+    crawlingEndedAt: Date,
+    failureCode: CrawlFailureCode
+  ): CrawlResultMessage {
+    return new CrawlResultMessage(request, crawlingStartedAt, crawlingEndedAt, failureCode, null, null, null);
   }
 }

@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
-import type { RequestQueue, ResultQueue } from '../../../src/crawl/interfaces/queue.interface.js';
-import { Policy } from '../../../src/config/policy.js';
-import { CrawlResultBatchProducer } from '../../../src/crawl/service/crawl-result-batch-producer.js';
+import { Policy } from '../../src/config/policy.js';
+import { CrawlResultBatchProducer } from '../../src/crawl/crawl-result-batch-producer.js';
+import type { RequestQueue, ResultQueue } from '../../src/crawl/interfaces/queue.js';
 
 describe('CrawlResultBatchProducer', () => {
   let resultQueue: ResultQueue;
@@ -24,7 +24,7 @@ describe('CrawlResultBatchProducer', () => {
 
     // when
     for (let index = 0; index < Policy.QUEUE_BATCH_SIZE; index++) {
-      producer.add(`result-${index}`, `receipt-${index}`);
+      producer.add(`receipt-${index}`, `result-${index}`);
     }
     await vi.waitFor(() => expect(requestQueue.completeAll).toHaveBeenCalled());
 
@@ -37,7 +37,7 @@ describe('CrawlResultBatchProducer', () => {
   it('배치 크기에 못 미쳐도 대기 시간이 지나면 모인 만큼 발행함', async () => {
     // given
     const producer = new CrawlResultBatchProducer(requestQueue, resultQueue);
-    producer.add('result-1', 'receipt-1');
+    producer.add('receipt-1', 'result-1');
 
     // when
     await vi.advanceTimersByTimeAsync(Policy.RESULT_FLUSH_DELAY_MILLIS);
@@ -53,7 +53,7 @@ describe('CrawlResultBatchProducer', () => {
       throw new Error('결과 큐 장애');
     });
     const producer = new CrawlResultBatchProducer(requestQueue, resultQueue);
-    producer.add('result-1', 'receipt-1');
+    producer.add('receipt-1', 'result-1');
 
     // when
     await producer.close();
@@ -65,7 +65,7 @@ describe('CrawlResultBatchProducer', () => {
   it('종료할 때 대기 시간 전이라도 남은 결과를 모두 발행함', async () => {
     // given
     const producer = new CrawlResultBatchProducer(requestQueue, resultQueue);
-    producer.add('result-1', 'receipt-1');
+    producer.add('receipt-1', 'result-1');
 
     // when
     await producer.close();

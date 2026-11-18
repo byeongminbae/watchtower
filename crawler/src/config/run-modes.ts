@@ -1,4 +1,4 @@
-import type { EnvironmentConfig, RunModeConfig } from './config.js';
+import type { EnvironmentConfig, RunModeConfig } from './profile.js';
 
 const QUEUE_ENDPOINT = 'https://cell-1.queue.messaging.ap-osaka-1.oci.oraclecloud.com';
 

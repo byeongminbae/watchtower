@@ -1,7 +1,7 @@
 export type ReceivedMessage = {
-  content: string;
-  receipt: string;
-  deliveryCount: number;
+  readonly content: string;
+  readonly receipt: string;
+  readonly deliveryCount: number;
 };
 
 export interface RequestQueue {
@@ -9,10 +9,10 @@ export interface RequestQueue {
   receive(limit: number): Promise<ReceivedMessage[]>;
 
   /** 지우지 못한 메시지는 visibility 시간이 지나면 다시 전달됨 */
-  completeAll(receipts: string[]): Promise<void>;
+  completeAll(receipts: readonly string[]): Promise<void>;
 }
 
 export interface ResultQueue {
   /** 전부 넣거나 전부 실패함 */
-  publishAll(contents: string[]): Promise<void>;
+  publishAll(contents: readonly string[]): Promise<void>;
 }
