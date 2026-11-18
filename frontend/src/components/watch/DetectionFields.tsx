@@ -5,7 +5,7 @@ import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLab
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import type { WatchDetection } from "@/types/tower";
-import { MAX_DETECTION_AREA_SELECTOR_LENGTH, toDetectionAreaSelector } from "@/lib/tower";
+import { isDetectionAreaSelectorValid, MAX_DETECTION_AREA_SELECTOR_LENGTH, toDetectionAreaSelector } from "@/lib/tower";
 
 /** @param detecting 감지 조건까지 포함해 알림을 받을 변화가 하나라도 있는지. false 면 저장할 수 없는 이유를 보여줌 */
 export default function DetectionFields({ value, onChange, detecting }: {
@@ -14,15 +14,17 @@ export default function DetectionFields({ value, onChange, detecting }: {
   readonly detecting: boolean;
 }) {
   const id = useId();
+  const selectorValid = isDetectionAreaSelectorValid(value.detectionAreaSelector);
   return <FieldSet data-invalid={!detecting}>
     <FieldLegend variant="label">감지 방식</FieldLegend>
     <FieldDescription>켜 둔 항목 중 하나라도 바뀌면 알려 드려요.</FieldDescription>
     <FieldGroup>
-      <Field>
+      <Field data-invalid={!selectorValid}>
         <FieldLabel htmlFor={`${id}-area`}>감시할 영역 (선택)</FieldLabel>
-        <Input id={`${id}-area`} maxLength={MAX_DETECTION_AREA_SELECTOR_LENGTH} value={value.detectionAreaSelector ?? ""} placeholder="예: .price, #stock"
+        <Input id={`${id}-area`} maxLength={MAX_DETECTION_AREA_SELECTOR_LENGTH} value={value.detectionAreaSelector ?? ""} placeholder="예: .price, #stock" aria-invalid={!selectorValid}
           onChange={event => onChange({ ...value, detectionAreaSelector: toDetectionAreaSelector(event.target.value) })} />
         <FieldDescription>CSS 선택자로 고른 영역 안에서만 변화를 확인해요. 비워 두면 페이지 전체를 확인해요.</FieldDescription>
+        {!selectorValid && <FieldError>CSS 선택자 형식이 올바르지 않아요. 예시처럼 입력해 주세요.</FieldError>}
       </Field>
       <Field orientation="horizontal">
         <FieldContent>
@@ -34,7 +36,7 @@ export default function DetectionFields({ value, onChange, detecting }: {
       <Field orientation="horizontal">
         <FieldContent>
           <FieldLabel htmlFor={`${id}-image`}>이미지 변화</FieldLabel>
-          <FieldDescription>페이지의 이미지가 바뀌면 알려 드려요.</FieldDescription>
+          <FieldDescription>페이지의 이미지가 바뀌면 알려 드려요. 광고처럼 자주 바뀌는 이미지 때문에 알림이 갈 수도 있어요.</FieldDescription>
         </FieldContent>
         <Switch id={`${id}-image`} checked={value.detectImageChange} onCheckedChange={checked => onChange({ ...value, detectImageChange: checked })} />
       </Field>

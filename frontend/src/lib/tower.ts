@@ -3,6 +3,16 @@ import type { WatchConditionInput, WatchDetection } from "@/types/tower";
 /** 백엔드 CssSelector.MAX_LENGTH 와 같은 값 */
 export const MAX_DETECTION_AREA_SELECTOR_LENGTH = 500;
 
+export function isDetectionAreaSelectorValid(selector: string | null): boolean {
+  if (selector === null) return true;
+  try {
+    document.createDocumentFragment().querySelector(selector);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function isConditionComplete(condition: WatchConditionInput): boolean {
   return condition.keyword.trim().length > 0;
 }

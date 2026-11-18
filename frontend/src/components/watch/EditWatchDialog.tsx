@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import type { Watch, WatchDetection } from "@/types/tower";
 import { watchApi } from "@/lib/api";
-import { detectsChange, intervalMinutes } from "@/lib/tower";
+import { detectsChange, intervalMinutes, isDetectionAreaSelectorValid } from "@/lib/tower";
 import DetectionFields from "./DetectionFields";
 
 /** @param conditionCount 등록된 감지 조건 개수. 아직 불러오지 못했으면 null 이고, 이때는 감지 방식 검사를 백엔드에 맡김 */
@@ -32,7 +32,8 @@ export default function EditWatchDialog({ watch, conditionCount, onClose, onSave
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const detecting = conditionCount === null || detectsChange(detection, conditionCount);
-  const valid = name.trim().length > 0 && name.length <= 60 && minutes >= 5 && minutes <= 1440 && minutes % 5 === 0 && detecting;
+  const valid = name.trim().length > 0 && name.length <= 60 && minutes >= 5 && minutes <= 1440 && minutes % 5 === 0 && detecting &&
+    isDetectionAreaSelectorValid(detection.detectionAreaSelector);
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!valid || busy) return;

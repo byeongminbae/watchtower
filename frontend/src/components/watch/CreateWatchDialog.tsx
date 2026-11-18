@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import type { CreateWatchRequest } from "@/lib/api/watch";
 import type { WatchConditionInput, WatchDetection } from "@/types/tower";
 import { ApiError } from "@/lib/api/errors";
-import { detectsChange, isConditionComplete } from "@/lib/tower";
+import { detectsChange, isConditionComplete, isDetectionAreaSelectorValid } from "@/lib/tower";
 import ConditionFields from "./ConditionFields";
 import DetectionFields from "./DetectionFields";
 import ChannelSelection from "./ChannelSelection";
@@ -34,7 +34,7 @@ export default function CreateWatchDialog({ open, onClose, onSubmit }: {
   const [error, setError] = React.useState<string | null>(null);
   const detecting = detectsChange(detection, addsCondition ? 1 : 0);
   const valid = name.trim().length > 0 && name.length <= 255 && /^https?:\/\//i.test(url) && minutes >= 5 && minutes <= 1440 && minutes % 5 === 0 &&
-    detecting && (!addsCondition || isConditionComplete(condition));
+    detecting && isDetectionAreaSelectorValid(detection.detectionAreaSelector) && (!addsCondition || isConditionComplete(condition));
   const close = () => { if (!submitting) onClose(); };
   async function submit(event: React.FormEvent) {
     event.preventDefault();
