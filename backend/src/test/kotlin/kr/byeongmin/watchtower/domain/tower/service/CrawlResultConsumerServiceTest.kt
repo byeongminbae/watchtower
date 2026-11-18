@@ -270,7 +270,7 @@ class CrawlResultConsumerServiceTest {
     }
 
     @Test
-    fun `날짜와 시간을 무시하는 타워는 원문 해시가 달라도 날짜와 시간을 뺀 해시가 같으면 새 버전 없이 요청 이력만 남김`() {
+    fun `날짜와 시간을 무시하는 타워는 원문 해시가 달라도 날짜와 시간을 뺀 해시가 같으면 새 버전 없이 요청 이력만 남기고 크롤러가 올린 텍스트를 지움`() {
         /** given */
         val previousSnapshot = previousSnapshot(
             previousTextHash,
@@ -288,7 +288,8 @@ class CrawlResultConsumerServiceTest {
 
         /** then */
         verify(towerSnapshotAccessor, never()).save(any())
-        verifyNoInteractions(snapshotStorageClient)
+        verify(snapshotStorageClient).deleteObject(textObjectName)
+        verify(snapshotStorageClient, never()).getText(any())
         verify(crawlQueueClient).deleteCrawlResults(listOf("receipt"))
     }
 

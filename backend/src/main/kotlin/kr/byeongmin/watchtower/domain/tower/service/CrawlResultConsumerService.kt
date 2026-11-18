@@ -116,6 +116,7 @@ class CrawlResultConsumerService(
         }
         if (previous.hasSameContent(current)) {
             // 크롤링 도중 날짜무시를 켜면 여기에 걸릴 수 있음
+            snapshotStorageClient.deleteObject(textObjectName)
             return
         }
 
