@@ -13,11 +13,22 @@ describe("백엔드 응답 계약 검사", () => {
   it("감지 방식이나 감시 영역이 빠진 타워 응답은 거부할 것이다", () => {
     // given
     const withoutDetection = { id: 1, name: "타워", url: "https://example.com", fetchInterval: "PT5M", includeInStat: true, status: "READY",
-      faviconUrl: null, lastFetchedAt: null, lastNotifiedAt: null };
+      faviconUrl: null, lastFetchedAt: null, lastCrawlerResultCode: null, lastNotifiedAt: null, latestAiSummary: null };
     const detection = { detectTextChange: true, detectImageChange: false, ignoreDateTime: false };
     // when
     const results = [isWatch(withoutDetection), isWatch({ ...withoutDetection, ...detection }),
       isWatch({ ...withoutDetection, ...detection, detectionAreaSelector: null }), isWatch({ ...withoutDetection, ...detection, detectionAreaSelector: ".price" })];
+    // then
+    expect(results).toEqual([false, false, true, true]);
+  });
+  it("마지막 크롤링 결과 코드가 빠졌거나 모르는 값인 타워 응답은 거부할 것이다", () => {
+    // given
+    const tower = { id: 1, name: "타워", url: "https://example.com", fetchInterval: "PT5M", includeInStat: true, status: "ERROR",
+      detectTextChange: true, detectImageChange: false, ignoreDateTime: false, detectionAreaSelector: null,
+      faviconUrl: null, lastFetchedAt: null, lastNotifiedAt: null, latestAiSummary: null };
+    // when
+    const results = [isWatch(tower), isWatch({ ...tower, lastCrawlerResultCode: "BROKEN" }),
+      isWatch({ ...tower, lastCrawlerResultCode: null }), isWatch({ ...tower, lastCrawlerResultCode: "TEXT_TOO_LARGE" })];
     // then
     expect(results).toEqual([false, false, true, true]);
   });

@@ -5,7 +5,7 @@ import jakarta.validation.Valid
 import kr.byeongmin.watchtower.domain.member.dto.MemberResponseDto
 import kr.byeongmin.watchtower.domain.member.dto.MemberUpdateRequestDto
 import kr.byeongmin.watchtower.domain.member.service.MemberService
-import kr.byeongmin.watchtower.domain.tower.dto.TowerListItemResponseDto
+import kr.byeongmin.watchtower.domain.tower.dto.TowerResponseDto
 import kr.byeongmin.watchtower.global.pagination.CursorPaginationRequestDto
 import kr.byeongmin.watchtower.global.pagination.CursorPaginationResponseDto
 import kr.byeongmin.watchtower.global.pagination.BaseSortField
@@ -36,7 +36,7 @@ class MemberController(
         @PathVariable memberId: Long,
         @Valid @ParameterObject pagination: CursorPaginationRequestDto,
         @RequestParam(defaultValue = "ID") sortField: BaseSortField
-    ): SuccessDataResponse<CursorPaginationResponseDto<TowerListItemResponseDto>> {
+    ): SuccessDataResponse<CursorPaginationResponseDto<TowerResponseDto>> {
         return memberService.getMemberTowers(
             memberId = memberId,
             cursorPaginationRequestDto = pagination,

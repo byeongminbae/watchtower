@@ -2,7 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import WatchActivity from "./WatchActivity";
 import type { Watch } from "@/types/tower";
-const watch: Watch = { id: 9, name: "굿글!", url: "https://google.com", faviconUrl: null, status: "READY", fetchInterval: "PT5M", includeInStat: true, detectTextChange: true, detectImageChange: false, ignoreDateTime: false, detectionAreaSelector: null, lastFetchedAt: "2026-11-03T21:00:00Z", lastNotifiedAt: null };
+const watch: Watch = { id: 9, name: "굿글!", url: "https://google.com", faviconUrl: null, status: "READY", fetchInterval: "PT5M", includeInStat: true, detectTextChange: true, detectImageChange: false, ignoreDateTime: false, detectionAreaSelector: null, lastFetchedAt: "2026-11-03T21:00:00Z", lastCrawlerResultCode: null, lastNotifiedAt: null, latestAiSummary: null };
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-11-03T21:01:00Z")); });
 afterEach(() => { vi.useRealTimers(); });
 function progressValue() { return Number(screen.getByRole("progressbar", { name: "다음 확인까지 진행" }).getAttribute("aria-valuenow")); }

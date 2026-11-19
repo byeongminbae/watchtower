@@ -7,8 +7,10 @@ import kr.byeongmin.watchtower.domain.member.accessor.MemberAccessor
 import kr.byeongmin.watchtower.domain.member.entity.Member
 import kr.byeongmin.watchtower.domain.member.enums.MemberRole
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
+import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
 import kr.byeongmin.watchtower.domain.tower.dto.TowerCreateRequestDto
 import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
+import kr.byeongmin.watchtower.domain.tower.vo.LatestChangeAiSummary
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
 import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.error.CommonError
@@ -32,11 +34,13 @@ import kotlin.test.assertTrue
 
 class AdminServiceTest {
     private val towerAccessor = mock<TowerAccessor>()
+    private val towerSnapshotAccessor = mock<TowerSnapshotAccessor>()
     private val memberAccessor = mock<MemberAccessor>()
     private val timeProvider = mock<TimeProvider>()
 
     private val adminService = AdminService(
         towerAccessor = towerAccessor,
+        towerSnapshotAccessor = towerSnapshotAccessor,
         memberAccessor = memberAccessor,
         timeProvider = timeProvider
     )
@@ -103,7 +107,7 @@ class AdminServiceTest {
     }
 
     @Test
-    fun `관리자는 타워 검색 결과에서 이름과 URL를 확인할 수 있음`() {
+    fun `관리자는 타워 검색 결과에서 이름과 URL과 마지막 변경의 AI 요약을 확인할 수 있음`() {
         /** given */
         val request = OffsetPaginationRequestDto(
             query = "타워",
@@ -114,6 +118,8 @@ class AdminServiceTest {
         val pageable = PageRequest.of(2, 10, Sort.by(Sort.Direction.DESC, "createdAt"))
         whenever(towerAccessor.findTowers(request, BaseSortField.CREATED_AT))
             .thenReturn(PageImpl(listOf(tower), pageable, 21L))
+        whenever(towerSnapshotAccessor.findLatestChangeAiSummaries(listOf(towerId)))
+            .thenReturn(listOf(LatestChangeAiSummary(towerId = towerId, aiSummary = "재입고됨")))
 
         /** when */
         val response = adminService.getTowers(
@@ -126,6 +132,7 @@ class AdminServiceTest {
         assertEquals(tower.id, response.data.data.first().id)
         assertEquals(tower.name, response.data.data.first().name)
         assertEquals(tower.url, response.data.data.first().url)
+        assertEquals("재입고됨", response.data.data.first().latestAiSummary)
     }
 
     @Test

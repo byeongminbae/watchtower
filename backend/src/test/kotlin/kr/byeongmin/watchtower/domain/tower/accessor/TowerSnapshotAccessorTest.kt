@@ -10,6 +10,7 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class TowerSnapshotAccessorTest {
@@ -25,6 +26,19 @@ class TowerSnapshotAccessorTest {
         /** then */
         assertTrue(summaries.isEmpty())
         verifyNoInteractions(towerSnapshotQuerydslRepository)
+    }
+
+    @Test
+    fun `변경이 감지된 적 없는 타워의 마지막 변경 AI 요약은 없음`() {
+        /** given */
+        whenever(towerSnapshotQuerydslRepository.findLatestChangeAiSummariesByTowerIds(listOf(7L)))
+            .thenReturn(emptyList())
+
+        /** when */
+        val aiSummary = towerSnapshotAccessor.findLatestChangeAiSummary(7L)
+
+        /** then */
+        assertNull(aiSummary)
     }
 
     @Test

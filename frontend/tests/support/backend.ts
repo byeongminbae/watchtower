@@ -20,7 +20,7 @@ let sequence = 100;
 function makeState(): State {
   const member = { id: 7, nickname: "테스트 회원", email: "member@example.com", profileImageUrl: "/watchtower-icon.svg", lastSignInAt: timestamp };
   const tower: Watch = { id: 9, name: "채용 공고", url: "https://example.com/jobs", fetchInterval: "PT5M", includeInStat: true,
-    detectTextChange: true, detectImageChange: false, ignoreDateTime: false, detectionAreaSelector: null, status: "READY", faviconUrl: "/watchtower-icon.svg", lastFetchedAt: timestamp, lastNotifiedAt: timestamp, latestAiSummary: "새 공고가 등록되었어요." };
+    detectTextChange: true, detectImageChange: false, ignoreDateTime: false, detectionAreaSelector: null, status: "READY", faviconUrl: "/watchtower-icon.svg", lastFetchedAt: timestamp, lastCrawlerResultCode: "FETCHED", lastNotifiedAt: timestamp, latestAiSummary: "새 공고가 등록되었어요." };
   return { member, towers: [tower], channels: [{ id: 3, name: "개발 알림", type: "DISCORD", webhookUrl: "https://example.com/hooks/test" }],
     conditions: new Map([[9, [{ id: 1, type: "KEYWORD", keyword: "채용", satisfiedWhen: "APPEAR" }]]]), records: [],
     members: [
@@ -127,7 +127,7 @@ const server = createServer(async (request, response) => {
     const createdDetection = detection(body);
     if (typeof body.name !== "string" || typeof body.url !== "string" || typeof body.fetchInterval !== "string" || typeof body.includeInStat !== "boolean" || createdDetection === null || !Array.isArray(body.conditions)) { send(failure("COM_001", "타워 요청 오류")); return; }
     const id = ++sequence;
-    state.towers.push({ id, name: body.name, url: body.url, fetchInterval: body.fetchInterval, includeInStat: body.includeInStat, ...createdDetection, status: "RUNNING", faviconUrl: null, lastFetchedAt: null, lastNotifiedAt: null });
+    state.towers.push({ id, name: body.name, url: body.url, fetchInterval: body.fetchInterval, includeInStat: body.includeInStat, ...createdDetection, status: "RUNNING", faviconUrl: null, lastFetchedAt: null, lastCrawlerResultCode: null, lastNotifiedAt: null, latestAiSummary: null });
     state.conditions.set(id, body.conditions.flatMap(item => { const result = record(item) ? condition(item, ++sequence) : null; return result ? [result] : []; }));
     send(success()); return;
   }

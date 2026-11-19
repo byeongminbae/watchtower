@@ -2,6 +2,7 @@ package kr.byeongmin.watchtower.domain.tower.entity
 
 import jakarta.persistence.*
 import kr.byeongmin.watchtower.domain.member.entity.Member
+import kr.byeongmin.watchtower.domain.tower.enums.CrawlerResultCode
 import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
 import kr.byeongmin.watchtower.domain.tower.error.TowerError
 import kr.byeongmin.watchtower.domain.tower.vo.CssSelector
@@ -54,6 +55,10 @@ class Tower private constructor(
         protected set
 
     var lastFetchedAt: LocalDateTime? = null
+        protected set
+
+    @Enumerated(EnumType.STRING)
+    var lastCrawlerResultCode: CrawlerResultCode? = null
         protected set
 
     @OneToMany(mappedBy = "tower", fetch = FetchType.LAZY)
@@ -116,8 +121,9 @@ class Tower private constructor(
         return conditions.any { !it.isDeleted() && it.isConditionSatisfied(previous = previous, current = current) }
     }
 
-    fun recordCrawlResult(crawlingEndedAt: LocalDateTime, isCrawlingSucceed: Boolean) {
+    fun recordCrawlResult(crawlingEndedAt: LocalDateTime, crawlerResultCode: CrawlerResultCode, isCrawlingSucceed: Boolean) {
         this.lastFetchedAt = crawlingEndedAt
+        this.lastCrawlerResultCode = crawlerResultCode
         if (status != TowerStatus.RUNNING) {
             return // 크롤링 중에 정지된 타워는 정지 상태를 유지하고 수집 시각만 기록함
         }

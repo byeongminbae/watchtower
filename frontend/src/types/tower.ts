@@ -1,6 +1,7 @@
 export type WatchStatus = "READY" | "ERROR" | "RUNNING" | "PAUSED" | "SUSPENDED";
 export type WatchConditionType = "KEYWORD";
 export type PresenceChange = "APPEAR" | "DISAPPEAR";
+export type CrawlerResultCode = "FETCHED" | "URL_NOT_ALLOWED" | "NAVIGATION_TIMEOUT" | "TEXT_TOO_LARGE" | "NAVIGATION_FAILED" | "INVALID_SELECTOR" | "UNKNOWN";
 export type WatchConditionInput = { readonly type: "KEYWORD"; readonly keyword: string; readonly satisfiedWhen: PresenceChange };
 export type WatchCondition = WatchConditionInput & { readonly id: number };
 /**
@@ -22,8 +23,9 @@ export interface Watch extends WatchDetection {
   readonly fetchInterval: string;
   readonly includeInStat: boolean;
   readonly lastFetchedAt: string | null;
+  readonly lastCrawlerResultCode: CrawlerResultCode | null;
   readonly lastNotifiedAt: string | null;
-  readonly latestAiSummary?: string | null;
+  readonly latestAiSummary: string | null;
 }
 export interface WatchSnapshot {
   readonly id: number;

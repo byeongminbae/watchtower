@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Spinner } from "@/components/ui/spinner";
 import type { Watch, WatchCondition, WatchConditionInput } from "@/types/tower";
 import { watchApi } from "@/lib/api";
+import { describeCrawlFailure } from "@/lib/tower";
 import { useApiData } from "@/lib/useApiData";
 import WatchActivity from "./WatchActivity";
 import SnapshotTimeline from "./SnapshotTimeline";
@@ -132,7 +133,7 @@ export default function WatchDetailPanel({ watch, onChanged, onDeleted, headingL
     {crawling && <Alert><Spinner /><AlertTitle>페이지를 확인하고 있어요</AlertTitle>
       <AlertDescription>보통 1분 안에 끝나요. 결과가 나오면 이 화면이 자동으로 바뀌어요.</AlertDescription></Alert>}
     {crawlFailed && <Alert variant="destructive"><CircleAlert /><AlertTitle>페이지를 확인하지 못했어요</AlertTitle>
-      <AlertDescription>사이트가 응답하지 않거나 접근할 수 없는 페이지예요. 사이트를 직접 열어 주소를 확인한 뒤 다시 확인해 주세요.</AlertDescription>
+      <AlertDescription>{describeCrawlFailure(watch.lastCrawlerResultCode)}</AlertDescription>
       <div className="col-start-2 mt-2 flex flex-wrap gap-2">
         <Button size="sm" disabled={busy} onClick={() => void retryCrawl()}>{busy ? <Spinner data-icon="inline-start" /> : <RotateCw data-icon="inline-start" />}{busy ? "확인 요청 중" : "다시 확인"}</Button>
         <a href={watch.url} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "outline", size: "sm" })}><ExternalLink data-icon="inline-start" />사이트 열기</a>

@@ -23,6 +23,7 @@ import kr.byeongmin.watchtower.global.dto.SuccessDataResponse
 import kr.byeongmin.watchtower.global.dto.SuccessResponse
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
+import kr.byeongmin.watchtower.global.utils.ifNullThrow
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -126,7 +127,7 @@ class TowerService(
     fun getTower(memberId: Long, towerId: Long): SuccessDataResponse<TowerResponseDto> {
         val existTower = towerAccessor.getOwnedTower(towerId = towerId, memberId = memberId)
 
-        return SuccessDataResponse(TowerResponseDto.from(existTower))
+        return SuccessDataResponse(toTowerResponse(existTower))
     }
 
     @Transactional
@@ -147,7 +148,12 @@ class TowerService(
         existTower.changeDetectionAreaSelector(towerUpdateRequestDto.detectionAreaSelector?.let { CssSelector(it) })
         existTower.throwIfNothingToDetect()
 
-        return SuccessDataResponse(TowerResponseDto.from(existTower))
+        return SuccessDataResponse(toTowerResponse(existTower))
+    }
+
+    private fun toTowerResponse(tower: Tower): TowerResponseDto {
+        val latestAiSummary = towerSnapshotAccessor.findLatestChangeAiSummary(tower.id.ifNullThrow())
+        return TowerResponseDto.from(tower, latestAiSummary)
     }
 
     @Transactional
@@ -166,7 +172,7 @@ class TowerService(
         existTower.markCrawlRetryRequested()
         sendCrawlRequest(existTower, existTower.createdBy)
 
-        return SuccessDataResponse(TowerResponseDto.from(existTower))
+        return SuccessDataResponse(toTowerResponse(existTower))
     }
 
     @Transactional
@@ -175,7 +181,7 @@ class TowerService(
 
         existTower.pause()
 
-        return SuccessDataResponse(TowerResponseDto.from(existTower))
+        return SuccessDataResponse(toTowerResponse(existTower))
     }
 
     @Transactional
@@ -184,7 +190,7 @@ class TowerService(
 
         existTower.resume()
 
-        return SuccessDataResponse(TowerResponseDto.from(existTower))
+        return SuccessDataResponse(toTowerResponse(existTower))
     }
 
     @Transactional(readOnly = true)

@@ -5,6 +5,7 @@ import kr.byeongmin.watchtower.domain.notification.entity.NotificationChannel
 import kr.byeongmin.watchtower.domain.notification.enums.NotificationChannelType
 import kr.byeongmin.watchtower.domain.subscription.entity.Plan
 import kr.byeongmin.watchtower.domain.tower.dto.TowerCreateRequestDto
+import kr.byeongmin.watchtower.domain.tower.enums.CrawlerResultCode
 import kr.byeongmin.watchtower.domain.tower.enums.PresenceChange
 import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
 import kr.byeongmin.watchtower.domain.tower.error.TowerError
@@ -53,7 +54,7 @@ class TowerTest {
         val crawlEndedAt = LocalDateTime.of(2026, 11, 3, 1, 0)
 
         /** when */
-        tower.recordCrawlResult(crawlingEndedAt = crawlEndedAt, isCrawlingSucceed = true)
+        tower.recordCrawlResult(crawlingEndedAt = crawlEndedAt, crawlerResultCode = CrawlerResultCode.FETCHED, isCrawlingSucceed = true)
 
         /** then */
         assertEquals(TowerStatus.READY, tower.status)
@@ -61,12 +62,17 @@ class TowerTest {
     }
 
     @Test
-    fun `크롤링 중인 타워의 크롤링이 실패하면 크롤링 실패 상태로 바뀜`() {
+    fun `크롤링 중인 타워의 크롤링이 실패하면 크롤링 실패 상태로 바뀌고 실패 이유가 기록됨`() {
         /** when */
-        tower.recordCrawlResult(crawlingEndedAt = LocalDateTime.of(2026, 11, 3, 1, 0), isCrawlingSucceed = false)
+        tower.recordCrawlResult(
+            crawlingEndedAt = LocalDateTime.of(2026, 11, 3, 1, 0),
+            crawlerResultCode = CrawlerResultCode.NAVIGATION_TIMEOUT,
+            isCrawlingSucceed = false
+        )
 
         /** then */
         assertEquals(TowerStatus.ERROR, tower.status)
+        assertEquals(CrawlerResultCode.NAVIGATION_TIMEOUT, tower.lastCrawlerResultCode)
         assertFalse(tower.isDeleted())
     }
 
@@ -77,7 +83,7 @@ class TowerTest {
         val crawlEndedAt = LocalDateTime.of(2026, 11, 3, 1, 0)
 
         /** when */
-        tower.recordCrawlResult(crawlingEndedAt = crawlEndedAt, isCrawlingSucceed = true)
+        tower.recordCrawlResult(crawlingEndedAt = crawlEndedAt, crawlerResultCode = CrawlerResultCode.FETCHED, isCrawlingSucceed = true)
 
         /** then */
         assertEquals(TowerStatus.PAUSED, tower.status)
@@ -87,7 +93,11 @@ class TowerTest {
     @Test
     fun `크롤링에 실패한 타워를 재시도하면 크롤링 중으로 바뀜`() {
         /** given */
-        tower.recordCrawlResult(crawlingEndedAt = LocalDateTime.of(2026, 11, 3, 1, 0), isCrawlingSucceed = false)
+        tower.recordCrawlResult(
+            crawlingEndedAt = LocalDateTime.of(2026, 11, 3, 1, 0),
+            crawlerResultCode = CrawlerResultCode.NAVIGATION_TIMEOUT,
+            isCrawlingSucceed = false
+        )
 
         /** when */
         tower.markCrawlRetryRequested()

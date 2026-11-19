@@ -457,7 +457,7 @@ class CrawlResultConsumerServiceTest {
     }
 
     @Test
-    fun `크롤링이 실패한 결과는 타워를 실패 상태로 바꾸고 실패 이유를 요청 이력에 남김`() {
+    fun `크롤링이 실패한 결과는 타워를 실패 상태로 바꾸고 실패 이유를 타워와 요청 이력에 남김`() {
         /** given */
         whenever(crawlQueueClient.fetchCrawlResults()).thenReturn(listOf(failedResultMessage("receipt", towerId = 7L)))
         whenever(towerAccessor.findTower(7L)).thenReturn(tower)
@@ -469,6 +469,7 @@ class CrawlResultConsumerServiceTest {
         val savedHistory = argumentCaptor<TowerRequestHistory>()
         verify(towerRequestHistoryAccessor).save(savedHistory.capture())
         assertEquals(TowerStatus.ERROR, tower.status)
+        assertEquals(CrawlerResultCode.NAVIGATION_TIMEOUT, tower.lastCrawlerResultCode)
         assertNull(savedHistory.firstValue.pageHttpStatusCode)
         assertEquals(CrawlerResultCode.NAVIGATION_TIMEOUT, savedHistory.firstValue.crawlerResultCode)
         assertNull(savedHistory.firstValue.triggeredBy)

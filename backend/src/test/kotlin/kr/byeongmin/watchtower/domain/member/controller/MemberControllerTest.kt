@@ -3,7 +3,8 @@ package kr.byeongmin.watchtower.domain.member.controller
 import kr.byeongmin.watchtower.domain.member.dto.MemberResponseDto
 import kr.byeongmin.watchtower.domain.member.dto.MemberUpdateRequestDto
 import kr.byeongmin.watchtower.domain.member.service.MemberService
-import kr.byeongmin.watchtower.domain.tower.dto.TowerListItemResponseDto
+import kr.byeongmin.watchtower.domain.tower.dto.TowerResponseDto
+import kr.byeongmin.watchtower.domain.tower.enums.CrawlerResultCode
 import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
 import kr.byeongmin.watchtower.global.dto.SuccessDataResponse
 import kr.byeongmin.watchtower.global.dto.SuccessResponse
@@ -52,21 +53,26 @@ class MemberControllerTest {
     }
 
     @Test
-    fun `회원의 타워 목록에서 타워 정보와 AI 요약을 확인할 수 있음`() {
+    fun `회원의 타워 목록에서 타워 정보와 감지 방식과 마지막 크롤링 결과와 AI 요약을 확인할 수 있음`() {
         /** given */
         whenever(memberService.getMemberTowers(eq(21L), any(), eq(BaseSortField.CREATED_AT))).thenReturn(
             SuccessDataResponse(
                 CursorPaginationResponseDto(
                     data = listOf(
-                        TowerListItemResponseDto(
+                        TowerResponseDto(
                             id = 31L,
                             name = "재고 감시",
                             url = "https://example.com/products",
                             fetchInterval = Duration.ofMinutes(10),
                             includeInStat = true,
-                            status = TowerStatus.READY,
+                            detectTextChange = true,
+                            detectImageChange = false,
+                            ignoreDateTime = true,
+                            detectionAreaSelector = ".stock",
+                            status = TowerStatus.ERROR,
                             faviconUrl = "https://example.com/favicon.ico",
                             lastFetchedAt = null,
+                            lastCrawlerResultCode = CrawlerResultCode.TEXT_TOO_LARGE,
                             lastNotifiedAt = null,
                             latestAiSummary = "재입고됨"
                         )
@@ -94,6 +100,9 @@ class MemberControllerTest {
         result
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.data[0].id").value(31))
+            .andExpect(jsonPath("$.data.data[0].detectionAreaSelector").value(".stock"))
+            .andExpect(jsonPath("$.data.data[0].ignoreDateTime").value(true))
+            .andExpect(jsonPath("$.data.data[0].lastCrawlerResultCode").value(CrawlerResultCode.TEXT_TOO_LARGE.name))
             .andExpect(jsonPath("$.data.data[0].latestAiSummary").value("재입고됨"))
 
         verify(memberService).getMemberTowers(

@@ -19,7 +19,9 @@ export function isWatch(value: unknown): value is Watch {
     text(value.detectionAreaSelector) &&
     typeof value.status === "string" && ["READY", "ERROR", "RUNNING", "PAUSED", "SUSPENDED"].includes(value.status) &&
     text(value.faviconUrl) && text(value.lastFetchedAt) && text(value.lastNotifiedAt) &&
-    (value.latestAiSummary === undefined || text(value.latestAiSummary));
+    (value.lastCrawlerResultCode === null || (typeof value.lastCrawlerResultCode === "string" &&
+      ["FETCHED", "URL_NOT_ALLOWED", "NAVIGATION_TIMEOUT", "TEXT_TOO_LARGE", "NAVIGATION_FAILED", "INVALID_SELECTOR", "UNKNOWN"].includes(value.lastCrawlerResultCode))) &&
+    text(value.latestAiSummary);
 }
 export function isCondition(value: unknown): value is WatchCondition {
   if (!object(value) || !id(value.id)) return false;

@@ -12,6 +12,7 @@ import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
 import kr.byeongmin.watchtower.domain.tower.client.SnapshotStorageClient
 import kr.byeongmin.watchtower.domain.tower.dto.*
 import kr.byeongmin.watchtower.domain.tower.entity.*
+import kr.byeongmin.watchtower.domain.tower.enums.CrawlerResultCode
 import kr.byeongmin.watchtower.domain.tower.enums.PresenceChange
 import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
 import kr.byeongmin.watchtower.domain.tower.error.TowerError
@@ -97,7 +98,7 @@ class TowerServiceTest {
 
     @BeforeEach
     fun setUp() {
-        tower.recordCrawlResult(crawlingEndedAt = now, isCrawlingSucceed = true)
+        tower.recordCrawlResult(crawlingEndedAt = now, crawlerResultCode = CrawlerResultCode.FETCHED, isCrawlingSucceed = true)
         whenever(towerAccessor.saveTower(any(), any(), any())).thenReturn(tower)
         whenever(memberAccessor.getMemberForUpdate(ownerId))
             .thenReturn(owner)
@@ -168,7 +169,11 @@ class TowerServiceTest {
         val failedTower = spy(towerCreateRequest.to(owner)) {
             on { id } doReturn towerId
         }
-        failedTower.recordCrawlResult(crawlingEndedAt = now, isCrawlingSucceed = false)
+        failedTower.recordCrawlResult(
+            crawlingEndedAt = now,
+            crawlerResultCode = CrawlerResultCode.NAVIGATION_TIMEOUT,
+            isCrawlingSucceed = false
+        )
         whenever(towerAccessor.getOwnedTowerForUpdate(towerId, ownerId)).thenReturn(failedTower)
 
         /** when */
@@ -416,6 +421,18 @@ class TowerServiceTest {
         assertEquals(towerId, response.data.id)
         assertEquals(tower.url, response.data.url)
         assertEquals(TowerStatus.READY, response.data.status)
+    }
+
+    @Test
+    fun `회원은 자신의 타워 상세 정보에서 마지막 변경의 AI 요약을 확인할 수 있음`() {
+        /** given */
+        whenever(towerSnapshotAccessor.findLatestChangeAiSummary(towerId)).thenReturn("재입고됨")
+
+        /** when */
+        val response = towerService.getTower(ownerId, towerId)
+
+        /** then */
+        assertEquals("재입고됨", response.data.latestAiSummary)
     }
 
     @Test

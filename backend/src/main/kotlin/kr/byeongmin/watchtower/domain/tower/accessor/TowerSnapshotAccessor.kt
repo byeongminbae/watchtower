@@ -42,6 +42,10 @@ class TowerSnapshotAccessor(
         return towerSnapshotQuerydslRepository.findLatestChangeAiSummariesByTowerIds(towerIds)
     }
 
+    fun findLatestChangeAiSummary(towerId: Long): String? {
+        return findLatestChangeAiSummaries(listOf(towerId)).firstOrNull()?.aiSummary
+    }
+
     fun findExpiredSnapshotsExceptLatest(createdBefore: LocalDateTime, limit: Long): List<TowerSnapshot> {
         return towerSnapshotQuerydslRepository.findExpiredExceptLatestOne(createdBefore, limit)
     }

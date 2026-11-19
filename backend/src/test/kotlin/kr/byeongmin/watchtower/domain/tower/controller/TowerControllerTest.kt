@@ -1,6 +1,7 @@
 package kr.byeongmin.watchtower.domain.tower.controller
 
 import kr.byeongmin.watchtower.domain.tower.dto.*
+import kr.byeongmin.watchtower.domain.tower.enums.CrawlerResultCode
 import kr.byeongmin.watchtower.domain.tower.enums.PresenceChange
 import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
 import kr.byeongmin.watchtower.domain.tower.service.HotTowerService
@@ -47,7 +48,9 @@ class TowerControllerTest {
         status = TowerStatus.READY,
         faviconUrl = "https://example.com/favicon.ico",
         lastFetchedAt = LocalDateTime.of(2026, 10, 20, 12, 34, 56),
-        lastNotifiedAt = LocalDateTime.of(2026, 10, 20, 12, 35, 6)
+        lastCrawlerResultCode = CrawlerResultCode.FETCHED,
+        lastNotifiedAt = LocalDateTime.of(2026, 10, 20, 12, 35, 6),
+        latestAiSummary = "재입고됨"
     )
 
     @BeforeEach
@@ -107,7 +110,7 @@ class TowerControllerTest {
     }
 
     @Test
-    fun `타워 상세에서 수집 주기와 운영 상태를 확인할 수 있음`() {
+    fun `타워 상세에서 수집 주기와 운영 상태와 마지막 변경의 AI 요약을 확인할 수 있음`() {
         /** given */
         whenever(towerService.getTower(21L, 7L))
             .thenReturn(SuccessDataResponse(towerResponseDto))
@@ -121,6 +124,7 @@ class TowerControllerTest {
             .andExpect(jsonPath("$.data.id").value(7))
             .andExpect(jsonPath("$.data.fetchInterval").value("PT10M"))
             .andExpect(jsonPath("$.data.status").value(TowerStatus.READY.name))
+            .andExpect(jsonPath("$.data.latestAiSummary").value("재입고됨"))
     }
 
     @Test

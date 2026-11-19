@@ -103,7 +103,9 @@ class AdminControllerTest {
                             status = TowerStatus.SUSPENDED,
                             faviconUrl = null,
                             lastFetchedAt = null,
-                            lastNotifiedAt = null
+                            lastCrawlerResultCode = null,
+                            lastNotifiedAt = null,
+                            latestAiSummary = null
                         )
                     ),
                     page = 2,
@@ -193,7 +195,9 @@ class AdminControllerTest {
                         status = TowerStatus.SUSPENDED,
                         faviconUrl = null,
                         lastFetchedAt = null,
-                        lastNotifiedAt = null
+                        lastCrawlerResultCode = null,
+                        lastNotifiedAt = null,
+                        latestAiSummary = null
                     )
                 )
             )

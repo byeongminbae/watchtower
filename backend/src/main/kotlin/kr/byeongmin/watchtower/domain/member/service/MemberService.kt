@@ -7,7 +7,7 @@ import kr.byeongmin.watchtower.domain.member.dto.MemberUpdateRequestDto
 import kr.byeongmin.watchtower.domain.notification.accessor.NotificationChannelAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
-import kr.byeongmin.watchtower.domain.tower.dto.TowerListItemResponseDto
+import kr.byeongmin.watchtower.domain.tower.dto.TowerResponseDto
 import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.dto.SuccessDataResponse
 import kr.byeongmin.watchtower.global.dto.SuccessResponse
@@ -38,7 +38,7 @@ class MemberService(
         memberId: Long,
         cursorPaginationRequestDto: CursorPaginationRequestDto,
         sortField: BaseSortField
-    ): SuccessDataResponse<CursorPaginationResponseDto<TowerListItemResponseDto>> {
+    ): SuccessDataResponse<CursorPaginationResponseDto<TowerResponseDto>> {
         val towers = towerAccessor.findOwnedTowers(
             memberId = memberId,
             cursorPaginationRequestDto = cursorPaginationRequestDto,
@@ -50,7 +50,7 @@ class MemberService(
         ).associateBy { it.towerId }
 
         val cursorPaginationResponseDto = cursorPaginationRequestDto.to(towers, sortField) { tower ->
-            TowerListItemResponseDto.from(tower, latestChangeAiSummaryByTowerId[tower.id]?.aiSummary)
+            TowerResponseDto.from(tower, latestChangeAiSummaryByTowerId[tower.id]?.aiSummary)
         }
 
         return SuccessDataResponse(cursorPaginationResponseDto)

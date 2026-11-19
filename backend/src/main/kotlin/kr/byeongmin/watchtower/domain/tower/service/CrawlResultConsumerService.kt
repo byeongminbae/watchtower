@@ -74,6 +74,7 @@ class CrawlResultConsumerService(
 
         tower.recordCrawlResult(
             crawlingEndedAt = crawlResult.crawlingEndedAt,
+            crawlerResultCode = crawlResult.crawlerResultCode,
             isCrawlingSucceed = crawlResult.isCrawlingSucceed()
         )
         val requestHistory = saveRequestHistory(tower, crawlResult)
