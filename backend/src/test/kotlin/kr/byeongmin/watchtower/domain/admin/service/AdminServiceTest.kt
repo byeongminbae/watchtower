@@ -7,11 +7,11 @@ import kr.byeongmin.watchtower.domain.member.accessor.MemberAccessor
 import kr.byeongmin.watchtower.domain.member.entity.Member
 import kr.byeongmin.watchtower.domain.member.enums.MemberRole
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
+import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
 import kr.byeongmin.watchtower.domain.tower.dto.TowerCreateRequestDto
-import kr.byeongmin.watchtower.domain.tower.entity.Tower
 import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
+import kr.byeongmin.watchtower.domain.tower.vo.LatestChangeAiSummary
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
-import kr.byeongmin.watchtower.external.naver.auth.dto.NaverProfileResponseDto
 import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
@@ -34,46 +34,40 @@ import kotlin.test.assertTrue
 
 class AdminServiceTest {
     private val towerAccessor = mock<TowerAccessor>()
+    private val towerSnapshotAccessor = mock<TowerSnapshotAccessor>()
     private val memberAccessor = mock<MemberAccessor>()
     private val timeProvider = mock<TimeProvider>()
 
     private val adminService = AdminService(
         towerAccessor = towerAccessor,
+        towerSnapshotAccessor = towerSnapshotAccessor,
         memberAccessor = memberAccessor,
         timeProvider = timeProvider
-    )
-
-    private val naverProfile = NaverProfileResponseDto(
-        resultCode = "00",
-        message = "성공",
-        response = NaverProfileResponseDto.NaverProfileDetailDto(
-            providerId = "naver-id",
-            email = "member@example.com",
-            nickname = "회원",
-            profileImage = "https://example.com/profile.png"
-        )
     )
 
     private val memberId = 21L
     private val towerId = 7L
     private val now = LocalDateTime.of(2026, 10, 2, 12, 0)
 
-    private val member = spy(Member.from(naverProfile, now, mock()).apply {
-        changeRole(MemberRole.NORMAL)
+    private val member = spy(Member.of(
+        email = "member@example.com",
+        nickname = "회원",
+        profileImageUrl = "https://example.com/profile.png",
+        lastSignInAt = now,
+        plan = mock()
+    ).apply {
+        role = MemberRole.NORMAL
         unban()
     }) {
         on { id } doReturn memberId
     }
     private val tower = spy(
-        Tower.from(
-            member,
-            TowerCreateRequestDto(
-                name = "타워",
-                url = TowerUrl.from("https://example.com"),
-                fetchInterval = Duration.ofMinutes(10),
-                includeInStat = true
-            )
-        )
+        TowerCreateRequestDto(
+            name = "타워",
+            url = TowerUrl.from("https://example.com"),
+            fetchInterval = Duration.ofMinutes(10),
+            includeInStat = true
+        ).to(member)
     ) {
         on { id } doReturn towerId
     }
@@ -86,12 +80,12 @@ class AdminServiceTest {
         /** when */
         val response = adminService.updateTowerStatus(
             towerId,
-            towerStatusUpdateRequestDto = TowerStatusUpdateRequestDto(TowerStatus.ADMIN_PAUSED)
+            towerStatusUpdateRequestDto = TowerStatusUpdateRequestDto(TowerStatus.SUSPENDED)
         )
 
         /** then */
-        assertEquals(TowerStatus.ADMIN_PAUSED, response.data.status)
-        assertEquals(TowerStatus.ADMIN_PAUSED, tower.status)
+        assertEquals(TowerStatus.SUSPENDED, response.data.status)
+        assertEquals(TowerStatus.SUSPENDED, tower.status)
     }
 
     @Test
@@ -104,7 +98,7 @@ class AdminServiceTest {
         val exception = assertFailsWith<BusinessException> {
             adminService.updateTowerStatus(
                 towerId,
-                towerStatusUpdateRequestDto = TowerStatusUpdateRequestDto(TowerStatus.ADMIN_PAUSED)
+                towerStatusUpdateRequestDto = TowerStatusUpdateRequestDto(TowerStatus.SUSPENDED)
             )
         }
 
@@ -113,7 +107,7 @@ class AdminServiceTest {
     }
 
     @Test
-    fun `관리자는 타워 검색 결과에서 이름과 URL를 확인할 수 있음`() {
+    fun `관리자는 타워 검색 결과에서 이름과 URL과 마지막 변경의 AI 요약을 확인할 수 있음`() {
         /** given */
         val request = OffsetPaginationRequestDto(
             query = "타워",
@@ -124,6 +118,8 @@ class AdminServiceTest {
         val pageable = PageRequest.of(2, 10, Sort.by(Sort.Direction.DESC, "createdAt"))
         whenever(towerAccessor.findTowers(request, BaseSortField.CREATED_AT))
             .thenReturn(PageImpl(listOf(tower), pageable, 21L))
+        whenever(towerSnapshotAccessor.findLatestChangeAiSummaries(listOf(towerId)))
+            .thenReturn(listOf(LatestChangeAiSummary(towerId = towerId, aiSummary = "재입고됨")))
 
         /** when */
         val response = adminService.getTowers(
@@ -136,6 +132,7 @@ class AdminServiceTest {
         assertEquals(tower.id, response.data.data.first().id)
         assertEquals(tower.name, response.data.data.first().name)
         assertEquals(tower.url, response.data.data.first().url)
+        assertEquals("재입고됨", response.data.data.first().latestAiSummary)
     }
 
     @Test

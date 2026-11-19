@@ -2,6 +2,7 @@ package kr.byeongmin.watchtower.domain.tower.service
 
 import kr.byeongmin.watchtower.domain.tower.accessor.HotTowerAccessor
 import kr.byeongmin.watchtower.domain.tower.dto.HotTowerResponseDto
+import kr.byeongmin.watchtower.domain.tower.entity.HotTower
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
@@ -19,31 +20,30 @@ class HotTowerServiceTest {
     @Test
     fun `인기 타워 목록에서 사이트 주소와 변경 감지 횟수를 확인할 수 있음`() {
         /** given */
-        val hotTowerResponseDtos = listOf(
-            HotTowerResponseDto(
-                domain = "a.com",
-                url = "https://a.com",
-                changeCount = 12
-            ),
-            HotTowerResponseDto(
-                domain = "b.com",
-                url = "http://b.com:8080",
-                changeCount = 7
+        whenever(hotTowerAccessor.findHotTowers()).thenReturn(
+            listOf(
+                HotTower(domain = "a.com", url = "https://a.com", detectionCount = 12),
+                HotTower(domain = "b.com", url = "http://b.com:8080", detectionCount = 7)
             )
         )
-        whenever(hotTowerAccessor.findAll()).thenReturn(hotTowerResponseDtos)
 
         /** when */
         val result = hotTowerService.getTrendingTowers()
 
         /** then */
-        assertEquals(hotTowerResponseDtos, result.data)
+        assertEquals(
+            listOf(
+                HotTowerResponseDto(domain = "a.com", url = "https://a.com", detectionCount = 12),
+                HotTowerResponseDto(domain = "b.com", url = "http://b.com:8080", detectionCount = 7)
+            ),
+            result.data
+        )
     }
 
     @Test
     fun `집계된 인기 타워가 없으면 목록은 비어 있음`() {
         /** given */
-        whenever(hotTowerAccessor.findAll()).thenReturn(emptyList())
+        whenever(hotTowerAccessor.findHotTowers()).thenReturn(emptyList())
 
         /** when */
         val result = hotTowerService.getTrendingTowers()
@@ -58,6 +58,6 @@ class HotTowerServiceTest {
         hotTowerService.refreshHotTowers()
 
         /** then */
-        verify(hotTowerAccessor).refresh()
+        verify(hotTowerAccessor).refreshHotTowers()
     }
 }

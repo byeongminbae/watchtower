@@ -31,6 +31,7 @@
     "oci-queue": "2.144.0",
     "oci-secrets": "2.144.0",
     "playwright": "1.64.1",
+    "re2": "1.27.1",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "zod": "4.6.7"
@@ -49,5 +50,8 @@
     "typescript": "6.0.3",
     "vitest": "5.0.5",
     "ws": "8.22.1"
+  },
+  "allowScripts": {
+    "re2@1.27.1": true
   }
 }

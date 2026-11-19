@@ -6,8 +6,9 @@ import kr.byeongmin.watchtower.domain.notification.repository.NotificationChanne
 import kr.byeongmin.watchtower.domain.tower.repository.TowerNotificationChannelQuerydslRepository
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
-import kr.byeongmin.watchtower.global.pagination.CursorPaginationRequestDto
 import kr.byeongmin.watchtower.global.pagination.BaseSortField
+import kr.byeongmin.watchtower.global.pagination.CursorPaginationRequestDto
+import kr.byeongmin.watchtower.global.utils.ifNullThrow
 import org.springframework.stereotype.Component
 import java.time.LocalDateTime
 
@@ -21,7 +22,7 @@ class NotificationChannelAccessor(
         return notificationChannelRepository.save(channel)
     }
 
-    fun findNotificationChannels(
+    fun findOwnedNotificationChannels(
         memberId: Long,
         cursorPaginationRequestDto: CursorPaginationRequestDto,
         sortField: BaseSortField
@@ -29,7 +30,7 @@ class NotificationChannelAccessor(
         return notificationChannelQuerydslRepository.findAllByCursor(memberId, cursorPaginationRequestDto, sortField)
     }
 
-    fun getChannel(memberId: Long, channelId: Long): NotificationChannel {
+    fun getOwnedNotificationChannel(memberId: Long, channelId: Long): NotificationChannel {
         return notificationChannelRepository.findByIdAndMemberIdAndMemberDeletedAtIsNullAndDeletedAtIsNull(
             channelId,
             memberId
@@ -37,7 +38,7 @@ class NotificationChannelAccessor(
             ?: throw BusinessException(CommonError.RESOURCE_NOT_FOUND)
     }
 
-    fun findByIdsAndMemberId(channelIds: Set<Long>, memberId: Long): List<NotificationChannel> {
+    fun findOwnedNotificationChannels(channelIds: Set<Long>, memberId: Long): List<NotificationChannel> {
         if (channelIds.isEmpty()) {
             return emptyList()
         }
@@ -45,13 +46,12 @@ class NotificationChannelAccessor(
         return notificationChannelRepository.findAllByIdInAndMemberIdAndDeletedAtIsNull(channelIds, memberId)
     }
 
-    fun deleteNotificationChannel(memberId: Long, channelId: Long, deletedAt: LocalDateTime) {
-        val channel = getChannel(memberId, channelId)
-        towerNotificationChannelQuerydslRepository.deleteByNotificationChannelId(channelId, deletedAt)
-        channel.delete()
+    fun deleteNotificationChannel(channel: NotificationChannel, deletedAt: LocalDateTime) {
+        towerNotificationChannelQuerydslRepository.deleteByNotificationChannelId(channel.id.ifNullThrow(), deletedAt)
+        channel.delete() // 위에는 중간 테이블임
     }
 
-    fun deleteByMemberId(memberId: Long, deletedAt: LocalDateTime) {
+    fun deleteAllOwnedNotificationChannels(memberId: Long, deletedAt: LocalDateTime) {
         notificationChannelQuerydslRepository.deleteByMemberId(memberId, deletedAt)
     }
 }

@@ -3,7 +3,6 @@ package kr.byeongmin.watchtower.domain.auth.service
 import kr.byeongmin.watchtower.domain.member.accessor.MemberAccessor
 import kr.byeongmin.watchtower.domain.member.entity.Member
 import kr.byeongmin.watchtower.domain.member.enums.MemberRole
-import kr.byeongmin.watchtower.external.naver.auth.dto.NaverProfileResponseDto
 import kr.byeongmin.watchtower.global.error.AuthError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.junit.jupiter.api.Test
@@ -17,19 +16,12 @@ class SessionMemberLoaderImplTest {
     private val memberAccessor = mock<MemberAccessor>()
     private val sessionMemberLoader = SessionMemberLoaderImpl(memberAccessor)
     private val now = LocalDateTime.of(2026, 10, 26, 12, 0)
-    private val member = Member.from(
-        NaverProfileResponseDto(
-            resultCode = "00",
-            message = "성공",
-            response = NaverProfileResponseDto.NaverProfileDetailDto(
-                providerId = "naver-id",
-                email = "member@example.com",
-                nickname = "회원",
-                profileImage = "https://example.com/profile.png"
-            )
-        ),
-        now,
-        mock()
+    private val member = Member.of(
+        email = "member@example.com",
+        nickname = "회원",
+        profileImageUrl = "https://example.com/profile.png",
+        lastSignInAt = now,
+        plan = mock()
     )
 
     @Test
@@ -64,7 +56,7 @@ class SessionMemberLoaderImplTest {
     @Test
     fun `세션의 권한은 회원의 현재 권한을 사용함`() {
         /** given */
-        member.changeRole(MemberRole.ADMIN)
+        member.role = MemberRole.ADMIN
         whenever(memberAccessor.findMember(21L)).thenReturn(member)
 
         /** when */

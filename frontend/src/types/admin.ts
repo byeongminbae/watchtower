@@ -8,11 +8,11 @@ export type AdminMember = Member & {
 };
 export type TowerStats = {
   readonly totalCount: number;
-  readonly crawlingReadyCount: number;
-  readonly crawlingErrorCount: number;
-  readonly crawlingCount: number;
-  readonly userPausedCount: number;
-  readonly adminPausedCount: number;
+  readonly readyCount: number;
+  readonly errorCount: number;
+  readonly runningCount: number;
+  readonly pausedCount: number;
+  readonly suspendedCount: number;
 };
 export type MemberStats = {
   readonly totalCount: number;

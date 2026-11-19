@@ -1,6 +1,6 @@
 <div align="center">
 <picture>
-  <img width="400" height="400" alt="Watchtower 로고" src="frontend/public/watchtower-icon.svg" />
+  <img width="400" height="400" alt="Watchtower 로고" src="frontend/public/watchtower-icon.png" />
 </picture>
  <p><strong>매일 새로고침하시죠? 이제 변화가 생기면 먼저 알려드릴게요!</strong></p>
 </div>

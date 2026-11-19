@@ -19,12 +19,13 @@ import java.time.LocalDateTime
  */
 @Entity
 class Plan private constructor(
-    name: String,
-    type: PlanType,
-    maxTowerQuantity: Int,
-    maxConditionQuantity: Int,
-    saleStartedAt: LocalDateTime,
-    saleEndedAt: LocalDateTime? = null
+    var name: String,
+    @Enumerated(EnumType.STRING)
+    var type: PlanType,
+    var maxTowerQuantity: Int,
+    var maxConditionQuantity: Int,
+    var saleStartedAt: LocalDateTime,
+    var saleEndedAt: LocalDateTime? = null
 ) : Base() {
     @Id
     @GeneratedValue(
@@ -37,51 +38,4 @@ class Plan private constructor(
         allocationSize = 30
     )
     override val id: Long? = null
-
-    var name: String = name
-        protected set
-
-    @Enumerated(EnumType.STRING)
-    var type: PlanType = type
-        protected set
-
-    var maxTowerQuantity: Int = maxTowerQuantity
-        protected set
-
-    var maxConditionQuantity: Int = maxConditionQuantity
-        protected set
-
-    var saleStartedAt: LocalDateTime = saleStartedAt
-        protected set
-
-    var saleEndedAt: LocalDateTime? = saleEndedAt
-        protected set
-
-    fun changeName(name: String) {
-        this.name = name
-    }
-
-    fun changeType(type: PlanType) {
-        this.type = type
-    }
-
-    fun changeMaxTowerQuantity(maxTowerQuantity: Int) {
-        this.maxTowerQuantity = maxTowerQuantity
-    }
-
-    fun changeMaxConditionQuantity(maxConditionQuantity: Int) {
-        this.maxConditionQuantity = maxConditionQuantity
-    }
-
-    fun changeSaleStartedAt(saleStartedAt: LocalDateTime) {
-        this.saleStartedAt = saleStartedAt
-    }
-
-    fun changeSaleEndedAt(saleEndedAt: LocalDateTime) {
-        this.saleEndedAt = saleEndedAt
-    }
-
-    fun makeSaleEndless() {
-        this.saleEndedAt = null
-    }
 }

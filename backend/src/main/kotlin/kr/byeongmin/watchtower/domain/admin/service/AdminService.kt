@@ -6,18 +6,21 @@ import kr.byeongmin.watchtower.domain.admin.dto.MemberStatusUpdateRequestDto
 import kr.byeongmin.watchtower.domain.admin.dto.TowerStatusUpdateRequestDto
 import kr.byeongmin.watchtower.domain.member.accessor.MemberAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
+import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
 import kr.byeongmin.watchtower.domain.tower.dto.TowerResponseDto
 import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.dto.SuccessDataResponse
 import kr.byeongmin.watchtower.global.pagination.OffsetPaginationRequestDto
 import kr.byeongmin.watchtower.global.pagination.OffsetPaginationResponseDto
 import kr.byeongmin.watchtower.global.pagination.BaseSortField
+import kr.byeongmin.watchtower.global.utils.ifNullThrow
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class AdminService(
     private val towerAccessor: TowerAccessor,
+    private val towerSnapshotAccessor: TowerSnapshotAccessor,
     private val memberAccessor: MemberAccessor,
     private val timeProvider: TimeProvider
 ) {
@@ -30,7 +33,8 @@ class AdminService(
 
         tower.changeStatusByAdmin(towerStatusUpdateRequestDto.status)
 
-        return SuccessDataResponse(TowerResponseDto.from(tower))
+        val latestAiSummary = towerSnapshotAccessor.findLatestChangeAiSummary(towerId)
+        return SuccessDataResponse(TowerResponseDto.from(tower, latestAiSummary))
     }
 
     @Transactional(readOnly = true)
@@ -43,9 +47,13 @@ class AdminService(
             sortField = sortField
         )
 
+        val latestChangeAiSummaryByTowerId = towerSnapshotAccessor.findLatestChangeAiSummaries(
+            towerPages.content.map { it.id.ifNullThrow() }
+        ).associateBy { it.towerId }
+
         return SuccessDataResponse(
-            OffsetPaginationResponseDto.from(towerPages) {
-                TowerResponseDto.from(it)
+            OffsetPaginationResponseDto.from(towerPages) { tower ->
+                TowerResponseDto.from(tower, latestChangeAiSummaryByTowerId[tower.id]?.aiSummary)
             }
         )
     }
@@ -75,7 +83,7 @@ class AdminService(
     ): SuccessDataResponse<MemberResponseDto> {
         val member = memberAccessor.getMember(memberId)
 
-        member.changeRole(memberRoleUpdateRequestDto.role)
+        member.role = memberRoleUpdateRequestDto.role
 
         return SuccessDataResponse(MemberResponseDto.from(member))
     }

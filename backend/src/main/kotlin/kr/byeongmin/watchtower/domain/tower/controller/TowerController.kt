@@ -7,8 +7,8 @@ import kr.byeongmin.watchtower.domain.tower.service.HotTowerService
 import kr.byeongmin.watchtower.domain.tower.service.TowerService
 import kr.byeongmin.watchtower.global.dto.SuccessDataResponse
 import kr.byeongmin.watchtower.global.dto.SuccessResponse
-import kr.byeongmin.watchtower.global.security.MemberOnly
 import kr.byeongmin.watchtower.global.security.MemberId
+import kr.byeongmin.watchtower.global.security.MemberOnly
 import org.springframework.web.bind.annotation.*
 
 @RestController
@@ -78,6 +78,26 @@ class TowerController(
         return towerService.retryCrawl(memberId = memberId, towerId = towerId)
     }
 
+    @Operation(summary = "타워 감시 일시정지")
+    @PostMapping("/{towerId}/pause")
+    @MemberOnly
+    fun pauseTower(
+        @MemberId memberId: Long,
+        @PathVariable towerId: Long
+    ): SuccessDataResponse<TowerResponseDto> {
+        return towerService.pauseTower(memberId = memberId, towerId = towerId)
+    }
+
+    @Operation(summary = "일시정지한 타워 감시 재개")
+    @PostMapping("/{towerId}/resume")
+    @MemberOnly
+    fun resumeTower(
+        @MemberId memberId: Long,
+        @PathVariable towerId: Long
+    ): SuccessDataResponse<TowerResponseDto> {
+        return towerService.resumeTower(memberId = memberId, towerId = towerId)
+    }
+
     /** 현재는 타워 소유권만 확인한다. 서비스의 알림 발송 연동은 미구현이다. */
     @Operation(summary = "테스트 알림 발송")
     @PostMapping("/{towerId}/notify")
@@ -92,68 +112,68 @@ class TowerController(
     @Operation(summary = "타워 조건 목록 조회")
     @GetMapping("/{towerId}/conditions")
     @MemberOnly
-    fun getTowerConditions(
+    fun getDetectionConditions(
         @MemberId memberId: Long,
         @PathVariable towerId: Long
-    ): SuccessDataResponse<List<TowerConditionResponseDto>> {
-        return towerService.getTowerConditions(memberId = memberId, towerId = towerId)
+    ): SuccessDataResponse<List<DetectionConditionResponseDto>> {
+        return towerService.getDetectionConditions(memberId = memberId, towerId = towerId)
     }
 
     @Operation(summary = "기존 타워 조건 추가")
     @PostMapping("/{towerId}/conditions")
     @MemberOnly
-    fun createTowerCondition(
+    fun createDetectionCondition(
         @MemberId memberId: Long,
         @PathVariable towerId: Long,
-        @Valid @RequestBody towerConditionCreateRequestDto: TowerConditionCreateRequestDto
+        @Valid @RequestBody detectionConditionCreateRequestDto: DetectionConditionCreateRequestDto
     ): SuccessResponse {
-        return towerService.createTowerCondition(
+        return towerService.createDetectionCondition(
             memberId = memberId,
             towerId = towerId,
-            towerConditionCreateRequestDto = towerConditionCreateRequestDto
+            detectionConditionCreateRequestDto = detectionConditionCreateRequestDto
         )
     }
 
     @Operation(summary = "기존 타워 조건 수정")
     @PutMapping("/{towerId}/conditions/{conditionId}")
     @MemberOnly
-    fun updateTowerCondition(
+    fun updateDetectionCondition(
         @MemberId memberId: Long,
         @PathVariable towerId: Long,
         @PathVariable conditionId: Long,
-        @Valid @RequestBody towerConditionUpdateRequestDto: TowerConditionUpdateRequestDto
-    ): SuccessDataResponse<TowerConditionResponseDto> {
-        return towerService.updateTowerCondition(
+        @Valid @RequestBody detectionConditionUpdateRequestDto: DetectionConditionUpdateRequestDto
+    ): SuccessDataResponse<DetectionConditionResponseDto> {
+        return towerService.updateDetectionCondition(
             memberId = memberId,
             towerId = towerId,
             conditionId = conditionId,
-            towerConditionUpdateRequestDto = towerConditionUpdateRequestDto
+            detectionConditionUpdateRequestDto = detectionConditionUpdateRequestDto
         )
     }
 
     @Operation(summary = "기존 타워 조건 삭제")
     @DeleteMapping("/{towerId}/conditions/{conditionId}")
     @MemberOnly
-    fun deleteTowerCondition(
+    fun deleteDetectionCondition(
         @MemberId memberId: Long,
         @PathVariable towerId: Long,
         @PathVariable conditionId: Long
     ): SuccessResponse {
-        return towerService.deleteTowerCondition(
+        return towerService.deleteDetectionCondition(
             memberId = memberId,
             towerId = towerId,
             conditionId = conditionId
         )
     }
 
-    @Operation(summary = "스냅샷 조회")
+    @Operation(summary = "변경이 감지된 스냅샷 조회")
     @GetMapping("/{towerId}/snapshots")
     @MemberOnly
-    fun listTowerSnapshots(
+    fun getTowerChangedSnapshots(
         @MemberId memberId: Long,
         @PathVariable towerId: Long
     ): SuccessDataResponse<List<TowerSnapshotResponseDto>> {
-        return towerService.getTowerSnapshots(memberId = memberId, towerId = towerId)
+        return towerService.getTowerChangedSnapshots(memberId = memberId, towerId = towerId)
     }
 
 }

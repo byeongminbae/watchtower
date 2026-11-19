@@ -115,14 +115,14 @@ class AuthService(
         val naverProfileResponseDto = naverAuthClient.fetchProfile(naverTokenResponseDto.accessToken)
         val providerId = naverProfileResponseDto.response.providerId
 
-        val naverOAuth = naverOAuthAccessor.findByProviderId(providerId)
+        val naverOAuth = naverOAuthAccessor.findNaverOAuth(providerId)
         val member = naverOAuth?.member ?: naverSignUp(
             naverProfileResponseDto = naverProfileResponseDto,
             naverTokenResponseDto = naverTokenResponseDto
         )
 
         member.ensureSignInAllowed()
-        member.completeSignIn(timeProvider.now())
+        member.lastSignInAt = timeProvider.now()
         return MemberPrinciple(member.id.ifNullThrow(), member.role.name)
     }
 
@@ -130,21 +130,25 @@ class AuthService(
         naverProfileResponseDto: NaverProfileResponseDto,
         naverTokenResponseDto: NaverTokenResponseDto
     ): Member {
-        val freePlan = planAccessor.findByType(PlanType.FREE)
+        val freePlan = planAccessor.findPlan(PlanType.FREE)
             ?: throw BusinessException(CommonError.INTERNAL_SERVER_ERROR)
 
         val member = memberAccessor.save(
-            Member.from(
-                naverProfileResponseDto = naverProfileResponseDto,
-                now = timeProvider.now(),
+            Member.of(
+                email = naverProfileResponseDto.response.email,
+                nickname = naverProfileResponseDto.response.nickname,
+                profileImageUrl = naverProfileResponseDto.response.profileImage,
+                lastSignInAt = timeProvider.now(),
                 plan = freePlan
             )
         )
         naverOAuthAccessor.save(
-            NaverOAuth.from(
+            NaverOAuth.of(
                 member = member,
-                naverProfileResponseDto = naverProfileResponseDto,
-                naverTokenResponseDto = naverTokenResponseDto
+                providerId = naverProfileResponseDto.response.providerId,
+                accessToken = naverTokenResponseDto.accessToken,
+                refreshToken = naverTokenResponseDto.refreshToken,
+                expiresIn = naverTokenResponseDto.expiresIn
             )
         )
 

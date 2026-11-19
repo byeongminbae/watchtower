@@ -42,7 +42,7 @@ export default function HotUrlSection() {
         {!loading && activeItem && <>
           <span className="shrink-0 text-xs tabular-nums">{displayIndex + 1}위</span>
           <p className="truncate text-sm text-muted-foreground" title={activeItem.url}>{activeItem.url}</p>
-          <Badge variant="secondary">변화 {activeItem.changeCount}회</Badge>
+          <Badge variant="secondary">변화 {activeItem.detectionCount}회</Badge>
           <span className="ml-auto hidden shrink-0 text-xs tabular-nums text-muted-foreground sm:inline">{displayIndex + 1} / {rankedUrls.length}</span>
         </>}
       </div>

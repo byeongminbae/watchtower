@@ -23,3 +23,5 @@ watchtower:
   crawl-queue:
     request-queue-id: ocid1.queue.oc1.ap-osaka-1.amaaaaaaw36r47iayiwr7o4un42ywx3u2dlbhjc55ykl4neing3vpqbss7ya
     result-queue-id: ocid1.queue.oc1.ap-osaka-1.amaaaaaaw36r47iae4shyzwkan7zjiwsgio2ezjbluws53x2kiejsflqxhkq
+  snapshot-storage:
+    bucket-name: watchtower-snapshot-local

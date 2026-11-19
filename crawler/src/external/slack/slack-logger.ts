@@ -3,15 +3,10 @@ import { ConsoleLogger, Injectable, type LogLevel, type OnApplicationShutdown } 
 import { ConfigService } from '@nestjs/config';
 import { IncomingWebhook } from '@slack/webhook';
 import { TimeProvider } from '../../common/time-provider.js';
-import type { RuntimeConfig } from '../../config/config.js';
+import type { RuntimeConfig } from '../../config/profile.js';
 import { Policy } from '../../config/policy.js';
 
-/**
- * 콘솔에 남기는 로그 중 error, warn, fatal 을 Slack Incoming Webhook 으로도 보냄. 오류 메시지와 스택 트레이스를 함께 보냄
- *
- * Nest 가 시작할 때 남기는 log 레벨 로그는 배포마다 여러 건이 쌓이기만 해서 보내지 않음
- * 같은 로그는 Policy.SLACK_DUPLICATE_SUPPRESSION_MILLIS 동안 한 번만 보내고, Slack 전송에 실패해도 크롤링에는 영향을 주지 않음
- */
+/** Nest 가 시작할 때 남기는 log 레벨 로그는 배포마다 여러 건이 쌓이기만 해서 보내지 않음 */
 @Injectable()
 export class SlackLogger extends ConsoleLogger implements OnApplicationShutdown {
   /** Slack 메시지가 너무 길어 읽기 어려워지지 않도록 상세 내용은 이 길이까지만 보냄 */
@@ -32,6 +27,30 @@ export class SlackLogger extends ConsoleLogger implements OnApplicationShutdown 
       timeout: SlackLogger.SEND_TIMEOUT_MILLIS
     });
     this.runModeName = configService.get('runModeName', { infer: true });
+  }
+
+  /**
+   * Nest 의 Logger 는 마지막 인자로 로그를 남긴 클래스 이름(context)을 붙여 넘김
+   * 메시지만 남기면 [undefined, context] 로 넘기므로 undefined 는 상세 내용에서 뺌
+   */
+  private static splitContext(optionalParams: unknown[]): [string, unknown[]] {
+    const lastParam = optionalParams.at(-1);
+    if (typeof lastParam === 'string') {
+      return [lastParam, optionalParams.slice(0, -1).filter((param) => param !== undefined)];
+    }
+    return ['', optionalParams.filter((param) => param !== undefined)];
+  }
+
+  private static toSlackText(title: string, details: unknown[]): string {
+    if (details.length === 0) {
+      return title;
+    }
+
+    const detailText = details
+      .map((detail) => (typeof detail === 'string' ? detail : inspect(detail, { depth: 5 })))
+      .join('\n')
+      .slice(0, SlackLogger.MAX_DETAIL_LENGTH);
+    return `${title}\n\`\`\`${detailText}\`\`\``;
   }
 
   override error(message: unknown, ...optionalParams: unknown[]): void {
@@ -84,29 +103,5 @@ export class SlackLogger extends ConsoleLogger implements OnApplicationShutdown 
     } catch (error) {
       super.warn(`Slack 로그 전송 실패. ${error instanceof Error ? error.message : String(error)}`, SlackLogger.name);
     }
-  }
-
-  /**
-   * Nest 의 Logger 는 마지막 인자로 로그를 남긴 클래스 이름(context)을 붙여 넘김
-   * 메시지만 남기면 [undefined, context] 로 넘기므로 undefined 는 상세 내용에서 뺌
-   */
-  private static splitContext(optionalParams: unknown[]): [string, unknown[]] {
-    const lastParam = optionalParams.at(-1);
-    if (typeof lastParam === 'string') {
-      return [lastParam, optionalParams.slice(0, -1).filter((param) => param !== undefined)];
-    }
-    return ['', optionalParams.filter((param) => param !== undefined)];
-  }
-
-  private static toSlackText(title: string, details: unknown[]): string {
-    if (details.length === 0) {
-      return title;
-    }
-
-    const detailText = details
-      .map((detail) => (typeof detail === 'string' ? detail : inspect(detail, { depth: 5 })))
-      .join('\n')
-      .slice(0, SlackLogger.MAX_DETAIL_LENGTH);
-    return `${title}\n\`\`\`${detailText}\`\`\``;
   }
 }

@@ -13,11 +13,11 @@ type StatusMeta = {
 };
 
 export const WATCH_STATUS_META: Record<WatchStatus, StatusMeta> = {
-  CRAWLING_READY: { label: "감시중", description: "다음 확인을 기다리고 있어요.", variant: "secondary", dot: "bg-primary", icon: Radar, spinning: false },
-  CRAWLING: { label: "확인 중", description: "지금 페이지를 확인하고 있어요.", variant: "secondary", dot: "bg-primary animate-pulse", icon: LoaderCircle, spinning: true },
-  CRAWLING_ERROR: { label: "확인 실패", description: "페이지를 확인하지 못했어요. 다시 시도해 주세요.", variant: "destructive", dot: "bg-destructive", icon: CircleAlert, spinning: false },
-  USER_PAUSED: { label: "일시정지", description: "감시를 잠시 멈췄어요.", variant: "outline", dot: "bg-muted-foreground", icon: Pause, spinning: false },
-  ADMIN_PAUSED: { label: "관리자 정지", description: "정책 위반 등으로 관리자가 감시를 정지했어요.", variant: "destructive", dot: "bg-destructive", icon: ShieldBan, spinning: false }
+  READY: { label: "감시중", description: "다음 확인을 기다리고 있어요.", variant: "secondary", dot: "bg-primary", icon: Radar, spinning: false },
+  RUNNING: { label: "확인 중", description: "지금 페이지를 확인하고 있어요.", variant: "secondary", dot: "bg-primary animate-pulse", icon: LoaderCircle, spinning: true },
+  ERROR: { label: "확인 실패", description: "페이지를 확인하지 못했어요. 다시 시도해 주세요.", variant: "destructive", dot: "bg-destructive", icon: CircleAlert, spinning: false },
+  PAUSED: { label: "일시정지", description: "감시를 잠시 멈췄어요.", variant: "outline", dot: "bg-muted-foreground", icon: Pause, spinning: false },
+  SUSPENDED: { label: "관리자 정지", description: "정책 위반 등으로 관리자가 감시를 정지했어요.", variant: "destructive", dot: "bg-destructive", icon: ShieldBan, spinning: false }
 };
 
 export default function WatchStatusDot({ status, showLabel = true }: { readonly status: WatchStatus; readonly showLabel?: boolean }) {

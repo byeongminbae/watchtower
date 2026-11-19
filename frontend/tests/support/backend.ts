@@ -20,9 +20,9 @@ let sequence = 100;
 function makeState(): State {
   const member = { id: 7, nickname: "테스트 회원", email: "member@example.com", profileImageUrl: "/watchtower-icon.svg", lastSignInAt: timestamp };
   const tower: Watch = { id: 9, name: "채용 공고", url: "https://example.com/jobs", fetchInterval: "PT5M", includeInStat: true,
-    status: "CRAWLING_READY", faviconUrl: "/watchtower-icon.svg", lastFetchedAt: timestamp, lastNotifiedAt: timestamp, latestAiSummary: "새 공고가 등록되었어요." };
+    detectTextChange: true, detectImageChange: false, ignoreDateTime: false, detectionAreaSelector: null, status: "READY", faviconUrl: "/watchtower-icon.svg", lastFetchedAt: timestamp, lastCrawlerResultCode: "FETCHED", lastNotifiedAt: timestamp, latestAiSummary: "새 공고가 등록되었어요." };
   return { member, towers: [tower], channels: [{ id: 3, name: "개발 알림", type: "DISCORD", webhookUrl: "https://example.com/hooks/test" }],
-    conditions: new Map([[9, [{ id: 1, type: "HTML" }]]]), records: [],
+    conditions: new Map([[9, [{ id: 1, type: "KEYWORD", keyword: "채용", satisfiedWhen: "APPEAR" }]]]), records: [],
     members: [
       { ...member, role: "NORMAL", bannedAt: null, banReason: null, deletedAt: null },
       { ...member, id: 8, nickname: "정지 회원", email: "banned@example.com", role: "NORMAL", bannedAt: timestamp, banReason: "정책 위반", deletedAt: null },
@@ -33,14 +33,15 @@ function success(data?: unknown) { return data === undefined ? { isSuccess: true
 function failure(code: string, message: string) { return { isSuccess: false, statusCode: code, message, timestamp }; }
 function record(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
 function condition(body: Record<string, unknown>, id: number): WatchCondition | null {
-  if (body.type === "HTML") return { id, type: "HTML" };
-  if (body.type === "KEYWORD" && typeof body.keyword === "string" && typeof body.isSatisfiedAtAppearance === "boolean") {
-    return { id, type: "KEYWORD", keyword: body.keyword, isSatisfiedAtAppearance: body.isSatisfiedAtAppearance };
-  }
-  if (body.type === "REGEX" && typeof body.regex === "string" && typeof body.isSatisfiedAtAppearance === "boolean") {
-    return { id, type: "REGEX", regex: body.regex, isSatisfiedAtAppearance: body.isSatisfiedAtAppearance };
+  if (body.type === "KEYWORD" && typeof body.keyword === "string" && (body.satisfiedWhen === "APPEAR" || body.satisfiedWhen === "DISAPPEAR")) {
+    return { id, type: "KEYWORD", keyword: body.keyword, satisfiedWhen: body.satisfiedWhen };
   }
   return null;
+}
+function detection(body: Record<string, unknown>): Pick<Watch, "detectTextChange" | "detectImageChange" | "ignoreDateTime" | "detectionAreaSelector"> | null {
+  if (typeof body.detectTextChange !== "boolean" || typeof body.detectImageChange !== "boolean" || typeof body.ignoreDateTime !== "boolean") return null;
+  if (body.detectionAreaSelector !== null && typeof body.detectionAreaSelector !== "string") return null;
+  return { detectTextChange: body.detectTextChange, detectImageChange: body.detectImageChange, ignoreDateTime: body.ignoreDateTime, detectionAreaSelector: body.detectionAreaSelector };
 }
 function page<T extends { readonly id: number }>(items: readonly T[], url: URL, offset: boolean) {
   const size = Number(url.searchParams.get("size") ?? 20);
@@ -77,7 +78,7 @@ const server = createServer(async (request, response) => {
     const failedSession = url.searchParams.get("session") ?? "";
     const failed = states.get(failedSession) ?? makeState();
     const towerId = Number(url.searchParams.get("towerId"));
-    failed.towers = failed.towers.map(item => item.id === towerId ? { ...item, status: "CRAWLING_ERROR" } : item);
+    failed.towers = failed.towers.map(item => item.id === towerId ? { ...item, status: "ERROR" } : item);
     states.set(failedSession, failed);
     send(success()); return;
   }
@@ -106,7 +107,7 @@ const server = createServer(async (request, response) => {
     response.setHeader("set-cookie", `JSESSIONID=${next}; Path=/; HttpOnly; SameSite=Lax`);
     send(success({ memberId: 7, role: "NORMAL" })); return;
   }
-  if (path === "/towers/trending") { send(success([{ domain: "example.com", url: "https://example.com/jobs", changeCount: 12 }])); return; }
+  if (path === "/towers/trending") { send(success([{ domain: "example.com", url: "https://example.com/jobs", detectionCount: 12 }])); return; }
   if (!authenticated) { send(failure("AUT_001", "인증이 필요해요.")); return; }
   if (path.startsWith("/admin/") && role !== "ADMIN") { send(failure("AUT_002", "권한이 부족해요.")); return; }
   if (path === "/auth/session") { send(success({ memberId: 7, role })); return; }
@@ -123,13 +124,14 @@ const server = createServer(async (request, response) => {
   const query = url.searchParams.get("query") ?? "";
   if (path === "/member/7/towers" || path === "/admin/towers") { send(success(page(state.towers.filter(tower => tower.name.startsWith(query)), url, path.startsWith("/admin/")))); return; }
   if (path === "/towers" && method === "POST") {
-    if (typeof body.name !== "string" || typeof body.url !== "string" || typeof body.fetchInterval !== "string" || typeof body.includeInStat !== "boolean" || !Array.isArray(body.conditions)) { send(failure("COM_001", "타워 요청 오류")); return; }
+    const createdDetection = detection(body);
+    if (typeof body.name !== "string" || typeof body.url !== "string" || typeof body.fetchInterval !== "string" || typeof body.includeInStat !== "boolean" || createdDetection === null || !Array.isArray(body.conditions)) { send(failure("COM_001", "타워 요청 오류")); return; }
     const id = ++sequence;
-    state.towers.push({ id, name: body.name, url: body.url, fetchInterval: body.fetchInterval, includeInStat: body.includeInStat, status: "CRAWLING", faviconUrl: null, lastFetchedAt: null, lastNotifiedAt: null });
+    state.towers.push({ id, name: body.name, url: body.url, fetchInterval: body.fetchInterval, includeInStat: body.includeInStat, ...createdDetection, status: "RUNNING", faviconUrl: null, lastFetchedAt: null, lastCrawlerResultCode: null, lastNotifiedAt: null, latestAiSummary: null });
     state.conditions.set(id, body.conditions.flatMap(item => { const result = record(item) ? condition(item, ++sequence) : null; return result ? [result] : []; }));
     send(success()); return;
   }
-  const towerMatch = /^\/towers\/(\d+)(?:\/(conditions|snapshots|crawl-retry)(?:\/(\d+))?)?$/.exec(path);
+  const towerMatch = /^\/towers\/(\d+)(?:\/(conditions|snapshots|crawl-retry|pause|resume)(?:\/(\d+))?)?$/.exec(path);
   if (towerMatch) {
     const id = Number(towerMatch[1]);
     const tower = state.towers.find(item => item.id === id);
@@ -145,18 +147,28 @@ const server = createServer(async (request, response) => {
       send(method === "PUT" ? success(item) : success()); return;
     }
     if (towerMatch[2] === "crawl-retry" && method === "POST") {
-      if (tower.status !== "CRAWLING_ERROR") { send(failure("TOW_005", "크롤링에 실패한 타워만 다시 시도할 수 있습니다.")); return; }
-      const retried: Watch = { ...tower, status: "CRAWLING" };
+      if (tower.status !== "ERROR") { send(failure("TOW_005", "크롤링에 실패한 타워만 다시 시도할 수 있습니다.")); return; }
+      const retried: Watch = { ...tower, status: "RUNNING" };
       state.towers = state.towers.map(item => item.id === id ? retried : item); send(success(retried)); return;
     }
+    if (towerMatch[2] === "pause" && method === "POST") {
+      if (tower.status === "PAUSED" || tower.status === "SUSPENDED") { send(failure("TOW_010", "이미 일시정지했거나 관리자가 정지한 타워는 일시정지할 수 없습니다.")); return; }
+      const paused: Watch = { ...tower, status: "PAUSED" };
+      state.towers = state.towers.map(item => item.id === id ? paused : item); send(success(paused)); return;
+    }
+    if (towerMatch[2] === "resume" && method === "POST") {
+      if (tower.status !== "PAUSED") { send(failure("TOW_011", "일시정지한 타워만 다시 시작할 수 있습니다.")); return; }
+      const resumed: Watch = { ...tower, status: "READY" };
+      state.towers = state.towers.map(item => item.id === id ? resumed : item); send(success(resumed)); return;
+    }
     if (towerMatch[2] === "snapshots") {
-      send(success([{ id: 1, htmlContentUrl: "https://example.com/full.html", htmlContentDiffUrl: "https://example.com/diff.html", screenshotUrl: null, screenshotDiffUrl: null, aiDiffSummary: "신규 채용 공고", notifiedAt: timestamp }])); return;
+      send(success([{ id: 1, detectedAt: "2026-11-03T20:55:38Z", highlightedScreenshotUrl: "https://objectstorage.ap-osaka-1.oraclecloud.com/p/token/o/1.png", aiDiffSummary: "신규 채용 공고", notifiedAt: timestamp }])); return;
     }
     if (method === "DELETE") { state.towers = state.towers.filter(item => item.id !== id); send(success()); return; }
-    if (method === "PUT" && typeof body.name === "string" && typeof body.fetchInterval === "string" && typeof body.includeInStat === "boolean" && (body.status === "CRAWLING_READY" || body.status === "USER_PAUSED")) {
-      if (tower.status === "ADMIN_PAUSED") { send(failure("PER_001", "접근 권한이 없습니다.")); return; }
-      const status = body.status === "USER_PAUSED" ? "USER_PAUSED" : tower.status === "USER_PAUSED" ? "CRAWLING_READY" : tower.status;
-      const updated: Watch = { ...tower, name: body.name, fetchInterval: body.fetchInterval, includeInStat: body.includeInStat, status };
+    const updatedDetection = detection(body);
+    if (method === "PUT" && typeof body.name === "string" && typeof body.fetchInterval === "string" && typeof body.includeInStat === "boolean" && updatedDetection !== null) {
+      if (tower.status === "SUSPENDED") { send(failure("PER_001", "접근 권한이 없습니다.")); return; }
+      const updated: Watch = { ...tower, name: body.name, fetchInterval: body.fetchInterval, includeInStat: body.includeInStat, ...updatedDetection };
       state.towers = state.towers.map(item => item.id === id ? updated : item); send(success(updated)); return;
     }
     send(success(tower)); return;
@@ -184,13 +196,13 @@ const server = createServer(async (request, response) => {
     state.members = state.members.map(item => item.id === id ? updated : item); send(success(updated)); return;
   }
   const adminTower = /^\/admin\/towers\/(\d+)$/.exec(path);
-  if (adminTower && (body.status === "CRAWLING_READY" || body.status === "CRAWLING_ERROR" || body.status === "USER_PAUSED" || body.status === "ADMIN_PAUSED")) {
+  if (adminTower && (body.status === "READY" || body.status === "ERROR" || body.status === "PAUSED" || body.status === "SUSPENDED")) {
     const id = Number(adminTower[1]);
     const status = body.status;
     state.towers = state.towers.map(item => item.id === id ? { ...item, status } : item);
     send(success(state.towers.find(item => item.id === id))); return;
   }
-  if (path === "/admin/stats/towers") { send(success({ totalCount: 1, crawlingReadyCount: 1, crawlingErrorCount: 0, crawlingCount: 0, userPausedCount: 0, adminPausedCount: 0 })); return; }
+  if (path === "/admin/stats/towers") { send(success({ totalCount: 1, readyCount: 1, errorCount: 0, runningCount: 0, pausedCount: 0, suspendedCount: 0 })); return; }
   if (path === "/admin/stats/members") { send(success({ totalCount: 3, activeCount: 1, bannedCount: 1, deletedCount: 1 })); return; }
   if (path === "/admin/stats/auth") { send(success({ signUps: { last7Days: 3, last30Days: 8 }, signIns: { last7Days: 12, last30Days: 40 } })); return; }
   response.statusCode = 404;

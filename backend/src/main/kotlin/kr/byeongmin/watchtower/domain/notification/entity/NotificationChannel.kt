@@ -15,10 +15,10 @@ import kr.byeongmin.watchtower.global.entity.Base
 class NotificationChannel private constructor(
     @ManyToOne(fetch = FetchType.LAZY)
     val member: Member,
-    name: String,
+    var name: String,
     @Enumerated(EnumType.STRING)
     val type: NotificationChannelType,
-    webhookUrl: String
+    var webhookUrl: String
 ) : Base() {
     @Id
     @GeneratedValue(
@@ -31,17 +31,6 @@ class NotificationChannel private constructor(
         allocationSize = 30
     )
     override val id: Long? = null
-
-    var name: String = name
-        protected set
-
-    var webhookUrl: String = webhookUrl
-        protected set
-
-    fun update(name: String, webhookUrl: String) {
-        this.name = name
-        this.webhookUrl = webhookUrl
-    }
 
     @OneToMany(mappedBy = "notificationChannel", fetch = FetchType.LAZY)
     val towerNotificationChannels: MutableList<TowerNotificationChannel> = mutableListOf()

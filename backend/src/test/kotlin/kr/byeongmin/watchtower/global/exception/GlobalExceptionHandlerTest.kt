@@ -1,6 +1,6 @@
 package kr.byeongmin.watchtower.global.exception
 
-import kr.byeongmin.watchtower.external.slack.client.SlackClient
+import kr.byeongmin.watchtower.global.alert.AdminNotifier
 import kr.byeongmin.watchtower.global.error.CommonError
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.argThat
@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController
 import java.time.LocalDateTime
 
 class GlobalExceptionHandlerTest {
-    private val slackClient = mock<SlackClient>()
+    private val adminNotifier = mock<AdminNotifier>()
 
     @RestController
     private class FailingController(private val exception: BusinessException) {
@@ -30,7 +30,7 @@ class GlobalExceptionHandlerTest {
 
     private fun mockMvcThrowing(exception: BusinessException): MockMvc {
         return MockMvcBuilders.standaloneSetup(FailingController(exception))
-            .setControllerAdvice(GlobalExceptionHandler(slackClient))
+            .setControllerAdvice(GlobalExceptionHandler(adminNotifier))
             .build()
     }
 
@@ -63,7 +63,7 @@ class GlobalExceptionHandlerTest {
         mvc.perform(get("/test/business-error"))
 
         /** then */
-        verify(slackClient).sendErrorAlert(argThat { contains(CommonError.EXTERNAL_API_ERROR.statusCode) }, eq(exception))
+        verify(adminNotifier).sendErrorAlert(argThat { contains(CommonError.EXTERNAL_API_ERROR.statusCode) }, eq(exception))
     }
 
     @Test
@@ -75,6 +75,6 @@ class GlobalExceptionHandlerTest {
         mvc.perform(get("/test/business-error"))
 
         /** then */
-        verifyNoInteractions(slackClient)
+        verifyNoInteractions(adminNotifier)
     }
 }

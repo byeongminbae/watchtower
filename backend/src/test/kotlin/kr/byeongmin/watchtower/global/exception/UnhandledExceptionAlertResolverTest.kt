@@ -1,6 +1,6 @@
 package kr.byeongmin.watchtower.global.exception
 
-import kr.byeongmin.watchtower.external.slack.client.SlackClient
+import kr.byeongmin.watchtower.global.alert.AdminNotifier
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.argThat
 import org.mockito.kotlin.eq
@@ -11,8 +11,8 @@ import org.springframework.mock.web.MockHttpServletResponse
 import kotlin.test.assertNull
 
 class UnhandledExceptionAlertResolverTest {
-    private val slackClient = mock<SlackClient>()
-    private val resolver = UnhandledExceptionAlertResolver(slackClient)
+    private val adminNotifier = mock<AdminNotifier>()
+    private val resolver = UnhandledExceptionAlertResolver(adminNotifier)
 
     @Test
     fun `처리하지 못한 예외는 운영자에게 알리고 응답은 기본 오류 처리에 맡김`() {
@@ -25,6 +25,6 @@ class UnhandledExceptionAlertResolverTest {
 
         /** then */
         assertNull(result)
-        verify(slackClient).sendErrorAlert(argThat { contains("GET /api/v1/towers") }, eq(exception))
+        verify(adminNotifier).sendErrorAlert(argThat { contains("GET /api/v1/towers") }, eq(exception))
     }
 }

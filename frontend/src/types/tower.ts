@@ -1,12 +1,20 @@
-export type WatchStatus = "CRAWLING_READY" | "CRAWLING_ERROR" | "CRAWLING" | "USER_PAUSED" | "ADMIN_PAUSED";
-export type MemberWatchStatus = "CRAWLING_READY" | "USER_PAUSED";
-export type WatchConditionType = "KEYWORD" | "REGEX" | "HTML";
-export type WatchConditionInput =
-  | { readonly type: "HTML" }
-  | { readonly type: "KEYWORD"; readonly keyword: string; readonly isSatisfiedAtAppearance: boolean }
-  | { readonly type: "REGEX"; readonly regex: string; readonly isSatisfiedAtAppearance: boolean };
+export type WatchStatus = "READY" | "ERROR" | "RUNNING" | "PAUSED" | "SUSPENDED";
+export type WatchConditionType = "KEYWORD";
+export type PresenceChange = "APPEAR" | "DISAPPEAR";
+export type CrawlerResultCode = "FETCHED" | "URL_NOT_ALLOWED" | "NAVIGATION_TIMEOUT" | "TEXT_TOO_LARGE" | "NAVIGATION_FAILED" | "INVALID_SELECTOR" | "UNKNOWN";
+export type WatchConditionInput = { readonly type: "KEYWORD"; readonly keyword: string; readonly satisfiedWhen: PresenceChange };
 export type WatchCondition = WatchConditionInput & { readonly id: number };
-export interface Watch {
+/**
+ * 감지 조건과 별개로 타워에 켜 두는 감지 방식
+ * @property detectionAreaSelector 감시할 영역의 CSS 선택자. 지정하면 텍스트, 이미지, 감지 조건 모두 이 영역 안에서만 판정하고, null 이면 페이지 전체
+ */
+export interface WatchDetection {
+  readonly detectTextChange: boolean;
+  readonly detectImageChange: boolean;
+  readonly ignoreDateTime: boolean;
+  readonly detectionAreaSelector: string | null;
+}
+export interface Watch extends WatchDetection {
   readonly id: number;
   readonly name: string;
   readonly url: string;
@@ -15,20 +23,19 @@ export interface Watch {
   readonly fetchInterval: string;
   readonly includeInStat: boolean;
   readonly lastFetchedAt: string | null;
+  readonly lastCrawlerResultCode: CrawlerResultCode | null;
   readonly lastNotifiedAt: string | null;
-  readonly latestAiSummary?: string | null;
+  readonly latestAiSummary: string | null;
 }
 export interface WatchSnapshot {
   readonly id: number;
-  readonly htmlContentUrl: string;
-  readonly htmlContentDiffUrl: string | null;
-  readonly screenshotUrl: string | null;
-  readonly screenshotDiffUrl: string | null;
+  readonly detectedAt: string;
+  readonly highlightedScreenshotUrl: string | null;
   readonly aiDiffSummary: string | null;
   readonly notifiedAt: string | null;
 }
 export interface HotUrl {
   readonly domain: string;
   readonly url: string;
-  readonly changeCount: number;
+  readonly detectionCount: number;
 }

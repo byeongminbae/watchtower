@@ -44,7 +44,7 @@ class NotificationChannelService(
         cursorPaginationRequestDto: CursorPaginationRequestDto,
         sortField: BaseSortField
     ): SuccessDataResponse<CursorPaginationResponseDto<NotificationChannelResponseDto>> {
-        val channels = channelAccessor.findNotificationChannels(memberId, cursorPaginationRequestDto, sortField)
+        val channels = channelAccessor.findOwnedNotificationChannels(memberId, cursorPaginationRequestDto, sortField)
         return SuccessDataResponse(cursorPaginationRequestDto.to(channels, sortField) {
             NotificationChannelResponseDto.from(it)
         })
@@ -52,7 +52,7 @@ class NotificationChannelService(
 
     @Transactional(readOnly = true)
     fun getChannel(memberId: Long, channelId: Long): SuccessDataResponse<NotificationChannelResponseDto> {
-        val channel = channelAccessor.getChannel(memberId, channelId)
+        val channel = channelAccessor.getOwnedNotificationChannel(memberId, channelId)
         return SuccessDataResponse(NotificationChannelResponseDto.from(channel))
     }
 
@@ -62,14 +62,16 @@ class NotificationChannelService(
         channelId: Long,
         request: NotificationChannelUpdateRequestDto
     ): SuccessDataResponse<NotificationChannelResponseDto> {
-        val channel = channelAccessor.getChannel(memberId, channelId)
-        channel.update(request.name, request.webhookUrl)
+        val channel = channelAccessor.getOwnedNotificationChannel(memberId, channelId)
+        channel.name = request.name
+        channel.webhookUrl = request.webhookUrl
         return SuccessDataResponse(NotificationChannelResponseDto.from(channel))
     }
 
     @Transactional
     fun deleteChannel(memberId: Long, channelId: Long): SuccessResponse {
-        channelAccessor.deleteNotificationChannel(memberId, channelId, timeProvider.now())
+        val channel = channelAccessor.getOwnedNotificationChannel(memberId, channelId)
+        channelAccessor.deleteNotificationChannel(channel, timeProvider.now())
         return SuccessResponse()
     }
 }

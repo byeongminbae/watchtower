@@ -2,6 +2,9 @@ package kr.byeongmin.watchtower.global.validation
 
 import jakarta.validation.ConstraintValidatorContext
 import java.time.Duration
+import kr.byeongmin.watchtower.global.error.CommonError
+import kr.byeongmin.watchtower.global.exception.BusinessException
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
@@ -62,6 +65,7 @@ class DurationMultipleOfValidatorTest {
         }
 
         /** then */
-        assertIs<IllegalArgumentException>(result.exceptionOrNull())
+        val exception = assertIs<BusinessException>(result.exceptionOrNull())
+        assertEquals(CommonError.INTERNAL_SERVER_ERROR, exception.error)
     }
 }

@@ -100,7 +100,7 @@ class NotificationChannelServiceTest {
             size = 10,
             sortDirection = Sort.Direction.DESC
         )
-        whenever(channelAccessor.findNotificationChannels(memberId, pagination, BaseSortField.UPDATED_AT))
+        whenever(channelAccessor.findOwnedNotificationChannels(memberId, pagination, BaseSortField.UPDATED_AT))
             .thenReturn(listOf(channel))
 
         /** when */
@@ -117,7 +117,7 @@ class NotificationChannelServiceTest {
     fun `회원에게 등록된 알림 채널이 없으면 빈 목록을 반환함`() {
         /** given */
         val pagination = CursorPaginationRequestDto(size = 10)
-        whenever(channelAccessor.findNotificationChannels(memberId, pagination, BaseSortField.UPDATED_AT))
+        whenever(channelAccessor.findOwnedNotificationChannels(memberId, pagination, BaseSortField.UPDATED_AT))
             .thenReturn(emptyList())
 
         /** when */
@@ -125,13 +125,13 @@ class NotificationChannelServiceTest {
 
         /** then */
         assertTrue(response.data.isEmpty())
-        verify(channelAccessor).findNotificationChannels(memberId, pagination, BaseSortField.UPDATED_AT)
+        verify(channelAccessor).findOwnedNotificationChannels(memberId, pagination, BaseSortField.UPDATED_AT)
     }
 
     @Test
     fun `회원은 자신이 소유한 알림 채널을 조회할 수 있음`() {
         /** given */
-        whenever(channelAccessor.getChannel(memberId, 1L)).thenReturn(channel)
+        whenever(channelAccessor.getOwnedNotificationChannel(memberId, 1L)).thenReturn(channel)
 
         /** when */
         val response = service.getChannel(memberId, 1L)
@@ -143,7 +143,7 @@ class NotificationChannelServiceTest {
     @Test
     fun `회원의 소유 채널을 찾을 수 없으면 조회하거나 수정할 수 없음`() {
         /** given */
-        whenever(channelAccessor.getChannel(memberId, 99L))
+        whenever(channelAccessor.getOwnedNotificationChannel(memberId, 99L))
             .thenThrow(BusinessException(CommonError.RESOURCE_NOT_FOUND))
         val operations: List<() -> Unit> = listOf(
             { service.getChannel(memberId, 99L) },
@@ -164,7 +164,7 @@ class NotificationChannelServiceTest {
     @Test
     fun `알림 채널의 이름과 웹훅 주소를 바꿔도 종류와 소유자는 바뀌지 않음`() {
         /** given */
-        whenever(channelAccessor.getChannel(memberId, 1L)).thenReturn(channel)
+        whenever(channelAccessor.getOwnedNotificationChannel(memberId, 1L)).thenReturn(channel)
 
         /** when */
         val response = service.updateChannel(
@@ -184,19 +184,22 @@ class NotificationChannelServiceTest {
     }
 
     @Test
-    fun `회원은 자신의 알림 채널 삭제를 요청할 수 있음`() {
+    fun `회원은 자신이 소유한 알림 채널을 삭제할 수 있음`() {
+        /** given */
+        whenever(channelAccessor.getOwnedNotificationChannel(memberId, 1L)).thenReturn(channel)
+
         /** when */
         val response = service.deleteChannel(memberId, 1L)
 
         /** then */
         assertTrue(response.isSuccess)
-        verify(channelAccessor).deleteNotificationChannel(memberId, 1L, now)
+        verify(channelAccessor).deleteNotificationChannel(channel, now)
     }
 
     @Test
-    fun `찾을 수 없는 알림 채널은 삭제할 수 없음`() {
+    fun `회원의 소유 채널을 찾을 수 없으면 삭제하지 않음`() {
         /** given */
-        whenever(channelAccessor.deleteNotificationChannel(memberId, 99L, now))
+        whenever(channelAccessor.getOwnedNotificationChannel(memberId, 99L))
             .thenThrow(BusinessException(CommonError.RESOURCE_NOT_FOUND))
 
         /** when */
@@ -206,5 +209,6 @@ class NotificationChannelServiceTest {
 
         /** then */
         assertEquals(CommonError.RESOURCE_NOT_FOUND, exception.error)
+        verify(channelAccessor, never()).deleteNotificationChannel(any(), any())
     }
 }

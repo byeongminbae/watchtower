@@ -7,7 +7,7 @@ import kr.byeongmin.watchtower.domain.member.dto.MemberUpdateRequestDto
 import kr.byeongmin.watchtower.domain.notification.accessor.NotificationChannelAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
-import kr.byeongmin.watchtower.domain.tower.dto.TowerListItemResponseDto
+import kr.byeongmin.watchtower.domain.tower.dto.TowerResponseDto
 import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.dto.SuccessDataResponse
 import kr.byeongmin.watchtower.global.dto.SuccessResponse
@@ -38,19 +38,19 @@ class MemberService(
         memberId: Long,
         cursorPaginationRequestDto: CursorPaginationRequestDto,
         sortField: BaseSortField
-    ): SuccessDataResponse<CursorPaginationResponseDto<TowerListItemResponseDto>> {
+    ): SuccessDataResponse<CursorPaginationResponseDto<TowerResponseDto>> {
         val towers = towerAccessor.findOwnedTowers(
             memberId = memberId,
             cursorPaginationRequestDto = cursorPaginationRequestDto,
             sortField = sortField
         )
 
-        val latestChangeAiSummaries = towerSnapshotAccessor.findLatestChangeAiSummaries(
+        val latestChangeAiSummaryByTowerId = towerSnapshotAccessor.findLatestChangeAiSummaries(
             towers.map { it.id.ifNullThrow() }
-        )
+        ).associateBy { it.towerId }
 
         val cursorPaginationResponseDto = cursorPaginationRequestDto.to(towers, sortField) { tower ->
-            TowerListItemResponseDto.from(tower, latestChangeAiSummaries[tower.id.ifNullThrow()])
+            TowerResponseDto.from(tower, latestChangeAiSummaryByTowerId[tower.id]?.aiSummary)
         }
 
         return SuccessDataResponse(cursorPaginationResponseDto)
@@ -63,10 +63,8 @@ class MemberService(
     ): SuccessDataResponse<MemberResponseDto> {
         val member = memberAccessor.getMember(memberId)
 
-        member.updateProfile(
-            nickname = memberUpdateRequestDto.nickname,
-            profileImageUrl = memberUpdateRequestDto.profileImageUrl
-        )
+        member.nickname = memberUpdateRequestDto.nickname
+        member.profileImageUrl = memberUpdateRequestDto.profileImageUrl
 
         return SuccessDataResponse(MemberResponseDto.from(member))
     }
@@ -76,14 +74,14 @@ class MemberService(
     fun deleteMember(memberId: Long): SuccessResponse {
         val member = memberAccessor.getMember(memberId)
 
-        naverOAuthAccessor.findByMemberId(memberId)?.delete()
+        naverOAuthAccessor.findMemberNaverOAuth(memberId)?.delete()
         // TODO: 네이버 연동 해제(revoke) API 연동 필요 (external.naver.client.NaverAuthClient 에 revoke 메서드 추가 후 연결)
         //  조회한 NaverOAuth 의 accessToken 으로 revoke 를 호출한다.
         //  연동 해제는 네이버 쪽 정리 작업이라 실패하더라도 탈퇴(논리삭제) 자체를 막지 않는다.
 
         val deletedAt = timeProvider.now()
-        towerAccessor.deleteAllRelatedByMemberId(memberId, deletedAt)
-        notificationChannelAccessor.deleteByMemberId(memberId, deletedAt)
+        towerAccessor.deleteAllOwnedTowers(memberId, deletedAt)
+        notificationChannelAccessor.deleteAllOwnedNotificationChannels(memberId, deletedAt)
 
         member.delete()
 

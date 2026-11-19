@@ -19,18 +19,26 @@ it("회원 수정과 탈퇴는 실제 회원 경로와 HTTP 방식으로 연결�
 });
 it("타워 생성과 수정은 Duration과 모든 필수 필드를 전송할 것이다", () => {
   // given
-  const create = { name: "관찰", url: "https://example.com", fetchInterval: "PT5M", includeInStat: true, notificationChannelIds: [3],
-    conditions: [{ type: "KEYWORD", keyword: "마감", isSatisfiedAtAppearance: false }] } as const;
-  const update = { name: "관찰", fetchInterval: "PT10M", includeInStat: false, status: "USER_PAUSED" } as const;
+  const create = { name: "관찰", url: "https://example.com", fetchInterval: "PT5M", includeInStat: true,
+    detectTextChange: false, detectImageChange: true, ignoreDateTime: true, detectionAreaSelector: ".price", notificationChannelIds: [3],
+    conditions: [{ type: "KEYWORD", keyword: "마감", satisfiedWhen: "DISAPPEAR" }] } as const;
+  const update = { name: "관찰", fetchInterval: "PT10M", includeInStat: false, detectTextChange: true, detectImageChange: false, ignoreDateTime: false, detectionAreaSelector: null } as const;
   // when
   watchApi.createWatch(create); watchApi.updateWatch(9, update);
   // then
   expect(apiClient.postEmpty).toHaveBeenCalledWith("/bff/towers", create);
   expect(apiClient.put).toHaveBeenCalledWith("/bff/towers/9", update, expect.any(Function));
 });
+it("감시 일시정지와 다시 시작은 각자의 POST 경로를 사용할 것이다", () => {
+  // when
+  watchApi.pauseWatch(9); watchApi.resumeWatch(9);
+  // then
+  expect(apiClient.post).toHaveBeenCalledWith("/bff/towers/9/pause", undefined, expect.any(Function));
+  expect(apiClient.post).toHaveBeenCalledWith("/bff/towers/9/resume", undefined, expect.any(Function));
+});
 it("조건 수정과 삭제는 타워에 속한 조건 경로를 사용할 것이다", () => {
   // given
-  const input = { type: "REGEX", regex: "sale.*", isSatisfiedAtAppearance: true } as const;
+  const input = { type: "KEYWORD", keyword: "세일", satisfiedWhen: "APPEAR" } as const;
   // when
   watchApi.createWatchCondition(9, input); watchApi.updateWatchCondition(9, 3, input); watchApi.deleteWatchCondition(9, 3);
   // then

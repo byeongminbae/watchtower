@@ -21,13 +21,13 @@ import ListControls from "@/components/common/ListControls";
 import ResponsiveTable from "@/components/common/ResponsiveTable";
 import WatchStatusDot from "@/components/watch/WatchStatusDot";
 
-const statuses = [{ value: "CRAWLING_READY", label: "감시중" }, { value: "CRAWLING_ERROR", label: "확인 실패" }, { value: "USER_PAUSED", label: "일시정지" }, { value: "ADMIN_PAUSED", label: "관리자 정지" }];
+const statuses = [{ value: "READY", label: "감시중" }, { value: "ERROR", label: "확인 실패" }, { value: "PAUSED", label: "일시정지" }, { value: "SUSPENDED", label: "관리자 정지" }];
 
 export default function AdminWatchesPage() {
   const [criteria, setCriteria] = React.useState<SearchCriteria>(defaultSearch);
   const [page, setPage] = React.useState(0);
   const [target, setTarget] = React.useState<Watch | null>(null);
-  const [status, setStatus] = React.useState<WatchStatus>("CRAWLING_READY");
+  const [status, setStatus] = React.useState<WatchStatus>("READY");
   const [busy, setBusy] = React.useState(false);
   const [actionError, setActionError] = React.useState<string | null>(null);
   const { data, loading, error, refetch } = useApiData(() => adminApi.getWatches({ ...criteria, page }).then(r => r.data), [criteria, page]);
@@ -72,13 +72,13 @@ export default function AdminWatchesPage() {
         <DialogHeader><DialogTitle>타워 상태 변경</DialogTitle><DialogDescription>{target?.name} 타워의 감시 상태를 변경해요.</DialogDescription></DialogHeader>
         {actionError && <Alert variant="destructive"><CircleAlert /><AlertDescription>{actionError}</AlertDescription></Alert>}
         <FieldGroup><Field data-disabled={busy}><FieldLabel htmlFor="tower-status">상태</FieldLabel>
-          <Select items={statuses} value={status} disabled={busy} onValueChange={value => { if (value === "CRAWLING_READY" || value === "CRAWLING_ERROR" || value === "USER_PAUSED" || value === "ADMIN_PAUSED") setStatus(value); }}>
+          <Select items={statuses} value={status} disabled={busy} onValueChange={value => { if (value === "READY" || value === "ERROR" || value === "PAUSED" || value === "SUSPENDED") setStatus(value); }}>
             <SelectTrigger id="tower-status" className="w-full"><SelectValue /></SelectTrigger>
             <SelectContent><SelectGroup>{statuses.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
           </Select>
         </Field></FieldGroup>
         <DialogFooter><Button variant="outline" disabled={busy} onClick={() => setTarget(null)}>취소</Button>
-          <Button variant={status === "ADMIN_PAUSED" ? "destructive" : "default"} disabled={busy || status === "CRAWLING"} onClick={() => void update()}>{busy ? "변경 중" : "변경"}</Button></DialogFooter>
+          <Button variant={status === "SUSPENDED" ? "destructive" : "default"} disabled={busy || status === "RUNNING"} onClick={() => void update()}>{busy ? "변경 중" : "변경"}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   </main>;

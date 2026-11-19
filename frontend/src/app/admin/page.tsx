@@ -19,11 +19,11 @@ import type { WatchStatus } from "@/types/tower";
 /** 상태별 타워 수 */
 function towerStatusRows(stats: TowerStats): readonly { readonly status: WatchStatus; readonly count: number }[] {
   const counts: readonly [WatchStatus, number][] = [
-    ["CRAWLING_READY", stats.crawlingReadyCount],
-    ["CRAWLING", stats.crawlingCount],
-    ["CRAWLING_ERROR", stats.crawlingErrorCount],
-    ["USER_PAUSED", stats.userPausedCount],
-    ["ADMIN_PAUSED", stats.adminPausedCount]
+    ["READY", stats.readyCount],
+    ["RUNNING", stats.runningCount],
+    ["ERROR", stats.errorCount],
+    ["PAUSED", stats.pausedCount],
+    ["SUSPENDED", stats.suspendedCount]
   ];
   return counts.map(([status, count]) => ({ status, count }));
 }
@@ -59,7 +59,7 @@ export default function AdminPage() {
   const towers = useApiData(() => adminApi.getWatchStats().then(r => r.data), []);
   const members = useApiData(() => adminApi.getMemberStats().then(r => r.data), []);
   const auth = useApiData(() => adminApi.getAuthStats().then(r => r.data), []);
-  const runningCount = towers.data ? towers.data.crawlingReadyCount + towers.data.crawlingCount : undefined;
+  const watchingCount = towers.data ? towers.data.readyCount + towers.data.runningCount : undefined;
 
   return <main className="flex w-full flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
     <div className="flex flex-wrap items-end justify-between gap-4">
@@ -70,8 +70,8 @@ export default function AdminPage() {
 
     <section aria-label="핵심 지표" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <KpiCard label="전체 타워" value={towers.data?.totalCount} hint="삭제되지 않은 모든 타워" icon={Radar} />
-      <KpiCard label="감시중" value={runningCount} hint="다음 확인을 기다리거나 확인 중인 타워" icon={Activity} />
-      <KpiCard label="확인 실패" value={towers.data?.crawlingErrorCount} hint="회원이 다시 확인해야 하는 타워" icon={CircleAlert} tone="destructive" />
+      <KpiCard label="감시중" value={watchingCount} hint="다음 확인을 기다리거나 확인 중인 타워" icon={Activity} />
+      <KpiCard label="확인 실패" value={towers.data?.errorCount} hint="회원이 다시 확인해야 하는 타워" icon={CircleAlert} tone="destructive" />
       <KpiCard label="전체 회원" value={members.data?.totalCount} hint={members.data ? `활성 회원 ${members.data.activeCount.toLocaleString("ko-KR")}명` : "회원 수를 불러오고 있어요"} icon={UsersRound} />
     </section>
 

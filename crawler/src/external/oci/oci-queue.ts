@@ -2,9 +2,9 @@ import { Logger } from '@nestjs/common';
 import type { AuthenticationDetailsProvider } from 'oci-common';
 import { QueueClient, type models } from 'oci-queue';
 import { Policy } from '../../config/policy.js';
-import type { ReceivedMessage, RequestQueue, ResultQueue } from '../../crawl/interfaces/queue.interface.js';
+import type { ReceivedMessage, RequestQueue, ResultQueue } from '../../crawl/interfaces/queue.js';
 
-/** OCI Queue 하나에서 메시지를 받고, 넣고, 완료 처리(삭제)함. 큐마다 메시지 엔드포인트가 다를 수 있어 큐마다 클라이언트를 따로 둠 */
+/** 큐마다 메시지 엔드포인트가 다를 수 있어 큐마다 클라이언트를 따로 둠 */
 export class OciQueue implements RequestQueue, ResultQueue {
   private static readonly logger = new Logger(OciQueue.name);
 
@@ -31,14 +31,14 @@ export class OciQueue implements RequestQueue, ResultQueue {
     });
   }
 
-  async publishAll(messageContents: string[]): Promise<void> {
+  async publishAll(messageContents: readonly string[]): Promise<void> {
     await this.queueClient.putMessages({
       queueId: this.queueId,
       putMessagesDetails: { messages: messageContents.map((content) => ({ content })) }
     });
   }
 
-  async completeAll(messageReceipts: string[]): Promise<void> {
+  async completeAll(messageReceipts: readonly string[]): Promise<void> {
     const response = await this.queueClient.deleteMessages({
       queueId: this.queueId,
       deleteMessagesDetails: { entries: messageReceipts.map((receipt) => ({ receipt })) }

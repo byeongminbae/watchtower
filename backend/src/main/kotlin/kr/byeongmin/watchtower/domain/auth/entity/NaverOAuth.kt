@@ -4,8 +4,6 @@ import jakarta.persistence.DiscriminatorValue
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 import kr.byeongmin.watchtower.domain.member.entity.Member
-import kr.byeongmin.watchtower.external.naver.auth.dto.NaverProfileResponseDto
-import kr.byeongmin.watchtower.external.naver.auth.dto.NaverTokenResponseDto
 
 /**
  * @property [expiresIn] 초 단위
@@ -21,17 +19,19 @@ class NaverOAuth private constructor(
     val expiresIn: Long
 ) : OAuth(member, providerId, accessToken) {
     companion object {
-        fun from(
+        fun of(
             member: Member,
-            naverProfileResponseDto: NaverProfileResponseDto,
-            naverTokenResponseDto: NaverTokenResponseDto
+            providerId: String,
+            accessToken: String,
+            refreshToken: String,
+            expiresIn: Long
         ): NaverOAuth {
             return NaverOAuth(
                 member = member,
-                providerId = naverProfileResponseDto.response.providerId,
-                accessToken = naverTokenResponseDto.accessToken,
-                refreshToken = naverTokenResponseDto.refreshToken,
-                expiresIn = naverTokenResponseDto.expiresIn
+                providerId = providerId,
+                accessToken = accessToken,
+                refreshToken = refreshToken,
+                expiresIn = expiresIn
             )
         }
     }

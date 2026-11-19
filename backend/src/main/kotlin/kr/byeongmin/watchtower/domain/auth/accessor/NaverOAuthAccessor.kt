@@ -8,11 +8,11 @@ import org.springframework.stereotype.Component
 class NaverOAuthAccessor(
     private val naverOAuthRepository: NaverOAuthRepository
 ) {
-    fun findByProviderId(providerId: String): NaverOAuth? {
+    fun findNaverOAuth(providerId: String): NaverOAuth? {
         return naverOAuthRepository.findFirstByProviderIdAndDeletedAtIsNullAndMemberDeletedAtIsNull(providerId)
     }
 
-    fun findByMemberId(memberId: Long): NaverOAuth? {
+    fun findMemberNaverOAuth(memberId: Long): NaverOAuth? {
         return naverOAuthRepository.findFirstByMemberIdAndDeletedAtIsNull(memberId)
     }
 

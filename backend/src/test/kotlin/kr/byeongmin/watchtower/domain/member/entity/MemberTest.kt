@@ -2,7 +2,6 @@ package kr.byeongmin.watchtower.domain.member.entity
 
 import kr.byeongmin.watchtower.domain.member.enums.MemberRole
 import kr.byeongmin.watchtower.domain.subscription.entity.Plan
-import kr.byeongmin.watchtower.external.naver.auth.dto.NaverProfileResponseDto
 import kr.byeongmin.watchtower.global.error.AuthError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.junit.jupiter.api.Test
@@ -18,51 +17,38 @@ class MemberTest {
     private val plan = mock<Plan>()
     private val now = LocalDateTime.of(2026, 10, 20, 12, 0)
 
-    private val naverProfile = NaverProfileResponseDto(
-        resultCode = "00",
-        message = "성공",
-        response = NaverProfileResponseDto.NaverProfileDetailDto(
-            providerId = "naver-id",
-            email = "member@example.com",
-            nickname = "회원",
-            profileImage = "https://example.com/profile.png"
-        )
-    )
-
     @Test
-    fun `네이버로 가입한 회원은 네이버에서 내려온 정보를 사용하고 일반 회원 권한을 가짐`() {
+    fun `새로 가입한 회원은 받은 정보로 만들어지고 일반 회원 권한을 가짐`() {
         /** given */
         val signUpAt = LocalDateTime.of(2026, 10, 20, 12, 0)
 
         /** when */
-        val member = Member.from(naverProfile, signUpAt, plan)
+        val member = Member.of(
+            email = "member@example.com",
+            nickname = "회원",
+            profileImageUrl = "https://example.com/profile.png",
+            lastSignInAt = signUpAt,
+            plan = plan
+        )
 
         /** then */
-        assertEquals(naverProfile.response.email, member.email)
-        assertEquals(naverProfile.response.nickname, member.nickname)
-        assertEquals(naverProfile.response.profileImage, member.profileImageUrl)
+        assertEquals("member@example.com", member.email)
+        assertEquals("회원", member.nickname)
+        assertEquals("https://example.com/profile.png", member.profileImageUrl)
         assertEquals(MemberRole.NORMAL, member.role)
         assertEquals(signUpAt, member.lastSignInAt)
     }
 
     @Test
-    fun `로그인하면 마지막 로그인 시각이 갱신됨`() {
-        /** given */
-        val previousSignInAt = LocalDateTime.of(2000, 1, 1, 0, 0)
-        val member = Member.from(naverProfile, previousSignInAt, plan)
-
-        /** when */
-        member.ensureSignInAllowed()
-        member.completeSignIn(now)
-
-        /** then */
-        assertEquals(now, member.lastSignInAt)
-    }
-
-    @Test
     fun `정지된 회원은 로그인할 수 없음`() {
         /** given */
-        val member = Member.from(naverProfile, now, plan)
+        val member = Member.of(
+            email = "member@example.com",
+            nickname = "회원",
+            profileImageUrl = "https://example.com/profile.png",
+            lastSignInAt = now,
+            plan = plan
+        )
         member.ban(now, "반복적인 정책 위반")
 
         /** when */
@@ -77,7 +63,13 @@ class MemberTest {
     @Test
     fun `탈퇴한 회원은 로그인할 수 없음`() {
         /** given */
-        val member = Member.from(naverProfile, now, plan)
+        val member = Member.of(
+            email = "member@example.com",
+            nickname = "회원",
+            profileImageUrl = "https://example.com/profile.png",
+            lastSignInAt = now,
+            plan = plan
+        )
         member.delete()
 
         /** when */
@@ -94,7 +86,13 @@ class MemberTest {
     fun `이용 중인 플랜의 한도에 도달하면 타워를 더 등록할 수 없음`(count: Long, expected: Boolean) {
         /** given */
         whenever(plan.maxTowerQuantity).thenReturn(5)
-        val member = Member.from(naverProfile, now, plan)
+        val member = Member.of(
+            email = "member@example.com",
+            nickname = "회원",
+            profileImageUrl = "https://example.com/profile.png",
+            lastSignInAt = now,
+            plan = plan
+        )
 
         /** when */
         val result = member.isTowerAddable(count)

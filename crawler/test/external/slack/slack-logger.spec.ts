@@ -2,7 +2,7 @@ import { ConsoleLogger, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IncomingWebhook } from '@slack/webhook';
 import { TimeProvider } from '../../../src/common/time-provider.js';
-import type { RuntimeConfig } from '../../../src/config/config.js';
+import type { RuntimeConfig } from '../../../src/config/profile.js';
 import { Policy } from '../../../src/config/policy.js';
 import { SlackLogger } from '../../../src/external/slack/slack-logger.js';
 
@@ -28,10 +28,6 @@ describe('SlackLogger', () => {
     vi.spyOn(process.stderr, 'write').mockReturnValue(true);
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('error 로그를 남기면 실행 모드, 로그를 남긴 클래스와 오류 메시지, 스택 트레이스를 Slack 으로 보냄', async () => {
     // given
     const slackLogger = createSlackLogger();
@@ -54,7 +50,7 @@ describe('SlackLogger', () => {
     // given
     const slackLogger = createSlackLogger();
     Logger.overrideLogger(slackLogger);
-    const classLogger = new Logger('CrawlQueueBatch');
+    const classLogger = new Logger('CrawlResultBatchProducer');
 
     // when
     classLogger.error('결과 3건 발행 실패. 요청을 다시 전달받아 처리함', new Error('큐 응답 없음'));
@@ -63,7 +59,7 @@ describe('SlackLogger', () => {
 
     // then
     const [text] = sentTexts();
-    expect(text).toContain('CrawlQueueBatch');
+    expect(text).toContain('CrawlResultBatchProducer');
     expect(text).toContain('결과 3건 발행 실패');
     expect(text).toContain('Error: 큐 응답 없음');
   });

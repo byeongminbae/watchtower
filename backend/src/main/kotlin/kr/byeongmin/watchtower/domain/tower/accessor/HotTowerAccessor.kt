@@ -1,6 +1,6 @@
 package kr.byeongmin.watchtower.domain.tower.accessor
 
-import kr.byeongmin.watchtower.domain.tower.dto.HotTowerResponseDto
+import kr.byeongmin.watchtower.domain.tower.entity.HotTower
 import kr.byeongmin.watchtower.domain.tower.repository.HotTowerRepository
 import org.springframework.stereotype.Component
 
@@ -8,11 +8,11 @@ import org.springframework.stereotype.Component
 class HotTowerAccessor(
     private val hotTowerRepository: HotTowerRepository
 ) {
-    fun findAll(): List<HotTowerResponseDto> {
+    fun findHotTowers(): List<HotTower> {
         return hotTowerRepository.findAll()
     }
 
-    fun refresh() {
+    fun refreshHotTowers() {
         hotTowerRepository.refresh()
     }
 }

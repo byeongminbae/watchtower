@@ -2,12 +2,12 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { Logger } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { CrawlModule } from '../src/crawl/module/crawl.module.js';
-import { EnvironmentResource, EnvironmentResources } from '../src/crawl/environment-resources.js';
-import { HTML_STORAGE, type HtmlStorage } from '../src/crawl/interfaces/html-storage.interface.js';
-import { PAGE_FETCHER, type PageFetcher, PageFetchSuccess } from '../src/crawl/interfaces/page-fetcher.interface.js';
-import type { ReceivedMessage, RequestQueue, ResultQueue } from '../src/crawl/interfaces/queue.interface.js';
-import { InternalNetworkIsolationCheck } from '../src/external/network/internal-network-isolation-check.js';
+import { CrawlEnvironment, CrawlEnvironments } from '../src/crawl/crawl-environment.js';
+import { CrawlModule } from '../src/crawl/crawl.module.js';
+import { FetchedPage, PageFetcher } from '../src/crawl/interfaces/page-fetcher.js';
+import type { ReceivedMessage, RequestQueue, ResultQueue } from '../src/crawl/interfaces/queue.js';
+import type { SnapshotStorage } from '../src/crawl/interfaces/snapshot-storage.js';
+import { InternalNetworkIsolationCheck } from '../src/network/internal-network-isolation-check.js';
 
 class InMemoryRequestQueue implements RequestQueue {
   readonly completedReceipts: string[] = [];
@@ -24,7 +24,7 @@ class InMemoryRequestQueue implements RequestQueue {
     return this.messages.splice(0, limit);
   }
 
-  async completeAll(receipts: string[]): Promise<void> {
+  async completeAll(receipts: readonly string[]): Promise<void> {
     this.completedReceipts.push(...receipts);
   }
 }
@@ -32,7 +32,7 @@ class InMemoryRequestQueue implements RequestQueue {
 class InMemoryResultQueue implements ResultQueue {
   readonly published: string[] = [];
 
-  async publishAll(contents: string[]): Promise<void> {
+  async publishAll(contents: readonly string[]): Promise<void> {
     this.published.push(...contents);
   }
 }
@@ -55,8 +55,11 @@ describe('크롤러 (e2e)', () => {
         content: JSON.stringify({
           towerId: 7,
           url: 'https://example.com',
-          scheduledAt: '2026-10-30T00:00:00.000Z',
-          triggeredByMemberId: null
+          extraction: { detectionAreaSelector: null, collectImageHashes: false, ignoreDateTime: false },
+          triggeredByMemberId: null,
+          previousTextHash: null,
+          previousImageHash: null,
+          jobStartedAt: '2026-10-30T00:00:00.123456Z'
         }),
         receipt: 'prod-1',
         deliveryCount: 1
@@ -68,13 +71,15 @@ describe('크롤러 (e2e)', () => {
 
     const pageFetcher: PageFetcher = {
       fetchPage: async () => {
-        return new PageFetchSuccess({ httpStatusCode: 200, finalUrl: 'https://example.com/', html: '<html></html>' });
+        return new FetchedPage('https://example.com', 200, '재입고 알림', null);
       }
     };
-    const htmlStorage: HtmlStorage = {
-      saveHtml: async (bucketName) => {
-        savedBuckets.push(bucketName);
-      }
+    const snapshotStorageOf = (bucketName: string): SnapshotStorage => {
+      return {
+        saveText: async () => {
+          savedBuckets.push(bucketName);
+        }
+      };
     };
 
     compileModule = (isolationCheck) =>
@@ -84,15 +89,18 @@ describe('크롤러 (e2e)', () => {
         // 호스트 방화벽 검사는 실제 인스턴스 메타데이터 주소에 연결을 시도하므로 테스트마다 검사 결과를 정해서 넣음
         .overrideProvider(InternalNetworkIsolationCheck)
         .useValue(isolationCheck)
-        .overrideProvider(PAGE_FETCHER)
+        .overrideProvider(PageFetcher)
         .useValue(pageFetcher)
-        .overrideProvider(HTML_STORAGE)
-        .useValue(htmlStorage)
-        .overrideProvider(EnvironmentResources)
+        .overrideProvider(CrawlEnvironments)
         .useValue(
-          new EnvironmentResources([
-            new EnvironmentResource('dev', devRequestQueue, devResultQueue, 'watchtower-snapshot-dev'),
-            new EnvironmentResource('prod', prodRequestQueue, prodResultQueue, 'watchtower-snapshot-prod')
+          new CrawlEnvironments([
+            new CrawlEnvironment('dev', devRequestQueue, devResultQueue, snapshotStorageOf('watchtower-snapshot-dev')),
+            new CrawlEnvironment(
+              'prod',
+              prodRequestQueue,
+              prodResultQueue,
+              snapshotStorageOf('watchtower-snapshot-prod')
+            )
           ])
         )
         .compile();
@@ -110,7 +118,7 @@ describe('크롤러 (e2e)', () => {
     // then
     expect(savedBuckets).toEqual(['watchtower-snapshot-prod']);
     expect(prodResultQueue.published.map((content) => JSON.parse(content))).toEqual([
-      expect.objectContaining({ towerId: 7, resultStatus: 'FETCHED', httpStatusCode: 200 })
+      expect.objectContaining({ towerId: 7, crawlerResultCode: 'FETCHED', pageHttpStatusCode: 200 })
     ]);
     expect(devResultQueue.published).toEqual([]);
     expect(prodRequestQueue.completedReceipts).toEqual(['prod-1']);

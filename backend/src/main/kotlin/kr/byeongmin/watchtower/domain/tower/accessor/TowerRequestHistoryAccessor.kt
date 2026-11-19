@@ -13,8 +13,7 @@ class TowerRequestHistoryAccessor(
         return towerRequestHistoryRepository.save(towerRequestHistory)
     }
 
-    /** 같은 크롤링 결과는 크롤링 시작 시각도 같아서, 이미 있으면 그 결과를 이미 반영한 것임 */
-    fun existsByTowerIdAndStartedAt(towerId: Long, startedAt: LocalDateTime): Boolean {
-        return towerRequestHistoryRepository.existsByTower_IdAndStartedAt(towerId, startedAt)
+    fun isCrawlResultApplied(towerId: Long, crawlingStartedAt: LocalDateTime): Boolean {
+        return towerRequestHistoryRepository.existsByTower_IdAndCrawlingStartedAt(towerId, crawlingStartedAt)
     }
 }

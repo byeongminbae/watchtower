@@ -15,26 +15,27 @@ function httpUrl(value: unknown): value is string {
 export function isWatch(value: unknown): value is Watch {
   return object(value) && id(value.id) && typeof value.name === "string" && httpUrl(value.url) &&
     typeof value.fetchInterval === "string" && typeof value.includeInStat === "boolean" &&
-    typeof value.status === "string" && ["CRAWLING_READY", "CRAWLING_ERROR", "CRAWLING", "USER_PAUSED", "ADMIN_PAUSED"].includes(value.status) &&
+    typeof value.detectTextChange === "boolean" && typeof value.detectImageChange === "boolean" && typeof value.ignoreDateTime === "boolean" &&
+    text(value.detectionAreaSelector) &&
+    typeof value.status === "string" && ["READY", "ERROR", "RUNNING", "PAUSED", "SUSPENDED"].includes(value.status) &&
     text(value.faviconUrl) && text(value.lastFetchedAt) && text(value.lastNotifiedAt) &&
-    (value.latestAiSummary === undefined || text(value.latestAiSummary));
+    (value.lastCrawlerResultCode === null || (typeof value.lastCrawlerResultCode === "string" &&
+      ["FETCHED", "URL_NOT_ALLOWED", "NAVIGATION_TIMEOUT", "TEXT_TOO_LARGE", "NAVIGATION_FAILED", "INVALID_SELECTOR", "UNKNOWN"].includes(value.lastCrawlerResultCode))) &&
+    text(value.latestAiSummary);
 }
 export function isCondition(value: unknown): value is WatchCondition {
   if (!object(value) || !id(value.id)) return false;
   switch (value.type) {
-    case "HTML": return true;
-    case "KEYWORD": return typeof value.keyword === "string" && typeof value.isSatisfiedAtAppearance === "boolean";
-    case "REGEX": return typeof value.regex === "string" && typeof value.isSatisfiedAtAppearance === "boolean";
+    case "KEYWORD": return typeof value.keyword === "string" && typeof value.satisfiedWhen === "string" && ["APPEAR", "DISAPPEAR"].includes(value.satisfiedWhen);
     default: return false;
   }
 }
 export function isSnapshot(value: unknown): value is WatchSnapshot {
-  return object(value) && id(value.id) && typeof value.htmlContentUrl === "string" &&
-    text(value.htmlContentDiffUrl) && text(value.screenshotUrl) && text(value.screenshotDiffUrl) &&
+  return object(value) && id(value.id) && typeof value.detectedAt === "string" && (value.highlightedScreenshotUrl === null || httpUrl(value.highlightedScreenshotUrl)) &&
     text(value.aiDiffSummary) && text(value.notifiedAt);
 }
 export function isHotUrl(value: unknown): value is HotUrl {
-  return object(value) && typeof value.domain === "string" && httpUrl(value.url) && count(value.changeCount);
+  return object(value) && typeof value.domain === "string" && httpUrl(value.url) && count(value.detectionCount);
 }
 export function isAdminMember(value: unknown): value is AdminMember {
   return object(value) && id(value.id) && typeof value.nickname === "string" && typeof value.email === "string" &&
@@ -55,8 +56,8 @@ export function offsetOf<T>(guard: ApiDataGuard<T>): ApiDataGuard<OffsetPage<T>>
     value.data.every(guard) && count(value.size) && count(value.page) && count(value.totalElements) && count(value.totalPages);
 }
 export function isTowerStats(value: unknown): value is TowerStats {
-  return object(value) && count(value.totalCount) && count(value.crawlingReadyCount) && count(value.crawlingErrorCount) &&
-    count(value.crawlingCount) && count(value.userPausedCount) && count(value.adminPausedCount);
+  return object(value) && count(value.totalCount) && count(value.readyCount) && count(value.errorCount) &&
+    count(value.runningCount) && count(value.pausedCount) && count(value.suspendedCount);
 }
 export function isMemberStats(value: unknown): value is MemberStats {
   return object(value) && count(value.totalCount) && count(value.activeCount) && count(value.bannedCount) && count(value.deletedCount);
