@@ -29,5 +29,5 @@ test("JWT 쿠키를 위조해도 관리자 페이지에 접근할 수 없을 것
   await page.goto("/admin");
   // then
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin$/);
-  await expect(page.getByRole("button", { name: "네이버로 시작하기" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Discord로 시작하기" })).toBeVisible();
 });

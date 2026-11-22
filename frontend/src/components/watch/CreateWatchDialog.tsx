@@ -14,7 +14,6 @@ import { ApiError } from "@/lib/api/errors";
 import { detectsChange, isConditionComplete, isDetectionAreaSelectorValid } from "@/lib/tower";
 import ConditionFields from "./ConditionFields";
 import DetectionFields from "./DetectionFields";
-import ChannelSelection from "./ChannelSelection";
 
 export default function CreateWatchDialog({ open, onClose, onSubmit }: {
   readonly open: boolean;
@@ -29,7 +28,6 @@ export default function CreateWatchDialog({ open, onClose, onSubmit }: {
   const [condition, setCondition] = React.useState<WatchConditionInput>({ type: "KEYWORD", keyword: "", satisfiedWhen: "APPEAR" });
   const [minutes, setMinutes] = React.useState(5);
   const [includeInStat, setIncludeInStat] = React.useState(true);
-  const [channels, setChannels] = React.useState<readonly number[]>([]);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const detecting = detectsChange(detection, addsCondition ? 1 : 0);
@@ -41,7 +39,7 @@ export default function CreateWatchDialog({ open, onClose, onSubmit }: {
     if (!valid || submitting) return;
     setSubmitting(true); setError(null);
     try {
-      await onSubmit({ name, url, fetchInterval: `PT${minutes}M`, includeInStat, ...detection, notificationChannelIds: channels, conditions: addsCondition ? [condition] : [] });
+      await onSubmit({ name, url, fetchInterval: `PT${minutes}M`, includeInStat, ...detection, conditions: addsCondition ? [condition] : [] });
       onClose();
     } catch (reason) {
       if (!(reason instanceof Error)) throw reason;
@@ -66,8 +64,6 @@ export default function CreateWatchDialog({ open, onClose, onSubmit }: {
           <Separator />
           <Field><FieldLabel htmlFor={`${id}-interval`}>확인 주기 (분)</FieldLabel><Input id={`${id}-interval`} type="number" required min={5} max={1440} step={5} value={minutes} onChange={event => setMinutes(Number(event.target.value))} /><FieldDescription>5분부터 24시간까지, 5분 단위로 설정해요.</FieldDescription></Field>
           <Field orientation="horizontal"><Switch id={`${id}-statistics`} checked={includeInStat} onCheckedChange={setIncludeInStat} /><FieldLabel htmlFor={`${id}-statistics`}>인기 URL 통계에 포함</FieldLabel></Field>
-          <Separator />
-          <ChannelSelection selected={channels} onChange={setChannels} />
         </FieldGroup>
         <DialogFooter><Button variant="outline" onClick={close} disabled={submitting}>취소</Button><Button type="submit" disabled={!valid || submitting}>{submitting ? "등록 중" : "등록"}</Button></DialogFooter>
       </form>

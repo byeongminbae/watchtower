@@ -12,8 +12,6 @@ function isMember(value: unknown): value is Member {
     value.id > 0 &&
     "nickname" in value &&
     typeof value.nickname === "string" &&
-    "email" in value &&
-    typeof value.email === "string" &&
     "profileImageUrl" in value &&
     typeof value.profileImageUrl === "string" &&
     "lastSignInAt" in value &&
@@ -32,4 +30,7 @@ export const memberApi = {
 
   deleteMember: (memberId: number) =>
     apiClient.deleteEmpty(`/bff/member/${memberId}`),
+
+  sendTestNotification: (memberId: number) =>
+    apiClient.postEmpty(`/bff/member/${memberId}/test-notification`),
 };

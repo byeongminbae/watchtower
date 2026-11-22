@@ -38,7 +38,7 @@ export function isHotUrl(value: unknown): value is HotUrl {
   return object(value) && typeof value.domain === "string" && httpUrl(value.url) && count(value.detectionCount);
 }
 export function isAdminMember(value: unknown): value is AdminMember {
-  return object(value) && id(value.id) && typeof value.nickname === "string" && typeof value.email === "string" &&
+  return object(value) && id(value.id) && typeof value.nickname === "string" &&
     typeof value.profileImageUrl === "string" && typeof value.lastSignInAt === "string" &&
     (value.role === "NORMAL" || value.role === "ADMIN") && text(value.bannedAt) && text(value.banReason) && text(value.deletedAt);
 }

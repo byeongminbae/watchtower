@@ -6,13 +6,13 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }), use
 vi.mock("@/lib/AuthContext", () => ({ useAuth: () => ({ isLoggedIn: mocks.loggedIn,
   principal: { memberId: 7, role: mocks.admin ? "ADMIN" : "NORMAL" }, member: { nickname: mocks.nickname }, logout: mocks.logout }) }));
 beforeEach(() => { vi.clearAllMocks(); mocks.admin = false; mocks.nickname = "회원"; mocks.loggedIn = true; mocks.logout.mockResolvedValue(undefined); });
-it("일반 회원은 타워와 알림 채널 메뉴를 사용할 수 있을 것이다", async () => {
+it("일반 회원은 마이페이지 메뉴를 사용할 수 있을 것이다", async () => {
   // given
   render(<Header />);
   // when
   fireEvent.click(screen.getByRole("button", { name: "회원 메뉴" }));
   // then
-  expect(await screen.findByRole("menuitem", { name: "알림 채널" })).toHaveAttribute("href", "/mypage/notifications");
+  expect(await screen.findByRole("menuitem", { name: "마이페이지" })).toHaveAttribute("href", "/mypage");
   expect(screen.queryByRole("menuitem", { name: "결제 이력" })).not.toBeInTheDocument();
 });
 it("관리자는 일반 회원 기능과 관리자 메뉴를 함께 사용할 수 있을 것이다", () => {

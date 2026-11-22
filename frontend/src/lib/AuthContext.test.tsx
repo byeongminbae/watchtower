@@ -7,7 +7,7 @@ import { ApiError } from "./api/errors";
 
 const mocks = vi.hoisted(() => ({ session: vi.fn(), member: vi.fn(), logout: vi.fn() }));
 vi.mock("@/lib/api", () => ({ authApi: { getSession: mocks.session, logout: mocks.logout }, memberApi: { getMember: mocks.member } }));
-const profile = { id: 7, nickname: "회원", email: "test@example.com", profileImageUrl: "", lastSignInAt: "2026-10-26T10:00:00" };
+const profile = { id: 7, nickname: "회원", profileImageUrl: "", lastSignInAt: "2026-10-26T10:00:00" };
 function Probe() {
   const auth = useAuth();
   const [error, setError] = React.useState("");

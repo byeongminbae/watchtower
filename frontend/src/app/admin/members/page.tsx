@@ -51,7 +51,7 @@ export default function AdminMembersPage() {
       <p className="text-sm text-muted-foreground">회원 정보와 이용 상태를 확인하고 권한을 관리해요.</p></div>
     <Card className="gap-0 py-0">
       <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0 flex-1 sm:max-w-md"><ListControls value={criteria} label="닉네임 또는 이메일 접두사 검색" onChange={next => { setCriteria(next); setPage(0); }} /></div>
+        <div className="min-w-0 flex-1 sm:max-w-md"><ListControls value={criteria} label="닉네임 접두사 검색" onChange={next => { setCriteria(next); setPage(0); }} /></div>
         {data && <Badge variant="secondary" className="shrink-0">전체 {data.totalElements.toLocaleString("ko-KR")}명</Badge>}
       </div>
     {loading && data === null && <div role="status" aria-label="회원 불러오는 중" className="flex flex-col gap-3 p-4"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
@@ -61,7 +61,7 @@ export default function AdminMembersPage() {
         {data.data.map(member => <TableRow key={member.id}>
           <TableCell data-label="회원"><div className="flex items-center gap-3">
             <Avatar><AvatarImage src={member.profileImageUrl || undefined} alt="" /><AvatarFallback>{member.nickname[0]}</AvatarFallback></Avatar>
-            <div className="flex min-w-0 flex-col gap-1"><p className="font-medium">{member.nickname}</p><p className="text-xs text-muted-foreground">{member.email}</p></div>
+            <div className="flex min-w-0 flex-col gap-1"><p className="font-medium">{member.nickname}</p></div>
           </div></TableCell>
           <TableCell data-label="권한"><Badge variant="outline">{member.role === "ADMIN" ? "관리자" : "일반 회원"}</Badge></TableCell>
           <TableCell data-label="상태"><div className="flex flex-col gap-2">
@@ -77,7 +77,7 @@ export default function AdminMembersPage() {
               onClick={() => { setReason(""); setActionError(null); setTarget({ member, action: "ban" }); }}>{member.bannedAt ? "정지 해제" : "정지"}</Button>
           </div></TableCell>
         </TableRow>)}
-      </ResponsiveTable> : <Empty className="m-4 rounded-xl border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><UsersRound /></EmptyMedia><EmptyTitle>조회된 회원이 없어요.</EmptyTitle><EmptyDescription>다른 이름이나 이메일로 검색해 보세요.</EmptyDescription></EmptyHeader></Empty>}
+      </ResponsiveTable> : <Empty className="m-4 rounded-xl border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><UsersRound /></EmptyMedia><EmptyTitle>조회된 회원이 없어요.</EmptyTitle><EmptyDescription>다른 닉네임으로 검색해 보세요.</EmptyDescription></EmptyHeader></Empty>}
       <div className="flex items-center justify-between gap-3 border-t p-4">
         <p className="text-sm tabular-nums text-muted-foreground">{data.totalPages === 0 ? 0 : page + 1} / {data.totalPages} 페이지</p>
         <div className="flex gap-2"><Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>이전</Button>

@@ -59,3 +59,9 @@ export async function forwardBackendRequest(request: NextRequest, pathname: stri
     return bffError(502, "FRONTEND_BACKEND_REQUEST_FAILED", "서버 요청을 처리할 수 없어요.");
   }
 }
+
+export async function forwardBackendRedirect(request: NextRequest, pathname: string, searchParams: URLSearchParams): Promise<Response> {
+  const response = await forwardBackendRequest(request, pathname, { method: "GET", searchParams });
+  if (response.status >= 300 && response.status < 400) return response;
+  return new Response(null, { status: 303, headers: { location: "/login/callback?error=server_error", "cache-control": "no-store" } });
+}

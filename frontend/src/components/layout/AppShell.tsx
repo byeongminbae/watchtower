@@ -3,7 +3,7 @@
 import { Fragment, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, LayoutDashboard, Radar, ShieldCheck, UserRound, UsersRound, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Radar, ShieldCheck, UserRound, UsersRound, type LucideIcon } from "lucide-react";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -15,7 +15,6 @@ import { useAuth } from "@/lib/AuthContext";
 type NavigationItem = { readonly href: string; readonly label: string; readonly icon: LucideIcon };
 const memberNavigation: readonly NavigationItem[] = [
   { href: "/watches", label: "내 타워", icon: Radar },
-  { href: "/mypage/notifications", label: "알림 채널", icon: Bell },
   { href: "/mypage", label: "마이페이지", icon: UserRound }
 ];
 const adminNavigation: readonly NavigationItem[] = [
@@ -28,7 +27,6 @@ const adminNavigation: readonly NavigationItem[] = [
 function breadcrumbsOf(pathname: string): readonly { readonly label: string; readonly href?: string }[] {
   if (/^\/watches\/[^/]+$/.test(pathname)) return [{ label: "내 타워", href: "/watches" }, { label: "타워 상세" }];
   if (pathname.startsWith("/watches")) return [{ label: "내 타워" }];
-  if (pathname.startsWith("/mypage/notifications")) return [{ label: "마이페이지", href: "/mypage" }, { label: "알림 채널" }];
   if (pathname.startsWith("/mypage")) return [{ label: "마이페이지" }];
   if (pathname.startsWith("/admin/members")) return [{ label: "관리자", href: "/admin" }, { label: "회원 관리" }];
   if (pathname.startsWith("/admin/watches")) return [{ label: "관리자", href: "/admin" }, { label: "타워 관리" }];

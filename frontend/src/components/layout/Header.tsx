@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, ChevronDown, LogOut, Settings, ShieldCheck, UsersRound, X } from "lucide-react";
+import { ChevronDown, LogOut, Settings, ShieldCheck, UsersRound, X } from "lucide-react";
 import LighthouseMark from "@/components/common/LighthouseMark";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -51,7 +51,6 @@ export default function Header() {
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>내 계정</DropdownMenuLabel>
                   <DropdownMenuItem render={<Link href="/mypage" />}><Settings />마이페이지</DropdownMenuItem>
-                  <DropdownMenuItem render={<Link href="/mypage/notifications" />}><Bell />알림 채널</DropdownMenuItem>
                 </DropdownMenuGroup>
                 {principal?.role === "ADMIN" && <>
                   <DropdownMenuSeparator />

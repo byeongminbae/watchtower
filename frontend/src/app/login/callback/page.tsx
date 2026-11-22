@@ -14,74 +14,50 @@ import { authApi } from "@/lib/api";
 import {
   clearOAuthTransaction,
   consumeOAuthTransaction,
-  sanitizeReturnPath,
 } from "@/lib/oauthTransaction";
-
-const OAUTH_STORAGE_KEY = "watchtower_oauth_transaction";
-
-type CallbackQuery = {
-  readonly code: string | null;
-  readonly state: string | null;
-  readonly providerError: boolean;
-};
 
 type CallbackStatus =
   | { readonly kind: "loading" }
   | { readonly kind: "success" }
-  | { readonly kind: "provider-error" }
-  | { readonly kind: "invalid-state" }
-  | { readonly kind: "exchange-failure" };
+  | { readonly kind: "failure"; readonly errorCode: string | null };
 
-function captureAndCleanQuery(): CallbackQuery {
-  const params = new URLSearchParams(globalThis.location.search);
-  const query: CallbackQuery = {
-    code: params.get("code"),
-    state: params.get("state"),
-    providerError: params.has("error"),
-  };
+function captureAndCleanErrorCode(): string | null {
+  const errorCode = new URLSearchParams(globalThis.location.search).get("error");
   globalThis.history.replaceState(
     globalThis.history.state,
     "",
     "/login/callback",
   );
-  return query;
+  return errorCode;
 }
 
-function captureStoredReturnPath(): string | null {
-  const raw = sessionStorage.getItem(OAUTH_STORAGE_KEY);
-  if (raw === null) return null;
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (error) {
-    if (error instanceof SyntaxError) return null;
-    throw error;
+function failureMessageFor(errorCode: string | null): string {
+  switch (errorCode) {
+    case "access_denied":
+      return "Discord 로그인을 취소했거나 거부했어요.";
+    case "authorization_request_not_found":
+      return "로그인 요청이 유효하지 않거나 만료됐어요.";
+    case "AUT_006":
+      return "탈퇴한 계정이에요.";
+    case "AUT_007":
+      return "이용이 정지된 계정이에요.";
+    case "IDP_002":
+      return "다른 회원에 연결된 Discord 계정이에요.";
+    case "IDP_003":
+      return "이미 Discord 계정이 연결되어 있어요.";
+    default:
+      return "로그인을 완료할 수 없어요. 다시\u00a0시도해 주세요.";
   }
-
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("returnPath" in parsed) ||
-    typeof parsed.returnPath !== "string"
-  ) {
-    return null;
-  }
-  return parsed.returnPath;
 }
 
 function messageFor(status: CallbackStatus): string {
   switch (status.kind) {
     case "loading":
-      return "네이버 로그인을 확인하고 있습니다.";
+      return "Discord 로그인을 확인하고 있어요.";
     case "success":
-      return "로그인이 완료되었습니다. 이동하고 있습니다.";
-    case "provider-error":
-      return "네이버 로그인이 취소되었거나 거부되었습니다.";
-    case "invalid-state":
-      return "로그인 요청이 유효하지 않거나 만료되었습니다.";
-    case "exchange-failure":
-      return "로그인을 완료할 수 없습니다. 다시\u00a0시도해주세요.";
+      return "로그인했어요. 이동하고 있어요.";
+    case "failure":
+      return failureMessageFor(status.errorCode);
     default: {
       const exhaustive: never = status;
       return exhaustive;
@@ -92,7 +68,7 @@ function messageFor(status: CallbackStatus): string {
 export default function OAuthCallbackPage(): React.JSX.Element {
   const router = useRouter();
   const { acceptSession } = useAuth();
-  const [query, setQuery] = React.useState<CallbackQuery | null>(null);
+  const [errorCode, setErrorCode] = React.useState<string | null | undefined>(undefined);
   const [status, setStatus] = React.useState<CallbackStatus>({ kind: "loading" });
   const captured = React.useRef(false);
   const started = React.useRef(false);
@@ -101,66 +77,43 @@ export default function OAuthCallbackPage(): React.JSX.Element {
   React.useLayoutEffect(() => {
     if (captured.current) return;
     captured.current = true;
-    setQuery(captureAndCleanQuery());
+    setErrorCode(captureAndCleanErrorCode());
   }, []);
 
   React.useEffect(() => {
     mounted.current = true;
-    if (query !== null && !started.current) {
+    if (errorCode !== undefined && !started.current) {
       started.current = true;
       void Promise.resolve().then(() => {
         if (!mounted.current) return;
-        if (query.providerError) {
+        if (errorCode !== null) {
           clearOAuthTransaction();
-          setStatus({ kind: "provider-error" });
-        } else if (
-          query.code === null ||
-          query.code.length === 0 ||
-          query.state === null ||
-          query.state.length === 0
-        ) {
-          if (query.state === null || query.state.length === 0) {
-            clearOAuthTransaction();
-          } else {
-            consumeOAuthTransaction(query.state);
-          }
-          setStatus({ kind: "invalid-state" });
-        } else {
-          const storedReturnPath = captureStoredReturnPath();
-          const returnPath = consumeOAuthTransaction(query.state);
-          if (
-            returnPath === null ||
-            storedReturnPath === null ||
-            sanitizeReturnPath(storedReturnPath) !== storedReturnPath
-          ) {
-            setStatus({ kind: "invalid-state" });
-          } else {
-            void authApi.loginWithNaverCallback(query.code, query.state).then(
-              (response) => {
-                if (!mounted.current) return;
-                if (
-                  !acceptSession(response.data)
-                ) {
-                  setStatus({ kind: "exchange-failure" });
-                  return;
-                }
-                setStatus({ kind: "success" });
-                router.replace(returnPath);
-              },
-              () => {
-                if (mounted.current) setStatus({ kind: "exchange-failure" });
-              },
-            );
-          }
+          setStatus({ kind: "failure", errorCode });
+          return;
         }
+        const returnPath = consumeOAuthTransaction() ?? "/";
+        void authApi.getSession().then(
+          (response) => {
+            if (!mounted.current) return;
+            if (!acceptSession(response.data)) {
+              setStatus({ kind: "failure", errorCode: null });
+              return;
+            }
+            setStatus({ kind: "success" });
+            router.replace(returnPath);
+          },
+          () => {
+            if (mounted.current) setStatus({ kind: "failure", errorCode: null });
+          },
+        );
       });
     }
     return () => {
       mounted.current = false;
     };
-  }, [acceptSession, query, router]);
+  }, [acceptSession, errorCode, router]);
 
-  const isProgress = status.kind === "loading" || status.kind === "success";
+  const isProgress = status.kind !== "failure";
 
   return (
     <main className="flex min-h-[calc(100dvh-4rem)] items-center justify-center px-6 py-12">

@@ -137,7 +137,7 @@ function redactUrl(url: string): string {
 }
 
 function isOAuthCallbackUrl(url: string): boolean {
-  return /\/auth\/naver\/callback(?:[/?#]|$)/u.test(url);
+  return /\/auth\/discord\/callback(?:[/?#]|$)/u.test(url);
 }
 
 export function logRequest({ method, url, headers, body }: RequestLogInput): void {

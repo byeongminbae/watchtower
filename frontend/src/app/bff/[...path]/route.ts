@@ -4,6 +4,7 @@ import { bffError, forwardBackendRequest } from "@/lib/server/backendGateway";
 const routes: readonly [RegExp, readonly string[]][] = [
   [/^auth\/(session|csrf)$/, ["GET"]],
   [/^member\/[1-9]\d*\/towers$/, ["GET"]],
+  [/^member\/[1-9]\d*\/test-notification$/, ["POST"]],
   [/^towers$/, ["POST"]],
   [/^towers\/trending$/, ["GET"]],
   [/^towers\/[1-9]\d*$/, ["GET", "PUT", "DELETE"]],
@@ -12,8 +13,6 @@ const routes: readonly [RegExp, readonly string[]][] = [
   [/^towers\/[1-9]\d*\/snapshots$/, ["GET"]],
   [/^towers\/[1-9]\d*\/crawl-retry$/, ["POST"]],
   [/^towers\/[1-9]\d*\/(pause|resume)$/, ["POST"]],
-  [/^notification\/channels$/, ["GET", "POST"]],
-  [/^notification\/channels\/[1-9]\d*$/, ["GET", "PUT", "DELETE"]],
   [/^admin\/(towers|members)$/, ["GET"]],
   [/^admin\/towers\/[1-9]\d*$/, ["PUT"]],
   [/^admin\/members\/[1-9]\d*\/(roles|status)$/, ["PUT"]],
