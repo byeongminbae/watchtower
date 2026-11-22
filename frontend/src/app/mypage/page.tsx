@@ -1,11 +1,10 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { BellRing, CheckCircle2, CircleAlert, UserRound } from "lucide-react";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertDialogAction, AlertDialogCancel, AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -104,8 +103,7 @@ export default function MyPage() {
         </Card>
       </form>
 
-      <div className="flex items-center justify-between gap-3">
-        <Link href="/watches" className={buttonVariants({ variant: "ghost" })}>내 타워</Link>
+      <div className="flex justify-end">
         <Button variant="destructive" onClick={() => setDeleteOpen(true)}>회원 탈퇴</Button>
       </div>
     </>}

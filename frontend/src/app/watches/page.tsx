@@ -26,6 +26,7 @@ export default function WatchesPage() {
   const [history, setHistory] = React.useState<(Cursor | undefined)[]>([]);
   const { data, loading, error, refetch } = useApiData(() => principal === null ? Promise.resolve(null) : watchApi.listMemberWatches(principal.memberId, { ...criteria, cursorId: cursor?.id, cursorValue: cursor?.value ?? undefined }).then(r => r.data), [principal?.memberId, cursor, criteria]);
   const selected = data?.data.find(watch => watch.id === selectedId) ?? data?.data[0];
+  const nextCursor: Cursor | null = data?.hasNext && data.nextCursorId !== null ? { id: data.nextCursorId, value: data.nextCursorValue } : null;
 
   function previousPage() {
     setCursor(history[history.length - 1]);
@@ -52,11 +53,13 @@ export default function WatchesPage() {
         </CardContent>
         <CardFooter>
           <nav aria-label="타워 목록 페이지" className="flex w-full items-center justify-between gap-2">
-            <Button variant="outline" size="icon-sm" aria-label="이전" disabled={loading || history.length === 0} onClick={previousPage}><ArrowLeft /></Button>
             <p className="text-xs text-muted-foreground tabular-nums">{history.length + 1} 페이지</p>
-            <Button variant="outline" size="icon-sm" aria-label="다음" disabled={loading || Boolean(error) || !data?.hasNext || data.nextCursorId === null} onClick={() => {
-              if (data?.nextCursorId != null) { setHistory([...history, cursor]); setCursor({ id: data.nextCursorId, value: data.nextCursorValue }); setSelectedId(null); }
-            }}><ArrowRight /></Button>
+            <div className="flex items-center gap-1">
+              {history.length > 0 && <Button variant="outline" size="icon-sm" aria-label="이전" disabled={loading} onClick={previousPage}><ArrowLeft /></Button>}
+              {nextCursor !== null && <Button variant="outline" size="icon-sm" aria-label="다음" disabled={loading || Boolean(error)} onClick={() => {
+                setHistory([...history, cursor]); setCursor(nextCursor); setSelectedId(null);
+              }}><ArrowRight /></Button>}
+            </div>
           </nav>
         </CardFooter>
       </Card>
