@@ -1,6 +1,7 @@
 import type { EnvironmentConfig, RunModeConfig } from './profile.js';
 
 const QUEUE_ENDPOINT = 'https://cell-1.queue.messaging.ap-osaka-1.oci.oraclecloud.com';
+const COMMON_SECRET_VAULT_ID = 'ocid1.vault.oc1.ap-osaka-1.fzvqakbgaafqe.abvwsljrroq6wci3nv5uz6a2y4hii4kzzmxtgr26mi5mjygc5zm2isq4budq';
 
 const dev: EnvironmentConfig = {
   deploymentEnvironment: 'dev',
@@ -34,14 +35,12 @@ export const RUN_MODES: Record<string, RunModeConfig> = {
     objectStorageNamespace: 'ax7wkezrucld',
     concurrency: 2,
     environments: [dev, prod],
-    secretVaultId:
-      'ocid1.vault.oc1.ap-osaka-1.fzvog2tkaadhq.abvwsljrjjhqqmg4rbn7dmzbn6sgar56lkn6yvav53mjgykufzgr7e6qbw7q'
+    secretVaultId: COMMON_SECRET_VAULT_ID
   },
   local: {
     objectStorageNamespace: 'ax7wkezrucld',
     concurrency: 1,
     environments: [local],
-    secretVaultId:
-      'ocid1.vault.oc1.ap-osaka-1.fzvog2tgaafqy.abvwsljrjnlwob4t4xlgkhpprljovqbqz3kxpc552xfkocpn466xnscnq5oa'
+    secretVaultId: COMMON_SECRET_VAULT_ID
   }
 };
