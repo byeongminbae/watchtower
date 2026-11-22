@@ -3,6 +3,7 @@ package kr.byeongmin.watchtower.domain.member.service
 import kr.byeongmin.watchtower.domain.member.accessor.MemberAccessor
 import kr.byeongmin.watchtower.domain.member.dto.MemberResponseDto
 import kr.byeongmin.watchtower.domain.member.dto.MemberUpdateRequestDto
+import kr.byeongmin.watchtower.domain.member.sender.MemberNotificationSender
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
 import kr.byeongmin.watchtower.domain.tower.dto.TowerResponseDto
@@ -21,6 +22,7 @@ class MemberService(
     private val memberAccessor: MemberAccessor,
     private val towerAccessor: TowerAccessor,
     private val towerSnapshotAccessor: TowerSnapshotAccessor,
+    private val memberNotificationSender: MemberNotificationSender,
     private val timeProvider: TimeProvider
 ) {
     fun getMember(memberId: Long): SuccessDataResponse<MemberResponseDto> {
@@ -63,6 +65,14 @@ class MemberService(
         member.profileImageUrl = memberUpdateRequestDto.profileImageUrl
 
         return SuccessDataResponse(MemberResponseDto.from(member))
+    }
+
+    @Transactional(readOnly = true)
+    fun sendTestNotification(memberId: Long): SuccessResponse {
+        val member = memberAccessor.getMember(memberId)
+
+        memberNotificationSender.sendTestNotification(member)
+        return SuccessResponse()
     }
 
     // TODO: 결제 넣으면 여기에 환불 로직도 넣어야됨

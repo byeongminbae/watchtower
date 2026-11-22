@@ -2,6 +2,7 @@ package kr.byeongmin.watchtower.domain.tower.service
 
 import kr.byeongmin.watchtower.domain.member.accessor.MemberAccessor
 import kr.byeongmin.watchtower.domain.member.entity.Member
+import kr.byeongmin.watchtower.domain.notification.entity.Notification
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerRequestHistoryAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
@@ -16,6 +17,7 @@ import kr.byeongmin.watchtower.domain.tower.entity.TowerSnapshot
 import kr.byeongmin.watchtower.domain.tower.enums.CrawlerResultCode
 import kr.byeongmin.watchtower.domain.tower.enums.PresenceChange
 import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
+import kr.byeongmin.watchtower.domain.tower.sender.TowerNotificationSender
 import kr.byeongmin.watchtower.domain.tower.vo.DetectionContent
 import kr.byeongmin.watchtower.domain.tower.vo.Keyword
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
@@ -39,6 +41,7 @@ class CrawlResultConsumerServiceTest {
     private val towerSnapshotAccessor = mock<TowerSnapshotAccessor>()
     private val towerRequestHistoryAccessor = mock<TowerRequestHistoryAccessor>()
     private val memberAccessor = mock<MemberAccessor>()
+    private val towerNotificationSender = mock<TowerNotificationSender>()
     private val adminNotifier = mock<AdminNotifier>()
     private val snapshotStorageClient = mock<SnapshotStorageClient>()
     private val transactionManager = mock<PlatformTransactionManager> {
@@ -55,6 +58,7 @@ class CrawlResultConsumerServiceTest {
         towerSnapshotAccessor = towerSnapshotAccessor,
         towerRequestHistoryAccessor = towerRequestHistoryAccessor,
         memberAccessor = memberAccessor,
+        towerNotificationSender = towerNotificationSender,
         snapshotStorageClient = snapshotStorageClient,
         objectMapper = objectMapper,
         transactionTemplate = TransactionTemplate(transactionManager),
@@ -203,7 +207,7 @@ class CrawlResultConsumerServiceTest {
         verify(towerSnapshotAccessor).save(savedSnapshot.capture())
         assertFalse(savedSnapshot.firstValue.isChangeDetected)
         assertSame(savedHistory.firstValue, savedSnapshot.firstValue.towerRequestHistory)
-        verifyNoInteractions(snapshotStorageClient)
+        verifyNoInteractions(snapshotStorageClient, towerNotificationSender)
         verify(tower, never()).detectsChange(any(), any())
     }
 
@@ -227,6 +231,45 @@ class CrawlResultConsumerServiceTest {
         assertTrue(savedSnapshot.firstValue.isChangeDetected)
         assertSame(savedHistory.firstValue, savedSnapshot.firstValue.towerRequestHistory)
         assertEquals(textObjectName, savedSnapshot.firstValue.textObjectName)
+    }
+
+    @Test
+    fun `변화를 감지하면 변경 알림을 보내고 그 알림을 변화를 감지한 버전에 연결함`() {
+        /** given */
+        val previousSnapshot = previousSnapshot(previousTextHash, previousTextObjectName, imageHash = null)
+        val notification = mock<Notification>()
+        whenever(crawlQueueClient.fetchCrawlResults()).thenReturn(listOf(fetchedResultMessage("receipt", 200)))
+        whenever(towerAccessor.findTower(7L)).thenReturn(tower)
+        whenever(towerSnapshotAccessor.findLatestSnapshot(7L)).thenReturn(previousSnapshot)
+        doReturn(true).whenever(tower).detectsChange(any(), any())
+        whenever(towerNotificationSender.sendChangeDetected(tower)).thenReturn(notification)
+
+        /** when */
+        crawlResultConsumerService.applyCrawlResults()
+
+        /** then */
+        val savedSnapshot = argumentCaptor<TowerSnapshot>()
+        verify(towerSnapshotAccessor).save(savedSnapshot.capture())
+        assertSame(notification, savedSnapshot.firstValue.notification)
+    }
+
+    @Test
+    fun `직전 버전과 달라도 감지 조건을 충족하지 않은 버전은 변경 알림을 보내지 않음`() {
+        /** given */
+        val previousSnapshot = previousSnapshot(previousTextHash, previousTextObjectName, imageHash = null)
+        whenever(crawlQueueClient.fetchCrawlResults()).thenReturn(listOf(fetchedResultMessage("receipt", 200)))
+        whenever(towerAccessor.findTower(7L)).thenReturn(tower)
+        whenever(towerSnapshotAccessor.findLatestSnapshot(7L)).thenReturn(previousSnapshot)
+        doReturn(false).whenever(tower).detectsChange(any(), any())
+
+        /** when */
+        crawlResultConsumerService.applyCrawlResults()
+
+        /** then */
+        val savedSnapshot = argumentCaptor<TowerSnapshot>()
+        verify(towerSnapshotAccessor).save(savedSnapshot.capture())
+        assertNull(savedSnapshot.firstValue.notification)
+        verifyNoInteractions(towerNotificationSender)
     }
 
     @Test

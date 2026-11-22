@@ -1,6 +1,7 @@
 package kr.byeongmin.watchtower.domain.tower.entity
 
 import jakarta.persistence.*
+import kr.byeongmin.watchtower.domain.notification.entity.Notification
 import kr.byeongmin.watchtower.domain.tower.vo.DetectionContent
 import kr.byeongmin.watchtower.global.entity.Base
 import java.time.LocalDateTime
@@ -33,7 +34,8 @@ class TowerSnapshot private constructor(
     val highlightedScreenshotObjectName: String?,
     val isChangeDetected: Boolean,
     val aiDiffSummary: String?,
-    val notifiedAt: LocalDateTime?
+    @OneToOne(fetch = FetchType.LAZY)
+    val notification: Notification?
 ) : Base() {
     @Id
     @GeneratedValue(
@@ -46,6 +48,14 @@ class TowerSnapshot private constructor(
         allocationSize = 30
     )
     override val id: Long? = null
+
+    var notifiedAt: LocalDateTime? = null
+        protected set
+
+    fun markNotified(notifiedAt: LocalDateTime) {
+        this.notifiedAt = notifiedAt
+        tower.lastNotifiedAt = notifiedAt
+    }
 
     fun selectTextHash(ignoreDateTime: Boolean): String {
         if (ignoreDateTime) {
@@ -84,7 +94,7 @@ class TowerSnapshot private constructor(
             screenshotObjectName: String? = null,
             highlightedScreenshotObjectName: String? = null,
             aiDiffSummary: String? = null,
-            notifiedAt: LocalDateTime? = null
+            notification: Notification? = null
         ): TowerSnapshot {
             val tower = towerRequestHistory.tower
             val snapshot = TowerSnapshot(
@@ -99,7 +109,7 @@ class TowerSnapshot private constructor(
                 highlightedScreenshotObjectName = highlightedScreenshotObjectName,
                 isChangeDetected = isChangeDetected,
                 aiDiffSummary = aiDiffSummary,
-                notifiedAt = notifiedAt
+                notification = notification
             )
             tower.addSnapshot(snapshot)
 

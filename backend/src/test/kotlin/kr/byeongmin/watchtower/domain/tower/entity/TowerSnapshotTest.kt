@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
+import java.time.LocalDateTime
 import kotlin.test.*
 
 class TowerSnapshotTest {
@@ -74,5 +75,19 @@ class TowerSnapshotTest {
 
         /** then */
         assertEquals(listOf(textObjectName, "towers/7/screenshot.png"), objectNames)
+    }
+
+    @Test
+    fun `변경 알림을 보낸 시각을 스냅샷과 타워에 함께 남김`() {
+        /** given */
+        val snapshot = snapshot()
+        val notifiedAt = LocalDateTime.of(2026, 11, 21, 3, 0)
+
+        /** when */
+        snapshot.markNotified(notifiedAt)
+
+        /** then */
+        assertEquals(notifiedAt, snapshot.notifiedAt)
+        verify(tower).lastNotifiedAt = notifiedAt
     }
 }

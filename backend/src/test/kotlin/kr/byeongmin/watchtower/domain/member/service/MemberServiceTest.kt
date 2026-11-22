@@ -3,6 +3,7 @@ package kr.byeongmin.watchtower.domain.member.service
 import kr.byeongmin.watchtower.domain.member.accessor.MemberAccessor
 import kr.byeongmin.watchtower.domain.member.dto.MemberUpdateRequestDto
 import kr.byeongmin.watchtower.domain.member.entity.Member
+import kr.byeongmin.watchtower.domain.member.sender.MemberNotificationSender
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
 import kr.byeongmin.watchtower.domain.tower.dto.TowerCreateRequestDto
@@ -26,6 +27,7 @@ class MemberServiceTest {
     private val memberAccessor = mock<MemberAccessor>()
     private val towerAccessor = mock<TowerAccessor>()
     private val towerSnapshotAccessor = mock<TowerSnapshotAccessor>()
+    private val memberNotificationSender = mock<MemberNotificationSender>()
     private val now = LocalDateTime.of(2026, 10, 20, 12, 0)
     private val timeProvider = mock<TimeProvider> {
         on { now() } doReturn now
@@ -35,6 +37,7 @@ class MemberServiceTest {
         memberAccessor = memberAccessor,
         towerAccessor = towerAccessor,
         towerSnapshotAccessor = towerSnapshotAccessor,
+        memberNotificationSender = memberNotificationSender,
         timeProvider = timeProvider
     )
 
@@ -223,5 +226,17 @@ class MemberServiceTest {
 
         /** then */
         assertNull(member.deletedAt)
+    }
+
+    @Test
+    fun `회원은 자신에게 연결된 계정으로 테스트 알림을 보낼 수 있음`() {
+        /** given */
+        whenever(memberAccessor.getMember(21L)).thenReturn(member)
+
+        /** when */
+        memberService.sendTestNotification(21L)
+
+        /** then */
+        verify(memberNotificationSender).sendTestNotification(member)
     }
 }

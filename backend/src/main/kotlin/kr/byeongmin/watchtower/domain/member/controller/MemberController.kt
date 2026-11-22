@@ -57,6 +57,15 @@ class MemberController(
         )
     }
 
+    @Operation(summary = "회원에 연결된 계정으로 테스트 알림 발송")
+    @PostMapping("/{memberId}/test-notification")
+    @OwnerOnly
+    fun sendTestNotification(
+        @PathVariable memberId: Long
+    ): SuccessResponse {
+        return memberService.sendTestNotification(memberId)
+    }
+
     @Operation(summary = "회원 탈퇴 (회원과 소유 리소스 논리 삭제)")
     @DeleteMapping("/{memberId}")
     @OwnerOnly

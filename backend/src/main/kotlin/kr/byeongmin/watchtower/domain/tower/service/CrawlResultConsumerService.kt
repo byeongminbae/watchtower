@@ -13,6 +13,7 @@ import kr.byeongmin.watchtower.domain.tower.dto.QueueResultMessageDto
 import kr.byeongmin.watchtower.domain.tower.entity.Tower
 import kr.byeongmin.watchtower.domain.tower.entity.TowerRequestHistory
 import kr.byeongmin.watchtower.domain.tower.entity.TowerSnapshot
+import kr.byeongmin.watchtower.domain.tower.sender.TowerNotificationSender
 import kr.byeongmin.watchtower.global.alert.AdminNotifier
 import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.utils.ifNullThrow
@@ -34,6 +35,7 @@ class CrawlResultConsumerService(
     private val towerSnapshotAccessor: TowerSnapshotAccessor,
     private val towerRequestHistoryAccessor: TowerRequestHistoryAccessor,
     private val memberAccessor: MemberAccessor,
+    private val towerNotificationSender: TowerNotificationSender,
     private val snapshotStorageClient: SnapshotStorageClient,
     private val objectMapper: ObjectMapper,
     private val transactionTemplate: TransactionTemplate,
@@ -105,7 +107,7 @@ class CrawlResultConsumerService(
         val tower = requestHistory.tower
         val latestSnapshot = towerSnapshotAccessor.findLatestSnapshot(tower.id.ifNullThrow())
         if (latestSnapshot.isNull()) {
-            saveSnapshot(requestHistory, pageContent, textObjectName, isChangeDetected = false)
+            saveSnapshotAndNotify(requestHistory, pageContent, textObjectName, isChangeDetected = false)
             return
         }
 
@@ -121,7 +123,7 @@ class CrawlResultConsumerService(
             return
         }
 
-        saveSnapshot(
+        saveSnapshotAndNotify(
             requestHistory = requestHistory,
             pageContent = pageContent,
             textObjectName = textObjectName,
@@ -129,22 +131,27 @@ class CrawlResultConsumerService(
         )
     }
 
-    private fun saveSnapshot(
+    private fun saveSnapshotAndNotify(
         requestHistory: TowerRequestHistory,
         pageContent: PageContent,
         textObjectName: String,
         isChangeDetected: Boolean
     ) {
-        towerSnapshotAccessor.save(
-            TowerSnapshot.of(
-                towerRequestHistory = requestHistory,
-                textObjectName = textObjectName,
-                textHash = pageContent.textHash,
-                dateTimeIgnoredTextHash = pageContent.dateTimeIgnoredTextHash,
-                detectionAreaSelector = pageContent.detectionAreaSelector,
-                imageHash = pageContent.imageHash,
-                isChangeDetected = isChangeDetected
-            )
+        val notification = if (isChangeDetected) {
+            towerNotificationSender.sendChangeDetected(requestHistory.tower)
+        } else {
+            null
+        }
+        val towerSnapshot = TowerSnapshot.of(
+            towerRequestHistory = requestHistory,
+            textObjectName = textObjectName,
+            textHash = pageContent.textHash,
+            dateTimeIgnoredTextHash = pageContent.dateTimeIgnoredTextHash,
+            detectionAreaSelector = pageContent.detectionAreaSelector,
+            imageHash = pageContent.imageHash,
+            isChangeDetected = isChangeDetected,
+            notification = notification
         )
+        towerSnapshotAccessor.save(towerSnapshot)
     }
 }

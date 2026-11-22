@@ -172,4 +172,20 @@ class MemberControllerTest {
 
         verify(memberService).deleteMember(21L)
     }
+
+    @Test
+    fun `회원은 자신에게 테스트 알림을 요청할 수 있음`() {
+        /** given */
+        whenever(memberService.sendTestNotification(21L)).thenReturn(SuccessResponse())
+
+        /** when */
+        val result = mockMvc.perform(post("/api/v1/member/21/test-notification"))
+
+        /** then */
+        result
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.isSuccess").value(true))
+
+        verify(memberService).sendTestNotification(21L)
+    }
 }
