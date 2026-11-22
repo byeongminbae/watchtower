@@ -1,8 +1,6 @@
 package kr.byeongmin.watchtower.domain.tower.entity
 
 import kr.byeongmin.watchtower.domain.member.entity.Member
-import kr.byeongmin.watchtower.domain.notification.entity.NotificationChannel
-import kr.byeongmin.watchtower.domain.notification.enums.NotificationChannelType
 import kr.byeongmin.watchtower.domain.subscription.entity.Plan
 import kr.byeongmin.watchtower.domain.tower.dto.TowerCreateRequestDto
 import kr.byeongmin.watchtower.domain.tower.enums.CrawlerResultCode
@@ -351,45 +349,19 @@ class TowerTest {
     }
 
     @Test
-    fun `타워를 삭제할 때 이미 삭제된 스냅샷과 감지 조건 및 채널 연결은 건너뜀`() {
+    fun `타워를 삭제할 때 이미 삭제된 스냅샷과 감지 조건은 건너뜀`() {
         val snapshot = snapshot()
         val condition = KeywordCondition.from(tower, Keyword("재고"), PresenceChange.APPEAR)
-        val channel = NotificationChannel.from(
-            member = owner,
-            name = "개인 알림",
-            type = NotificationChannelType.DISCORD,
-            webhookUrl = "https://discord.com/api/webhooks/example"
-        )
-        val link = TowerNotificationChannel.of(tower, channel)
         snapshot.delete()
         condition.delete()
-        link.delete()
         val snapshotDeletedAt = snapshot.deletedAt
         val conditionDeletedAt = condition.deletedAt
-        val linkDeletedAt = link.deletedAt
 
         tower.delete()
 
         assertTrue(tower.isDeleted())
         assertEquals(snapshotDeletedAt, snapshot.deletedAt)
         assertEquals(conditionDeletedAt, condition.deletedAt)
-        assertEquals(linkDeletedAt, link.deletedAt)
-    }
-
-    @Test
-    fun `타워를 삭제해도 알림 채널은 남고 연결만 삭제 처리됨`() {
-        val channel = NotificationChannel.from(
-            member = owner,
-            name = "개인 알림",
-            type = NotificationChannelType.DISCORD,
-            webhookUrl = "https://discord.com/api/webhooks/example"
-        )
-        val link = TowerNotificationChannel.of(tower, channel)
-
-        tower.delete()
-
-        assertTrue(link.isDeleted())
-        assertFalse(channel.isDeleted())
     }
 
     @Test

@@ -33,8 +33,7 @@ class MemberAccessor(
     }
 
     fun findMembers(offsetPaginationRequestDto: OffsetPaginationRequestDto, sortField: BaseSortField): Page<Member> {
-        return memberRepository.findAllByEmailStartingWithOrNicknameStartingWith(
-            offsetPaginationRequestDto.query,
+        return memberRepository.findAllByNicknameStartingWith(
             offsetPaginationRequestDto.query,
             offsetPaginationRequestDto.to(sortField)
         )

@@ -29,14 +29,13 @@ class MemberControllerTest {
     private val mockMvc = MockMvcBuilders.standaloneSetup(MemberController(memberService)).build()
     private val memberResponseDto = MemberResponseDto(
         id = 21L,
-        email = "member@example.com",
         nickname = "회원",
         profileImageUrl = "https://example.com/profile",
         lastSignInAt = LocalDateTime.of(2026, 10, 20, 12, 34, 56)
     )
 
     @Test
-    fun `프로필에서 이메일과 닉네임 및 최근 로그인 시각을 확인할 수 있음`() {
+    fun `프로필에서 닉네임과 최근 로그인 시각을 확인할 수 있음`() {
         /** given */
         whenever(memberService.getMember(21L)).thenReturn(SuccessDataResponse(memberResponseDto))
 
@@ -46,7 +45,6 @@ class MemberControllerTest {
         /** then */
         result
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.email").value("member@example.com"))
             .andExpect(jsonPath("$.data.nickname").value("회원"))
             .andExpect(jsonPath("$.data.lastSignInAt").value("2026-10-20T12:34:56"))
 

@@ -1,7 +1,6 @@
 package kr.byeongmin.watchtower.global.config
 
 import kr.byeongmin.watchtower.domain.auth.controller.AuthController
-import kr.byeongmin.watchtower.domain.auth.service.AuthService
 import kr.byeongmin.watchtower.domain.member.enums.MemberRole
 import kr.byeongmin.watchtower.global.alert.AdminNotifier
 import kr.byeongmin.watchtower.global.error.AuthError
@@ -27,7 +26,12 @@ import org.springframework.context.annotation.Import
 import org.springframework.mock.web.MockHttpSession
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserService
+import org.springframework.security.oauth2.core.user.OAuth2User
 import org.springframework.test.context.ActiveProfiles
+import org.springframework.test.context.TestPropertySource
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig
 import org.springframework.test.context.web.WebAppConfiguration
 import org.springframework.test.web.servlet.MockMvc
@@ -46,6 +50,7 @@ import kotlin.test.assertTrue
 @SpringJUnitConfig(OpenApiTestSessionTest.TestConfig::class)
 @WebAppConfiguration
 @ActiveProfiles("local")
+@TestPropertySource(properties = ["watchtower.frontend-url=https://watchtower.test"])
 class OpenApiTestSessionTest {
     @Autowired
     private lateinit var context: WebApplicationContext
@@ -179,7 +184,12 @@ class OpenApiTestSessionTest {
         }
 
         @Bean
-        fun authService(): AuthService {
+        fun oauth2UserService(): OAuth2UserService<OAuth2UserRequest, OAuth2User> {
+            return mock()
+        }
+
+        @Bean
+        fun clientRegistrationRepository(): ClientRegistrationRepository {
             return mock()
         }
 

@@ -18,7 +18,6 @@ class MemberResponseDtoTest {
         val lastSignInAt = bannedAt.minusDays(1)
         val member = mock<Member> {
             on { id } doReturn 21L
-            on { email } doReturn "member@example.com"
             on { nickname } doReturn "회원"
             on { profileImageUrl } doReturn "https://example.com/profile.png"
             on { role } doReturn MemberRole.NORMAL

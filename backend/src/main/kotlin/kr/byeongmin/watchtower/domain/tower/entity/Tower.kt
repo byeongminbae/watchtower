@@ -67,9 +67,6 @@ class Tower private constructor(
     @OneToMany(mappedBy = "tower", fetch = FetchType.LAZY)
     val conditions: MutableList<DetectionCondition> = mutableListOf()
 
-    @OneToMany(mappedBy = "tower", fetch = FetchType.LAZY)
-    val towerNotificationChannels: MutableList<TowerNotificationChannel> = mutableListOf()
-
     override fun delete() {
         super.delete()
         snapshots.forEach {
@@ -78,11 +75,6 @@ class Tower private constructor(
             }
         }
         conditions.forEach {
-            if (!it.isDeleted()) {
-                it.delete()
-            }
-        }
-        towerNotificationChannels.forEach {
             if (!it.isDeleted()) {
                 it.delete()
             }

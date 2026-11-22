@@ -98,17 +98,6 @@ class TowerController(
         return towerService.resumeTower(memberId = memberId, towerId = towerId)
     }
 
-    /** 현재는 타워 소유권만 확인한다. 서비스의 알림 발송 연동은 미구현이다. */
-    @Operation(summary = "테스트 알림 발송")
-    @PostMapping("/{towerId}/notify")
-    @MemberOnly
-    fun sendTestNotification(
-        @MemberId memberId: Long,
-        @PathVariable towerId: Long
-    ): SuccessResponse {
-        return towerService.sendTestNotification(memberId = memberId, towerId = towerId)
-    }
-
     @Operation(summary = "타워 조건 목록 조회")
     @GetMapping("/{towerId}/conditions")
     @MemberOnly

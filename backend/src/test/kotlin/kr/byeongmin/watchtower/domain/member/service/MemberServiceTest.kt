@@ -1,11 +1,8 @@
 package kr.byeongmin.watchtower.domain.member.service
 
-import kr.byeongmin.watchtower.domain.auth.accessor.NaverOAuthAccessor
-import kr.byeongmin.watchtower.domain.auth.entity.NaverOAuth
 import kr.byeongmin.watchtower.domain.member.accessor.MemberAccessor
 import kr.byeongmin.watchtower.domain.member.dto.MemberUpdateRequestDto
 import kr.byeongmin.watchtower.domain.member.entity.Member
-import kr.byeongmin.watchtower.domain.notification.accessor.NotificationChannelAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
 import kr.byeongmin.watchtower.domain.tower.dto.TowerCreateRequestDto
@@ -23,15 +20,12 @@ import java.time.Duration
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 class MemberServiceTest {
     private val memberAccessor = mock<MemberAccessor>()
-    private val notificationChannelAccessor = mock<NotificationChannelAccessor>()
     private val towerAccessor = mock<TowerAccessor>()
     private val towerSnapshotAccessor = mock<TowerSnapshotAccessor>()
-    private val naverOAuthAccessor = mock<NaverOAuthAccessor>()
     private val now = LocalDateTime.of(2026, 10, 20, 12, 0)
     private val timeProvider = mock<TimeProvider> {
         on { now() } doReturn now
@@ -39,15 +33,12 @@ class MemberServiceTest {
 
     private val memberService = MemberService(
         memberAccessor = memberAccessor,
-        notificationChannelAccessor = notificationChannelAccessor,
         towerAccessor = towerAccessor,
         towerSnapshotAccessor = towerSnapshotAccessor,
-        naverOAuthAccessor = naverOAuthAccessor,
         timeProvider = timeProvider
     )
 
     private val member = spy(Member.of(
-        email = "member@example.com",
         nickname = "회원",
         profileImageUrl = "https://example.com/profile.png",
         lastSignInAt = now,
@@ -76,7 +67,7 @@ class MemberServiceTest {
 
         /** then */
         assertEquals(memberId, response.data.id)
-        assertEquals(member.email, response.data.email)
+        assertEquals(member.nickname, response.data.nickname)
     }
 
     @Test
@@ -186,42 +177,6 @@ class MemberServiceTest {
     }
 
     @Test
-    fun `네이버 연동 정보가 없어도 회원은 탈퇴할 수 있음`() {
-        /** given */
-        val memberId = 21L
-        whenever(memberAccessor.getMember(memberId)).thenReturn(member)
-        whenever(naverOAuthAccessor.findMemberNaverOAuth(memberId)).thenReturn(null)
-
-        /** when */
-        memberService.deleteMember(memberId)
-
-        /** then */
-        assertNotNull(member.deletedAt)
-    }
-
-    @Test
-    fun `회원이 탈퇴하면 네이버 연동 정보도 삭제 처리됨`() {
-        /** given */
-        val memberId = 21L
-        val oauth = NaverOAuth.of(
-            member = member,
-            providerId = "naver-id",
-            accessToken = "access",
-            refreshToken = "refresh",
-            expiresIn = 3600L
-        )
-        whenever(memberAccessor.getMember(memberId)).thenReturn(member)
-        whenever(naverOAuthAccessor.findMemberNaverOAuth(memberId)).thenReturn(oauth)
-
-        /** when */
-        memberService.deleteMember(memberId)
-
-        /** then */
-        assertNotNull(member.deletedAt)
-        assertNotNull(oauth.deletedAt)
-    }
-
-    @Test
     fun `존재하지 않는 회원은 탈퇴할 수 없음`() {
         /** given */
         val memberId = 21L
@@ -247,9 +202,8 @@ class MemberServiceTest {
         memberService.deleteMember(memberId)
 
         /** then */
-        inOrder(towerAccessor, notificationChannelAccessor, member) {
+        inOrder(towerAccessor, member) {
             verify(towerAccessor).deleteAllOwnedTowers(memberId, now)
-            verify(notificationChannelAccessor).deleteAllOwnedNotificationChannels(memberId, now)
             verify(member).delete()
         }
     }
@@ -269,24 +223,5 @@ class MemberServiceTest {
 
         /** then */
         assertNull(member.deletedAt)
-        verifyNoInteractions(notificationChannelAccessor)
-    }
-
-    @Test
-    fun `알림 채널을 정리하지 못하면 회원을 탈퇴 처리하지 않음`() {
-        /** given */
-        val memberId = 21L
-        whenever(memberAccessor.getMember(memberId)).thenReturn(member)
-        whenever(notificationChannelAccessor.deleteAllOwnedNotificationChannels(memberId, now))
-            .thenThrow(IllegalStateException("channel update failed"))
-
-        /** when */
-        assertFailsWith<IllegalStateException> {
-            memberService.deleteMember(memberId)
-        }
-
-        /** then */
-        assertNull(member.deletedAt)
-        verify(towerAccessor).deleteAllOwnedTowers(memberId, now)
     }
 }

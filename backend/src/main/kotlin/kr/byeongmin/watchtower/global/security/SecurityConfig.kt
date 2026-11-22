@@ -1,6 +1,8 @@
 package kr.byeongmin.watchtower.global.security
 
+import jakarta.servlet.http.HttpServletResponse
 import kr.byeongmin.watchtower.global.dto.SuccessResponse
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpMethod
@@ -8,11 +10,18 @@ import org.springframework.http.MediaType
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
-import org.springframework.security.oauth2.client.web.AuthorizationRequestRepository
-import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizationRequestRepository
-import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest
+import org.springframework.security.config.annotation.web.invoke
+import org.springframework.security.core.AuthenticationException
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserService
+import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizedClientRepository
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException
+import org.springframework.security.oauth2.core.OAuth2ErrorCodes
+import org.springframework.security.oauth2.core.user.OAuth2User
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.authentication.AuthenticationFailureHandler
 import org.springframework.security.web.authentication.logout.LogoutFilter
+import org.springframework.security.web.authentication.logout.LogoutSuccessHandler
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler
 import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy
 import org.springframework.security.web.authentication.session.CompositeSessionAuthenticationStrategy
@@ -20,15 +29,15 @@ import org.springframework.security.web.authentication.session.SessionAuthentica
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository
 import org.springframework.security.web.context.SecurityContextHolderFilter
 import org.springframework.security.web.context.SecurityContextRepository
-import org.springframework.security.web.csrf.CsrfTokenRepository
-import org.springframework.security.web.csrf.CsrfFilter
 import org.springframework.security.web.csrf.CsrfAuthenticationStrategy
+import org.springframework.security.web.csrf.CsrfTokenRepository
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository
-import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher
-import org.springframework.security.web.util.matcher.OrRequestMatcher
+import org.springframework.security.web.savedrequest.NullRequestCache
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher.pathPattern
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
+import org.springframework.web.util.UriComponentsBuilder
 import tools.jackson.databind.ObjectMapper
 import java.nio.charset.StandardCharsets
 
@@ -36,10 +45,12 @@ import java.nio.charset.StandardCharsets
 @EnableWebSecurity
 @EnableMethodSecurity
 class SecurityConfig(
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    @Value("\${watchtower.frontend-url}") private val frontendUrl: String
 ) {
     private companion object {
         const val PREFLIGHT_CACHE_SECONDS = 3600L
+        const val LOGIN_CALLBACK_PATH = "/login/callback"
     }
 
     @Bean
@@ -48,53 +59,56 @@ class SecurityConfig(
         sessionMemberLoader: SessionMemberLoader,
         securityContextRepository: SecurityContextRepository,
         csrfTokenRepository: CsrfTokenRepository,
-        securityContextLogoutHandler: SecurityContextLogoutHandler
+        securityContextLogoutHandler: SecurityContextLogoutHandler,
+        oauth2UserService: OAuth2UserService<OAuth2UserRequest, OAuth2User>
     ): SecurityFilterChain {
         val securityExceptionHandlerFilter = SecurityExceptionHandlerFilter(objectMapper)
-        val sessionAuthenticationFilter = SessionAuthenticationFilter(
-            sessionMemberLoader,
-            securityContextLogoutHandler
-        )
 
-        http
-            .cors { it.configurationSource(corsConfigurationSource()) }
-            .csrf {
-                it.csrfTokenRepository(csrfTokenRepository)
-                it.requireCsrfProtectionMatcher(
-                    OrRequestMatcher(
-                        CsrfFilter.DEFAULT_CSRF_MATCHER,
-                        PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/api/v1/auth/naver/url")
-                    )
-                )
+        http {
+            cors { configurationSource = corsConfigurationSource() }
+            csrf { this.csrfTokenRepository = csrfTokenRepository }
+            logout {
+                logoutRequestMatcher = pathPattern(HttpMethod.DELETE, "/api/v1/auth/logout")
+                deleteCookies("JSESSIONID")
+                logoutSuccessHandler = LogoutSuccessHandler { _, response, _ -> writeSuccessResponse(response) }
             }
-            .formLogin { it.disable() }
-            .httpBasic { it.disable() }
-            .logout {
-                it.logoutRequestMatcher(
-                    PathPatternRequestMatcher.pathPattern(HttpMethod.DELETE, "/api/v1/auth/logout")
-                )
-                it.deleteCookies("JSESSIONID")
-                it.logoutSuccessHandler { _, response, _ ->
-                    response.contentType = MediaType.APPLICATION_JSON_VALUE
-                    response.characterEncoding = StandardCharsets.UTF_8.name()
-                    objectMapper.writeValue(response.writer, SuccessResponse())
+            oauth2Login {
+                authorizationEndpoint { baseUri = "/api/v1/oauth2/authorization" }
+                redirectionEndpoint { baseUri = "/api/v1/oauth2/callback/*" }
+                userInfoEndpoint { userService = oauth2UserService }
+                authorizedClientRepository = HttpSessionOAuth2AuthorizedClientRepository()
+                defaultSuccessUrl("$frontendUrl$LOGIN_CALLBACK_PATH", true)
+                authenticationFailureHandler = AuthenticationFailureHandler { _, response, exception ->
+                    response.sendRedirect(toLoginFailureUrl(exception))
                 }
             }
-            .requestCache { it.disable() }
-            .sessionManagement { it.requireExplicitAuthenticationStrategy(true) }
-            .securityContext {
-                it.securityContextRepository(securityContextRepository)
-                it.requireExplicitSave(true)
+            requestCache { requestCache = NullRequestCache() }
+            securityContext { this.securityContextRepository = securityContextRepository }
+            exceptionHandling {
+                authenticationEntryPoint = securityExceptionHandlerFilter
+                accessDeniedHandler = securityExceptionHandlerFilter
             }
-            .exceptionHandling {
-                it.authenticationEntryPoint(securityExceptionHandlerFilter)
-                it.accessDeniedHandler(securityExceptionHandlerFilter)
-            }
-            .authorizeHttpRequests { it.anyRequest().permitAll() }
-            .addFilterAfter(securityExceptionHandlerFilter, SecurityContextHolderFilter::class.java)
-            .addFilterAfter(sessionAuthenticationFilter, LogoutFilter::class.java)
+            authorizeHttpRequests { authorize(anyRequest, permitAll) }
+            addFilterAfter<SecurityContextHolderFilter>(securityExceptionHandlerFilter)
+            addFilterAfter<LogoutFilter>(SessionAuthenticationFilter(sessionMemberLoader, securityContextLogoutHandler))
+        }
 
         return http.build()
+    }
+
+    private fun writeSuccessResponse(response: HttpServletResponse) {
+        with(response) {
+            contentType = MediaType.APPLICATION_JSON_VALUE
+            characterEncoding = StandardCharsets.UTF_8.name()
+            objectMapper.writeValue(writer, SuccessResponse())
+        }
+    }
+
+    private fun toLoginFailureUrl(exception: AuthenticationException): String {
+        val errorCode = (exception as? OAuth2AuthenticationException)?.error?.errorCode ?: OAuth2ErrorCodes.SERVER_ERROR
+        return UriComponentsBuilder.fromUriString("$frontendUrl$LOGIN_CALLBACK_PATH")
+            .queryParam("error", errorCode)
+            .toUriString()
     }
 
     @Bean
@@ -107,11 +121,6 @@ class SecurityConfig(
     @Bean
     fun csrfTokenRepository(): CsrfTokenRepository {
         return HttpSessionCsrfTokenRepository()
-    }
-
-    @Bean
-    fun authorizationRequestRepository(): AuthorizationRequestRepository<OAuth2AuthorizationRequest> {
-        return HttpSessionOAuth2AuthorizationRequestRepository()
     }
 
     @Bean
@@ -139,7 +148,7 @@ class SecurityConfig(
                 listOf(
                     "http://localhost:3000",
                     "http://127.0.0.1:3000",
-                    "https://front-dev.watchtower.boo",
+                    "https://dev.watchtower.boo",
                     "https://watchtower.boo"
                 )
             allowedMethods = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")

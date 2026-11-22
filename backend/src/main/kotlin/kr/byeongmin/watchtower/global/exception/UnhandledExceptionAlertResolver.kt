@@ -17,7 +17,7 @@ import org.springframework.web.servlet.ModelAndView
  * 여기까지 오는 예외 예시
  * - DB 연결 실패, 커넥션 풀 고갈: CannotCreateTransactionException
  * - 유니크 제약 등 DB 제약 위반: DataIntegrityViolationException
- * - 네이버 API 연결 실패나 타임아웃: ResourceAccessException ([kr.byeongmin.watchtower.global.config.RestClientConfig] 는 4xx, 5xx 응답만 변환함)
+ * - Discord API 연결 실패나 타임아웃: ResourceAccessException ([kr.byeongmin.watchtower.global.config.RestClientConfig] 는 4xx, 5xx 응답만 변환함)
  * - 코드 버그: NullPointerException, IllegalStateException, IllegalArgumentException
  *
  * 여기까지 오지 않는 예외 예시

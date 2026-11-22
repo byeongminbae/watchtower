@@ -36,7 +36,6 @@ data class TowerCreateRequestDto(
     val ignoreDateTime: Boolean = false,
     @field:Size(max = TowerPolicy.MAX_DETECTION_AREA_SELECTOR_LENGTH)
     val detectionAreaSelector: String? = null,
-    val notificationChannelIds: Set<Long> = emptySet(),
     @field:Valid
     val conditions: List<DetectionConditionCreateRequestDto> = emptyList()
 ) {

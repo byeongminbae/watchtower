@@ -5,6 +5,8 @@ import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpHeaders.AUTHORIZATION
 import org.springframework.http.HttpRequest
 import org.springframework.http.client.ClientHttpResponse
 import org.springframework.web.client.RestClient
@@ -22,11 +24,19 @@ class RestClientConfig {
             .append("==================== 외부 API 요청 ====================").append("\n")
             .append("requestMethod: ${request.method}").append("\n")
             .append("requestUri: ${request.uri}").append("\n")
-            .append("requestHeaders: ${request.headers}").append("\n")
+            .append("requestHeaders: ${maskAuthorizationHeader(request.headers)}").append("\n")
             .append("responseHeaders: ${response.headers}").append("\n")
             .append("responseBody: ${response.body.bufferedReader().readText()}").append("\n")
             .append("==================== 외부 API 요청 ====================").append("\n")
             .toString()
+    }
+
+    private fun maskAuthorizationHeader(headers: HttpHeaders): HttpHeaders {
+        val maskedHeaders = HttpHeaders.copyOf(headers)
+        if (maskedHeaders.containsHeader(AUTHORIZATION)) {
+            maskedHeaders.set(AUTHORIZATION, MASKED_HEADER_VALUE)
+        }
+        return maskedHeaders
     }
 
     /** HTTP 4xx·5xx 응답을 EXTERNAL_API_ERROR로 변환한다. 연결 실패와 빈 본문은 여기서 변환하지 않는다. */
@@ -42,5 +52,9 @@ class RestClientConfig {
                 }
             )
             .build()
+    }
+
+    companion object {
+        const val MASKED_HEADER_VALUE = "****"
     }
 }

@@ -10,20 +10,19 @@ import kr.byeongmin.watchtower.global.entity.Base
 @Entity
 @Inheritance(strategy = InheritanceType.JOINED)
 @DiscriminatorColumn
-abstract class OAuth(
+abstract class SocialAccount(
     @ManyToOne(fetch = FetchType.LAZY)
     val member: Member,
-    val providerId: String,
-    val accessToken: String
+    val providerId: String
 ) : Base() {
     @Id
     @GeneratedValue(
         strategy = GenerationType.SEQUENCE,
-        generator = "member_oauth_seq"
+        generator = "social_account_seq"
     )
     @SequenceGenerator(
-        name = "member_oauth_seq",
-        sequenceName = "member_oauth_id_seq",
+        name = "social_account_seq",
+        sequenceName = "social_account_id_seq",
         allocationSize = 30
     )
     override val id: Long? = null

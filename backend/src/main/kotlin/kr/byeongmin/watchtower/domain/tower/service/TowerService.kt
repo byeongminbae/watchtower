@@ -2,7 +2,6 @@ package kr.byeongmin.watchtower.domain.tower.service
 
 import kr.byeongmin.watchtower.domain.member.accessor.MemberAccessor
 import kr.byeongmin.watchtower.domain.member.entity.Member
-import kr.byeongmin.watchtower.domain.notification.accessor.NotificationChannelAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.DetectionConditionAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerSnapshotAccessor
@@ -11,7 +10,6 @@ import kr.byeongmin.watchtower.domain.tower.client.SnapshotStorageClient
 import kr.byeongmin.watchtower.domain.tower.dto.*
 import kr.byeongmin.watchtower.domain.tower.entity.KeywordCondition
 import kr.byeongmin.watchtower.domain.tower.entity.Tower
-import kr.byeongmin.watchtower.domain.tower.entity.TowerNotificationChannel
 import kr.byeongmin.watchtower.domain.tower.policy.TowerPolicy
 import kr.byeongmin.watchtower.domain.tower.vo.CssSelector
 import kr.byeongmin.watchtower.domain.tower.vo.Keyword
@@ -37,7 +35,6 @@ class TowerService(
     private val detectionConditionAccessor: DetectionConditionAccessor,
     private val towerSnapshotAccessor: TowerSnapshotAccessor,
     private val memberAccessor: MemberAccessor,
-    private val notificationChannelAccessor: NotificationChannelAccessor,
     private val googleFaviconClient: GoogleFaviconClient,
     private val dnsResolver: DnsResolver,
     /** 큐 기능을 끈 환경([CrawlQueueClient.ENABLED_PROPERTY])에서는 null 이고, 크롤링을 요청하는 기능은 거부함 */
@@ -69,13 +66,9 @@ class TowerService(
             newTower.faviconUrl = it
         }
 
-        // tower.save 전에 채널 아이디가 잘못된건 없는지 검사도됨
-        val towerNotificationChannels = buildTowerNotificationChannels(towerCreateRequestDto, memberId, newTower)
-
         val savedTower = towerAccessor.saveTower(
             tower = newTower,
-            conditions = detectionConditions,
-            notificationChannels = towerNotificationChannels
+            conditions = detectionConditions
         )
 
         // 첫 크롤링 요청을 큐에 넣지 못하면 예외로 트랜잭션을 롤백해 타워 등록도 취소함
@@ -98,29 +91,6 @@ class TowerService(
         if (!member.isTowerAddable(creatorTowerCount)) {
             throw BusinessException(CommonError.RESOURCE_QUOTA_EXCEEDED)
         }
-    }
-
-    private fun buildTowerNotificationChannels(
-        towerCreateRequestDto: TowerCreateRequestDto,
-        memberId: Long,
-        tower: Tower
-    ): List<TowerNotificationChannel> {
-        val notificationChannels = notificationChannelAccessor.findOwnedNotificationChannels(
-            channelIds = towerCreateRequestDto.notificationChannelIds,
-            memberId = memberId
-        )
-
-        if (notificationChannels.size != towerCreateRequestDto.notificationChannelIds.size) {
-            throw BusinessException(CommonError.RESOURCE_NOT_FOUND)
-        }
-
-        val towerNotificationChannels = notificationChannels.map {
-            TowerNotificationChannel.of(
-                tower = tower,
-                notificationChannel = it
-            )
-        }
-        return towerNotificationChannels
     }
 
     @Transactional(readOnly = true)
@@ -191,18 +161,6 @@ class TowerService(
         existTower.resume()
 
         return SuccessDataResponse(toTowerResponse(existTower))
-    }
-
-    @Transactional(readOnly = true)
-    fun sendTestNotification(memberId: Long, towerId: Long): SuccessResponse {
-        towerAccessor.getOwnedTower(towerId = towerId, memberId = memberId)
-
-        // TODO: 외부 알림 서비스(Discord/Telegram 전송) 연동 필요
-        //  - 전송 대상은 회원의 NotificationChannel(DISCORD/TELEGRAM 종류별 webhookUrl)에서 조회
-        //  - 알림 내용: 사이트 이름, URL, AI 요약, 변경 강조
-        //  - 알림 실패 시 백오프+jitter 로 최대 10회 재시도 후 슬랙 알림(긴급)
-
-        return SuccessResponse()
     }
 
     @Transactional(readOnly = true)
