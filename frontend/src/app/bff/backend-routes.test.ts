@@ -2,7 +2,8 @@ import { NextRequest } from "next/server";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { GET, POST, PUT } from "./[...path]/route";
 import { GET as member, PUT as updateMember } from "./member/[memberId]/route";
-import { GET as oauth } from "./auth/naver/url/route";
+import { GET as discordAuthorization } from "./oauth2/authorization/discord/route";
+import { GET as discordCallback } from "./oauth2/callback/discord/route";
 import { DELETE as logout } from "./auth/logout/route";
 import { BACKEND_REQUEST_TIMEOUT_MS } from "@/lib/server/backendGateway";
 
@@ -21,7 +22,7 @@ it("타워 생성 본문과 CSRF 및 세션 쿠키를 백엔드에 전달할 것
     if (input instanceof Request) sentBody = await input.clone().json();
     return response();
   });
-  const body = { name: "타워", fetchInterval: "PT5M", notificationChannelIds: [3] };
+  const body = { name: "타워", fetchInterval: "PT5M" };
   const request = new NextRequest("http://front/bff/towers", { method: "POST",
     headers: { cookie: "JSESSIONID=fixture", "x-csrf-token": "csrf", "content-type": "application/json", authorization: "Bearer forged" },
     body: JSON.stringify(body) });
@@ -41,7 +42,6 @@ it("타워 생성 본문과 CSRF 및 세션 쿠키를 백엔드에 전달할 것
 });
 it.each([
   ["auth/session", "auth/session"],
-  ["notification/channels?cursorId=3&cursorValue=abc&sortField=CREATED_AT", "notification/channels?cursorId=3&cursorValue=abc&sortField=CREATED_AT"],
   ["admin/members?page=1&size=10&query=prefix", "admin/members?page=1&size=10&query=prefix"],
   ["towers/7/conditions", "towers/7/conditions"],
   ["towers/7/snapshots", "towers/7/snapshots"]
@@ -68,7 +68,7 @@ it("크롤링 재시도는 POST 로만 백엔드에 전달할 것이다", async 
   expect(rejected.status).toBe(405);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
-it.each(["pause", "resume"])("감시 %s 요청은 POST 로만 백엔드에 전달할 것이다", async action => {
+it.each(["pause", "resume"])("타워 %s 요청은 POST 로만 백엔드에 전달할 것이다", async action => {
   // given
   const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(response());
   const context = { params: Promise.resolve({ path: ["towers", "7", action] }) };
@@ -82,6 +82,29 @@ it.each(["pause", "resume"])("감시 %s 요청은 POST 로만 백엔드에 전�
   expect(rejected.status).toBe(405);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+it("회원 테스트 알림 요청은 POST 로만 백엔드에 전달할 것이다", async () => {
+  // given
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(response());
+  const context = { params: Promise.resolve({ path: ["member", "7", "test-notification"] }) };
+  // when
+  await POST(new NextRequest("http://front/bff/member/7/test-notification", { method: "POST" }), context);
+  const rejected = await GET(new NextRequest("http://front/bff/member/7/test-notification"), context);
+  // then
+  const sent = fetch.mock.calls[0]?.[0];
+  expect(sent instanceof Request ? sent.url : sent).toBe("http://backend:8080/api/v1/member/7/test-notification");
+  expect(sent instanceof Request ? sent.method : undefined).toBe("POST");
+  expect(rejected.status).toBe(405);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+it("타워 테스트 알림 요청은 더 이상 백엔드에 전달하지 않을 것이다", async () => {
+  // given
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(response());
+  // when
+  const rejected = await POST(new NextRequest("http://front/bff/towers/7/notify", { method: "POST" }), { params: Promise.resolve({ path: ["towers", "7", "notify"] }) });
+  // then
+  expect(rejected.status).toBe(404);
+  expect(fetch).not.toHaveBeenCalled();
+});
 it("회원 수정은 PUT 본문을 전달할 것이다", async () => {
   // given
   const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(response());
@@ -91,16 +114,41 @@ it("회원 수정은 PUT 본문을 전달할 것이다", async () => {
   const sent = fetch.mock.calls[0]?.[0];
   expect(sent instanceof Request ? sent.method : null).toBe("PUT");
 });
-it("네이버 로그인 URL 조회에는 CSRF 헤더를 보존할 것이다", async () => {
+it("Discord 로그인 시작은 백엔드의 Discord 이동 응답과 세션 쿠키를 그대로 돌려줄 것이다", async () => {
   // given
-  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(response());
+  const headers = new Headers({ location: "https://discord.com/oauth2/authorize?state=fixture" });
+  headers.append("set-cookie", "JSESSIONID=login; Path=/; HttpOnly");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 302, headers }));
   // when
-  await oauth(new NextRequest("http://front/bff/auth/naver/url?state=a%20b", { headers: { "x-csrf-token": "csrf" } }));
+  const result = await discordAuthorization(new NextRequest("http://front/bff/oauth2/authorization/discord?next=/admin"));
   // then
   const sent = fetch.mock.calls[0]?.[0];
-  expect(sent instanceof Request ? sent.headers.get("x-csrf-token") : null).toBe("csrf");
+  expect(sent instanceof Request ? sent.url : null).toBe("http://backend:8080/api/v1/oauth2/authorization/discord");
+  expect(result.status).toBe(302);
+  expect(result.headers.get("location")).toBe("https://discord.com/oauth2/authorize?state=fixture");
+  expect(result.headers.getSetCookie()).toEqual(["JSESSIONID=login; Path=/; HttpOnly"]);
 });
-it.each(["admin/secrets", "auth/renew", "towers/../internal", "notification/channels/0"])("허용하지 않는 API %s는 백엔드에 전달하지 않을 것이다", async path => {
+it("Discord 콜백은 인가 응답 값과 세션 쿠키만 백엔드에 전달할 것이다", async () => {
+  // given
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 302, headers: { location: "http://front/login/callback" } }));
+  // when
+  const result = await discordCallback(new NextRequest("http://front/bff/oauth2/callback/discord?code=a%20b&state=s&extra=x", { headers: { cookie: "JSESSIONID=login" } }));
+  // then
+  const sent = fetch.mock.calls[0]?.[0];
+  expect(sent instanceof Request ? sent.url : null).toBe("http://backend:8080/api/v1/oauth2/callback/discord?code=a+b&state=s");
+  expect(sent instanceof Request ? sent.headers.get("cookie") : null).toBe("JSESSIONID=login");
+  expect(result.headers.get("location")).toBe("http://front/login/callback");
+});
+it("백엔드가 로그인 이동 응답을 주지 못하면 로그인 확인 화면으로 오류와 함께 보낼 것이다", async () => {
+  // given
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ isSuccess: false }, { status: 500 }));
+  // when
+  const result = await discordCallback(new NextRequest("http://front/bff/oauth2/callback/discord?code=c&state=s"));
+  // then
+  expect(result.status).toBe(303);
+  expect(result.headers.get("location")).toBe("/login/callback?error=server_error");
+});
+it.each(["admin/secrets", "auth/renew", "towers/../internal", "notification/channels"])("허용하지 않는 API %s는 백엔드에 전달하지 않을 것이다", async path => {
   // given
   const fetch = vi.spyOn(globalThis, "fetch");
   // when

@@ -1,22 +1,23 @@
 package kr.byeongmin.watchtower.global.security
 
-import kr.byeongmin.watchtower.domain.auth.accessor.NaverOAuthAccessor
+import kr.byeongmin.watchtower.domain.auth.accessor.DiscordAccountAccessor
 import kr.byeongmin.watchtower.domain.auth.controller.AuthController
-import kr.byeongmin.watchtower.domain.auth.entity.NaverOAuth
-import kr.byeongmin.watchtower.domain.auth.service.AuthService
+import kr.byeongmin.watchtower.domain.auth.entity.DiscordAccount
+import kr.byeongmin.watchtower.domain.auth.error.SocialAccountError
+import kr.byeongmin.watchtower.domain.auth.service.DiscordAuthService
 import kr.byeongmin.watchtower.domain.member.accessor.MemberAccessor
 import kr.byeongmin.watchtower.domain.member.entity.Member
 import kr.byeongmin.watchtower.domain.member.enums.MemberRole
 import kr.byeongmin.watchtower.domain.subscription.accessor.PlanAccessor
-import kr.byeongmin.watchtower.external.naver.auth.client.NaverAuthClient
-import kr.byeongmin.watchtower.external.naver.auth.dto.NaverProfileResponseDto
-import kr.byeongmin.watchtower.external.naver.auth.dto.NaverTokenResponseDto
+import kr.byeongmin.watchtower.external.discord.client.DiscordClient
+import kr.byeongmin.watchtower.external.discord.dto.DiscordUserResponseDto
 import kr.byeongmin.watchtower.global.alert.AdminNotifier
 import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.dto.SuccessResponse
 import kr.byeongmin.watchtower.global.error.AuthError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import kr.byeongmin.watchtower.global.exception.GlobalExceptionHandler
+import kr.byeongmin.watchtower.global.utils.ifNullThrow
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -29,44 +30,63 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
 import org.springframework.mock.web.MockHttpSession
 import org.springframework.security.core.context.SecurityContextHolder
-import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest
+import org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResponseClient
+import org.springframework.security.oauth2.client.endpoint.OAuth2AuthorizationCodeGrantRequest
+import org.springframework.security.oauth2.client.registration.ClientRegistration
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
+import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository
+import org.springframework.security.oauth2.core.AuthorizationGrantType
+import org.springframework.security.oauth2.core.ClientAuthenticationMethod
+import org.springframework.security.oauth2.core.OAuth2AccessToken
+import org.springframework.security.oauth2.core.endpoint.OAuth2AccessTokenResponse
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository
+import org.springframework.test.context.TestPropertySource
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig
 import org.springframework.test.context.web.WebAppConfiguration
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.ResultActions
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.DefaultMockMvcBuilder
 import org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup
-import org.springframework.transaction.PlatformTransactionManager
-import org.springframework.transaction.TransactionStatus
-import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.context.WebApplicationContext
 import org.springframework.web.servlet.config.annotation.EnableWebMvc
+import org.springframework.web.util.UriComponentsBuilder
+import org.springframework.web.util.UriUtils
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.module.kotlin.jacksonObjectMapper
+import java.nio.charset.StandardCharsets
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
+private const val FRONTEND_URL = "https://watchtower.test"
+private const val LOGIN_CALLBACK_URL = "$FRONTEND_URL/login/callback"
+private const val AUTHORIZATION_PATH = "/api/v1/oauth2/authorization/discord"
+private const val CALLBACK_PATH = "/api/v1/oauth2/callback/discord"
+private const val AUTHORIZATION_REQUEST_NOT_FOUND = "authorization_request_not_found"
+
 @SpringJUnitConfig(SessionAuthenticationTest.TestConfig::class)
 @WebAppConfiguration
+@TestPropertySource(properties = ["watchtower.frontend-url=$FRONTEND_URL"])
 class SessionAuthenticationTest {
     @Autowired
     private lateinit var context: WebApplicationContext
 
     @Autowired
-    private lateinit var naverAuthClient: NaverAuthClient
+    private lateinit var discordClient: DiscordClient
 
     @Autowired
-    private lateinit var naverOAuthAccessor: NaverOAuthAccessor
+    private lateinit var discordAccountAccessor: DiscordAccountAccessor
 
     @Autowired
     private lateinit var timeProvider: TimeProvider
@@ -74,48 +94,31 @@ class SessionAuthenticationTest {
     @Autowired
     private lateinit var sessionMemberLoader: SessionMemberLoader
 
+    @Autowired
+    private lateinit var accessTokenResponseClient: OAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest>
+
     private val objectMapper = jacksonObjectMapper()
     private lateinit var mvc: MockMvc
     private val principal = MemberPrinciple(21L, MemberRole.NORMAL.name)
+    private val member = mock<Member> {
+        on { id } doReturn principal.memberId
+        on { role } doReturn MemberRole.NORMAL
+    }
+    private val discordUser = DiscordUserResponseDto("provider-id", "member", "회원", null)
+    private val discordAccount = DiscordAccount.of(member, discordUser.id, "direct-message-channel-id")
 
     @BeforeEach
     fun setUp() {
-        reset(naverAuthClient, naverOAuthAccessor, timeProvider, sessionMemberLoader)
-        whenever(naverAuthClient.getAuthorizationRequest("state")).thenReturn(
-            OAuth2AuthorizationRequest.authorizationCode()
-                .authorizationUri("https://nid.naver.com/oauth2.0/authorize")
-                .clientId("client")
-                .redirectUri("https://watchtower.test/login/callback")
-                .state("state")
+        reset(discordClient, discordAccountAccessor, timeProvider, sessionMemberLoader, accessTokenResponseClient)
+        whenever(accessTokenResponseClient.getTokenResponse(any())).thenReturn(
+            OAuth2AccessTokenResponse.withToken("access")
+                .tokenType(OAuth2AccessToken.TokenType.BEARER)
+                .expiresIn(604800)
                 .build()
         )
-        val token = NaverTokenResponseDto("access", "refresh", "bearer", 3600L)
-        val profile = NaverProfileResponseDto(
-            "00",
-            "성공",
-            NaverProfileResponseDto.NaverProfileDetailDto(
-                "provider-id",
-                "member@example.com",
-                "회원",
-                "https://example.com/profile.png"
-            )
-        )
-        val member = mock<Member> {
-            on { id } doReturn principal.memberId
-            on { role } doReturn MemberRole.NORMAL
-        }
-        whenever(naverAuthClient.fetchToken("code", "state")).thenReturn(token)
-        whenever(naverAuthClient.fetchProfile(token.accessToken)).thenReturn(profile)
-        whenever(naverOAuthAccessor.findNaverOAuth(profile.response.providerId))
-            .thenReturn(
-                NaverOAuth.of(
-                    member = member,
-                    providerId = profile.response.providerId,
-                    accessToken = token.accessToken,
-                    refreshToken = token.refreshToken,
-                    expiresIn = token.expiresIn
-                )
-            )
+        whenever(discordClient.fetchUser("access")).thenReturn(discordUser)
+        whenever(discordAccountAccessor.findDiscordAccount(discordUser.id))
+            .thenReturn(discordAccount)
         whenever(timeProvider.now()).thenReturn(LocalDateTime.of(2026, 10, 26, 12, 0))
         whenever(sessionMemberLoader.getMemberPrinciple(principal.memberId)).thenReturn(principal)
         mvc = webAppContextSetup(context)
@@ -129,27 +132,114 @@ class SessionAuthenticationTest {
     }
 
     @Test
-    fun `로그인 콜백은 세션 ID를 바꾸고 이후 요청에서도 인증을 유지함`() {
+    fun `Discord 로그인을 시작하면 state 와 PKCE 검증값을 담아 Discord 인증 화면으로 보냄`() {
+        /** when */
+        val result = mvc.perform(get(AUTHORIZATION_PATH).session(MockHttpSession()))
+
+        /** then */
+        result.andExpect(status().isFound)
+        val authorizationUrl = result.andReturn().response.redirectedUrl.ifNullThrow()
+        assertTrue(authorizationUrl.startsWith("https://discord.com/oauth2/authorize?"))
+        assertEquals("discord-application-id", getQueryParameter(authorizationUrl, "client_id"))
+        assertEquals("$FRONTEND_URL/bff/oauth2/callback/discord", getQueryParameter(authorizationUrl, "redirect_uri"))
+        assertEquals("identify guilds.join", getQueryParameter(authorizationUrl, "scope"))
+        assertEquals("S256", getQueryParameter(authorizationUrl, "code_challenge_method"))
+        assertNotNull(getQueryParameter(authorizationUrl, "code_challenge"))
+        assertNotNull(getQueryParameter(authorizationUrl, "state"))
+    }
+
+    @Test
+    fun `Discord 인증을 마치면 세션 ID를 바꾸고 프론트 로그인 콜백 화면으로 보내며 이후 요청에서도 인증을 유지함`() {
         /** given */
-        val session = createOAuthSession()
+        val session = MockHttpSession()
+        val state = startDiscordLogin(session)
         val originalId = session.id
 
         /** when */
-        val callbackResult = mvc.perform(
-            get("/api/v1/auth/naver/callback")
-                .session(session)
-                .param("code", "code")
-                .param("state", "state")
-        )
+        val callbackResult = finishDiscordLogin(session, state)
         val sessionResult = mvc.perform(get("/api/v1/auth/session").session(session))
 
         /** then */
-        callbackResult.andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.memberId").value(principal.memberId))
+        callbackResult.andExpect(redirectedUrl(LOGIN_CALLBACK_URL))
         assertNotEquals(originalId, session.id)
         sessionResult
             .andExpect(jsonPath("$.data.memberId").value(principal.memberId))
         verify(sessionMemberLoader).getMemberPrinciple(principal.memberId)
+    }
+
+    @Test
+    fun `Discord 계정이 연결된 회원이 로그인한 채로 다시 Discord 인증을 마치면 오류와 함께 돌려보내고 기존 로그인은 유지함`() {
+        /** given */
+        val session = signIn()
+        whenever(discordAccountAccessor.findDiscordAccountOfMember(principal.memberId)).thenReturn(discordAccount)
+        val state = startDiscordLogin(session)
+
+        /** when */
+        val callbackResult = finishDiscordLogin(session, state)
+        val sessionResult = mvc.perform(get("/api/v1/auth/session").session(session))
+
+        /** then */
+        callbackResult.andExpect(
+            redirectedUrl("$LOGIN_CALLBACK_URL?error=${SocialAccountError.PROVIDER_ALREADY_LINKED.statusCode}")
+        )
+        sessionResult.andExpect(jsonPath("$.data.memberId").value(principal.memberId))
+        verify(discordAccountAccessor, never()).save(any())
+    }
+
+    @Test
+    fun `로그인을 막는 오류가 나면 오류 코드와 함께 프론트 로그인 콜백 화면으로 보내고 로그인하지 않음`() {
+        /** given */
+        doThrow(BusinessException(AuthError.BANNED_ACCOUNT)).whenever(member).ensureSignInAllowed()
+        val session = MockHttpSession()
+        val state = startDiscordLogin(session)
+
+        /** when */
+        val callbackResult = finishDiscordLogin(session, state)
+        val sessionResult = mvc.perform(get("/api/v1/auth/session").session(session))
+
+        /** then */
+        callbackResult.andExpect(redirectedUrl("$LOGIN_CALLBACK_URL?error=${AuthError.BANNED_ACCOUNT.statusCode}"))
+        sessionResult.andExpect(jsonPath("$.statusCode").value(AuthError.UNAUTHORIZED.statusCode))
+    }
+
+    @Test
+    fun `로그인을 시작하지 않은 세션으로 Discord 콜백이 오면 토큰을 발급받지 않고 오류와 함께 돌려보냄`() {
+        /** when */
+        val result = finishDiscordLogin(MockHttpSession(), "state")
+
+        /** then */
+        result.andExpect(redirectedUrl("$LOGIN_CALLBACK_URL?error=$AUTHORIZATION_REQUEST_NOT_FOUND"))
+        verifyNoInteractions(accessTokenResponseClient, discordClient)
+    }
+
+    @Test
+    fun `저장한 state와 콜백 state가 다르면 토큰을 발급받지 않고 오류와 함께 돌려보냄`() {
+        /** given */
+        val session = MockHttpSession()
+        startDiscordLogin(session)
+
+        /** when */
+        val result = finishDiscordLogin(session, "other-state")
+
+        /** then */
+        result.andExpect(redirectedUrl("$LOGIN_CALLBACK_URL?error=$AUTHORIZATION_REQUEST_NOT_FOUND"))
+        verifyNoInteractions(accessTokenResponseClient, discordClient)
+    }
+
+    @Test
+    fun `이미 사용한 state로는 다시 로그인하지 않음`() {
+        /** given */
+        val session = MockHttpSession()
+        val state = startDiscordLogin(session)
+        finishDiscordLogin(session, state).andExpect(redirectedUrl(LOGIN_CALLBACK_URL))
+        clearInvocations(accessTokenResponseClient)
+
+        /** when */
+        val result = finishDiscordLogin(session, state)
+
+        /** then */
+        result.andExpect(redirectedUrl("$LOGIN_CALLBACK_URL?error=$AUTHORIZATION_REQUEST_NOT_FOUND"))
+        verifyNoInteractions(accessTokenResponseClient)
     }
 
     @Test
@@ -170,15 +260,10 @@ class SessionAuthenticationTest {
     @Test
     fun `로그인 전에 받은 CSRF 토큰은 로그인 후 변경 요청에 사용할 수 없음`() {
         /** given */
-        val session = createOAuthSession()
+        val session = MockHttpSession()
         val csrf = getCsrfHeader(session)
-        mvc.perform(
-            get("/api/v1/auth/naver/callback")
-                .session(session)
-                .param("code", "code")
-                .param("state", "state")
-        )
-            .andExpect(jsonPath("$.data.memberId").value(principal.memberId))
+        val state = startDiscordLogin(session)
+        finishDiscordLogin(session, state).andExpect(redirectedUrl(LOGIN_CALLBACK_URL))
 
         /** when */
         val result = mvc.perform(post("/session-test/write").session(session).header(csrf.first, csrf.second))
@@ -237,9 +322,10 @@ class SessionAuthenticationTest {
     }
 
     @Test
-    fun `익명 세션도 유효한 CSRF 토큰으로 로그아웃할 수 있음`() {
+    fun `로그인 도중인 익명 세션도 유효한 CSRF 토큰으로 로그아웃할 수 있음`() {
         /** given */
-        val session = createOAuthSession()
+        val session = MockHttpSession()
+        startDiscordLogin(session)
         val csrf = getCsrfHeader(session)
 
         /** when */
@@ -250,80 +336,7 @@ class SessionAuthenticationTest {
             .andExpect(jsonPath("$.isSuccess").value(true))
 
         assertTrue(session.isInvalid)
-        verify(naverAuthClient, never()).fetchToken(any(), any())
-    }
-
-    @Test
-    fun `CSRF 토큰 없이 로그인 URL을 요청하면 네이버 인증을 진행하지 않음`() {
-        /** given */
-        val request = get("/api/v1/auth/naver/url").param("state", "attacker-known-state")
-
-        /** when */
-        val result = mvc.perform(request)
-
-        /** then */
-        result
-            .andExpect(jsonPath("$.statusCode").value(AuthError.ACCESS_DENIED.statusCode))
-
-        verifyNoInteractions(naverAuthClient)
-    }
-
-    @Test
-    fun `세션에 저장한 state가 없으면 네이버 로그인을 진행하지 않음`() {
-        /** given */
-        val request = get("/api/v1/auth/naver/callback")
-            .param("code", "code")
-            .param("state", "state")
-
-        /** when */
-        val result = mvc.perform(request)
-
-        /** then */
-        result
-            .andExpect(jsonPath("$.statusCode").value(AuthError.INVALID_OAUTH_STATE.statusCode))
-
-        verify(naverAuthClient, never()).fetchToken(any(), any())
-    }
-
-    @Test
-    fun `저장한 state와 콜백 state가 다르면 네이버 로그인을 진행하지 않음`() {
-        /** given */
-        val session = createOAuthSession()
-
-        /** when */
-        val result = mvc.perform(
-            get("/api/v1/auth/naver/callback")
-                .session(session)
-                .param("code", "code")
-                .param("state", "other-state")
-        )
-
-        /** then */
-        result
-            .andExpect(jsonPath("$.statusCode").value(AuthError.INVALID_OAUTH_STATE.statusCode))
-
-        verify(naverAuthClient, never()).fetchToken(any(), any())
-    }
-
-    @Test
-    fun `이미 사용한 state로는 네이버 로그인을 다시 진행하지 않음`() {
-        /** given */
-        val session = signIn()
-        clearInvocations(naverAuthClient)
-
-        /** when */
-        val result = mvc.perform(
-            get("/api/v1/auth/naver/callback")
-                .session(session)
-                .param("code", "code")
-                .param("state", "state")
-        )
-
-        /** then */
-        result
-            .andExpect(jsonPath("$.statusCode").value(AuthError.INVALID_OAUTH_STATE.statusCode))
-
-        verify(naverAuthClient, never()).fetchToken(any(), any())
+        verifyNoInteractions(accessTokenResponseClient)
     }
 
     @Test
@@ -401,31 +414,27 @@ class SessionAuthenticationTest {
         )
     }
 
-    private fun createOAuthSession(): MockHttpSession {
-        val csrfResult = mvc.perform(get("/api/v1/auth/csrf"))
-            .andExpect(status().isOk)
+
+    private fun startDiscordLogin(session: MockHttpSession): String {
+        val result = mvc.perform(get(AUTHORIZATION_PATH).session(session))
+            .andExpect(status().isFound)
             .andReturn()
-        val session = csrfResult.request.getSession(false) as MockHttpSession
-        val csrfData = objectMapper.readTree(csrfResult.response.contentAsString)["data"]
-        mvc.perform(
-            get("/api/v1/auth/naver/url")
+        return getQueryParameter(result.response.redirectedUrl.ifNullThrow(), "state").ifNullThrow()
+    }
+
+    private fun finishDiscordLogin(session: MockHttpSession, state: String): ResultActions {
+        return mvc.perform(
+            get(CALLBACK_PATH)
                 .session(session)
-                .header(csrfData["headerName"].stringValue(), csrfData["token"].stringValue())
-                .param("state", "state")
+                .param("code", "code")
+                .param("state", state)
         )
-            .andExpect(jsonPath("$.isSuccess").value(true))
-        return session
     }
 
     private fun signIn(): MockHttpSession {
-        val session = createOAuthSession()
-        mvc.perform(
-            get("/api/v1/auth/naver/callback")
-                .session(session)
-                .param("code", "code")
-                .param("state", "state")
-        )
-            .andExpect(jsonPath("$.data.memberId").value(principal.memberId))
+        val session = MockHttpSession()
+        val state = startDiscordLogin(session)
+        finishDiscordLogin(session, state).andExpect(redirectedUrl(LOGIN_CALLBACK_URL))
         return session
     }
 
@@ -437,12 +446,17 @@ class SessionAuthenticationTest {
         return data["headerName"].stringValue() to data["token"].stringValue()
     }
 
+    private fun getQueryParameter(url: String, name: String): String? {
+        val value = UriComponentsBuilder.fromUriString(url).build().queryParams.getFirst(name) ?: return null
+        return UriUtils.decode(value, StandardCharsets.UTF_8)
+    }
+
     @Configuration
     @EnableWebMvc
     @Import(
         SecurityConfig::class,
         AuthController::class,
-        AuthService::class,
+        DiscordAuthService::class,
         GlobalExceptionHandler::class,
         ProtectedController::class
     )
@@ -455,7 +469,7 @@ class SessionAuthenticationTest {
         }
 
         @Bean
-        fun naverAuthClient(): NaverAuthClient {
+        fun discordClient(): DiscordClient {
             return mock()
         }
 
@@ -465,7 +479,7 @@ class SessionAuthenticationTest {
         }
 
         @Bean
-        fun naverOAuthAccessor(): NaverOAuthAccessor {
+        fun discordAccountAccessor(): DiscordAccountAccessor {
             return mock()
         }
 
@@ -480,19 +494,6 @@ class SessionAuthenticationTest {
         }
 
         @Bean
-        fun transactionManager(): PlatformTransactionManager {
-            val transactionStatus = mock<TransactionStatus>()
-            return mock {
-                on { getTransaction(any()) } doReturn transactionStatus
-            }
-        }
-
-        @Bean
-        fun transactionTemplate(transactionManager: PlatformTransactionManager): TransactionTemplate {
-            return TransactionTemplate(transactionManager)
-        }
-
-        @Bean
         fun sessionMemberLoader(): SessionMemberLoader {
             return mock()
         }
@@ -500,6 +501,27 @@ class SessionAuthenticationTest {
         @Bean
         fun objectMapper(): ObjectMapper {
             return objectMapper
+        }
+
+        @Bean
+        fun clientRegistrationRepository(): ClientRegistrationRepository {
+            return InMemoryClientRegistrationRepository(
+                ClientRegistration.withRegistrationId("discord")
+                    .clientId("discord-application-id")
+                    .clientSecret("discord-application-client-secret")
+                    .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                    .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                    .redirectUri("$FRONTEND_URL/bff/oauth2/callback/{registrationId}")
+                    .scope("identify", "guilds.join")
+                    .authorizationUri("https://discord.com/oauth2/authorize")
+                    .tokenUri("https://discord.com/api/v10/oauth2/token")
+                    .build()
+            )
+        }
+
+        @Bean
+        fun accessTokenResponseClient(): OAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> {
+            return mock()
         }
     }
 

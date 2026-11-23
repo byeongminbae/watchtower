@@ -2,9 +2,6 @@ package kr.byeongmin.watchtower.domain.tower.service
 
 import kr.byeongmin.watchtower.domain.member.accessor.MemberAccessor
 import kr.byeongmin.watchtower.domain.member.entity.Member
-import kr.byeongmin.watchtower.domain.notification.accessor.NotificationChannelAccessor
-import kr.byeongmin.watchtower.domain.notification.entity.NotificationChannel
-import kr.byeongmin.watchtower.domain.notification.enums.NotificationChannelType
 import kr.byeongmin.watchtower.domain.subscription.entity.Plan
 import kr.byeongmin.watchtower.domain.tower.accessor.DetectionConditionAccessor
 import kr.byeongmin.watchtower.domain.tower.accessor.TowerAccessor
@@ -39,7 +36,6 @@ class TowerServiceTest {
     private val detectionConditionAccessor = mock<DetectionConditionAccessor>()
     private val towerSnapshotAccessor = mock<TowerSnapshotAccessor>()
     private val memberAccessor = mock<MemberAccessor>()
-    private val notificationChannelAccessor = mock<NotificationChannelAccessor>()
     private val googleFaviconClient = mock<GoogleFaviconClient>()
     private val dnsResolver = mock<DnsResolver> {
         on { resolveAll(any()) } doReturn listOf(InetAddress.ofLiteral("8.8.8.8"))
@@ -56,7 +52,6 @@ class TowerServiceTest {
         detectionConditionAccessor = detectionConditionAccessor,
         towerSnapshotAccessor = towerSnapshotAccessor,
         memberAccessor = memberAccessor,
-        notificationChannelAccessor = notificationChannelAccessor,
         googleFaviconClient = googleFaviconClient,
         dnsResolver = dnsResolver,
         crawlRequestProducerService = crawlRequestProducerService,
@@ -80,7 +75,6 @@ class TowerServiceTest {
         url = TowerUrl.from("https://byeongmin.kr/notice"),
         fetchInterval = Duration.ofMinutes(10),
         includeInStat = true,
-        notificationChannelIds = emptySet(),
         conditions = emptyList()
     )
     private val towerUpdateRequest = TowerUpdateRequestDto(
@@ -99,7 +93,7 @@ class TowerServiceTest {
     @BeforeEach
     fun setUp() {
         tower.recordCrawlResult(crawlingEndedAt = now, crawlerResultCode = CrawlerResultCode.FETCHED, isCrawlingSucceed = true)
-        whenever(towerAccessor.saveTower(any(), any(), any())).thenReturn(tower)
+        whenever(towerAccessor.saveTower(any(), any())).thenReturn(tower)
         whenever(memberAccessor.getMemberForUpdate(ownerId))
             .thenReturn(owner)
         whenever(towerAccessor.getOwnedTower(towerId, ownerId))
@@ -127,7 +121,7 @@ class TowerServiceTest {
         inOrder(memberAccessor, towerAccessor) {
             verify(memberAccessor).getMemberForUpdate(ownerId)
             verify(towerAccessor).countOwnedTowers(ownerId)
-            verify(towerAccessor).saveTower(savedTower.capture(), any(), any())
+            verify(towerAccessor).saveTower(savedTower.capture(), any())
         }
         assertEquals(towerCreateRequestDto.name, savedTower.firstValue.name)
         assertEquals(towerCreateRequestDto.url.value, savedTower.firstValue.url)
@@ -143,7 +137,7 @@ class TowerServiceTest {
         /** then */
         val savedTower = argumentCaptor<Tower>()
         inOrder(towerAccessor, crawlRequestProducerService) {
-            verify(towerAccessor).saveTower(savedTower.capture(), any(), any())
+            verify(towerAccessor).saveTower(savedTower.capture(), any())
             verify(crawlRequestProducerService).requestCrawls(listOf(tower), owner)
         }
     }
@@ -273,7 +267,6 @@ class TowerServiceTest {
             detectionConditionAccessor = detectionConditionAccessor,
             towerSnapshotAccessor = towerSnapshotAccessor,
             memberAccessor = memberAccessor,
-            notificationChannelAccessor = notificationChannelAccessor,
             googleFaviconClient = googleFaviconClient,
             dnsResolver = dnsResolver,
             crawlRequestProducerService = null,
@@ -291,48 +284,6 @@ class TowerServiceTest {
     }
 
     @Test
-    fun `타워를 등록할 때 선택한 알림 채널을 연결할 수 있음`() {
-        /** given */
-        val channelId = 31L
-        val channel = NotificationChannel.from(
-            member = owner,
-            name = "개인 디스코드",
-            type = NotificationChannelType.DISCORD,
-            webhookUrl = "https://discord.com/api/webhooks/example"
-        )
-        whenever(notificationChannelAccessor.findOwnedNotificationChannels(setOf(channelId), ownerId))
-            .thenReturn(listOf(channel))
-
-        /** when */
-        towerService.createTower(ownerId, towerCreateRequest.copy(notificationChannelIds = setOf(channelId)))
-
-        /** then */
-        val savedTower = argumentCaptor<Tower>()
-        val channels = argumentCaptor<List<TowerNotificationChannel>>()
-        verify(towerAccessor).saveTower(savedTower.capture(), any(), channels.capture())
-        assertEquals(channel, savedTower.firstValue.towerNotificationChannels.single().notificationChannel)
-        assertEquals(savedTower.firstValue, channel.towerNotificationChannels.single().tower)
-        assertEquals(savedTower.firstValue.towerNotificationChannels, channels.firstValue)
-    }
-
-    @Test
-    fun `다른 회원의 알림 채널을 연결해 타워를 등록할 수 없음`() {
-        /** given */
-        val request = towerCreateRequest.copy(notificationChannelIds = setOf(31L))
-        whenever(notificationChannelAccessor.findOwnedNotificationChannels(request.notificationChannelIds, ownerId))
-            .thenReturn(emptyList())
-
-        /** when */
-        val exception = assertFailsWith<BusinessException> {
-            towerService.createTower(ownerId, request)
-        }
-
-        /** then */
-        assertEquals(CommonError.RESOURCE_NOT_FOUND, exception.error)
-        verify(towerAccessor, never()).saveTower(any(), any(), any())
-    }
-
-    @Test
     fun `회원이 이미 등록한 타워 수를 기준으로 추가 등록 가능 여부를 판단함`() {
         /** given */
         whenever(towerAccessor.countOwnedTowers(ownerId))
@@ -343,7 +294,7 @@ class TowerServiceTest {
 
         /** then */
         verify(owner).isTowerAddable(19L)
-        verify(towerAccessor).saveTower(any(), any(), any())
+        verify(towerAccessor).saveTower(any(), any())
     }
 
     @Test
@@ -362,7 +313,7 @@ class TowerServiceTest {
 
         /** then */
         assertEquals(CommonError.RESOURCE_QUOTA_EXCEEDED, exception.error)
-        verify(towerAccessor, never()).saveTower(any(), any(), any())
+        verify(towerAccessor, never()).saveTower(any(), any())
         verifyNoInteractions(detectionConditionAccessor)
     }
 
@@ -377,7 +328,7 @@ class TowerServiceTest {
 
         /** then */
         val savedTower = argumentCaptor<Tower>()
-        verify(towerAccessor).saveTower(savedTower.capture(), any(), any())
+        verify(towerAccessor).saveTower(savedTower.capture(), any())
         assertEquals("https://www.google.com/s2/favicons?domain=byeongmin.kr&sz=128", savedTower.firstValue.faviconUrl)
     }
 
@@ -392,7 +343,7 @@ class TowerServiceTest {
 
         /** then */
         val savedTower = argumentCaptor<Tower>()
-        verify(towerAccessor).saveTower(savedTower.capture(), any(), any())
+        verify(towerAccessor).saveTower(savedTower.capture(), any())
         assertNull(savedTower.firstValue.faviconUrl)
     }
 
@@ -409,7 +360,7 @@ class TowerServiceTest {
 
         /** then */
         assertEquals(CommonError.RESOURCE_NOT_FOUND, exception.error)
-        verify(towerAccessor, never()).saveTower(any(), any(), any())
+        verify(towerAccessor, never()).saveTower(any(), any())
     }
 
     @Test
@@ -512,7 +463,7 @@ class TowerServiceTest {
 
         /** then */
         assertEquals(TowerError.HAS_NO_DETECTION, exception.error)
-        verify(towerAccessor, never()).saveTower(any(), any(), any())
+        verify(towerAccessor, never()).saveTower(any(), any())
         verifyNoInteractions(crawlRequestProducerService)
     }
 
@@ -571,17 +522,6 @@ class TowerServiceTest {
         /** then */
         assertEquals(CommonError.RESOURCE_NOT_FOUND, exception.error)
         assertNull(tower.deletedAt)
-    }
-
-    @Test
-    fun `회원은 다른 회원의 타워로 테스트 알림을 보낼 수 없음`() {
-        /** when */
-        val exception = assertFailsWith<BusinessException> {
-            towerService.sendTestNotification(strangerId, towerId)
-        }
-
-        /** then */
-        assertEquals(CommonError.RESOURCE_NOT_FOUND, exception.error)
     }
 
     @Test
@@ -894,7 +834,6 @@ class TowerServiceTest {
             memberAccessor,
             towerAccessor,
             googleFaviconClient,
-            notificationChannelAccessor,
             detectionConditionAccessor
         )
     }
@@ -917,7 +856,7 @@ class TowerServiceTest {
 
         /** then */
         assertEquals(TowerError.CONDITION_QUOTA_EXCEEDED, exception.error)
-        verify(towerAccessor, never()).saveTower(any(), any(), any())
+        verify(towerAccessor, never()).saveTower(any(), any())
         verifyNoInteractions(
             detectionConditionAccessor,
             googleFaviconClient

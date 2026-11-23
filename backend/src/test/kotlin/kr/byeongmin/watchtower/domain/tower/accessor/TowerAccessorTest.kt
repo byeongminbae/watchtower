@@ -2,7 +2,6 @@ package kr.byeongmin.watchtower.domain.tower.accessor
 
 import kr.byeongmin.watchtower.domain.tower.entity.DetectionCondition
 import kr.byeongmin.watchtower.domain.tower.entity.Tower
-import kr.byeongmin.watchtower.domain.tower.entity.TowerNotificationChannel
 import kr.byeongmin.watchtower.domain.tower.repository.*
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
@@ -17,53 +16,29 @@ class TowerAccessorTest {
     private val towerRepository = mock<TowerRepository>()
     private val towerQuerydslRepository = mock<TowerQuerydslRepository>()
     private val detectionConditionRepository = mock<DetectionConditionRepository>()
-    private val towerNotificationChannelRepository = mock<TowerNotificationChannelRepository>()
     private val towerSnapshotQuerydslRepository = mock<TowerSnapshotQuerydslRepository>()
     private val detectionConditionQuerydslRepository = mock<DetectionConditionQuerydslRepository>()
-    private val towerNotificationChannelQuerydslRepository = mock<TowerNotificationChannelQuerydslRepository>()
     private val accessor = TowerAccessor(
         towerRepository = towerRepository,
         towerQuerydslRepository = towerQuerydslRepository,
         detectionConditionRepository = detectionConditionRepository,
-        towerNotificationChannelRepository = towerNotificationChannelRepository,
         towerSnapshotQuerydslRepository = towerSnapshotQuerydslRepository,
-        detectionConditionQuerydslRepository = detectionConditionQuerydslRepository,
-        towerNotificationChannelQuerydslRepository = towerNotificationChannelQuerydslRepository
+        detectionConditionQuerydslRepository = detectionConditionQuerydslRepository
     )
 
     @Test
-    fun `타워를 먼저 저장한 뒤 연결한 알림 채널과 감지 조건을 저장하고 저장된 타워를 돌려줌`() {
+    fun `타워를 먼저 저장한 뒤 감지 조건을 저장하고 저장된 타워를 돌려줌`() {
         /** given */
         val tower = mock<Tower>()
         val savedTower = mock<Tower>()
         val conditions = listOf(mock<DetectionCondition>())
-        val channels = listOf(mock<TowerNotificationChannel>())
         whenever(towerRepository.save(tower)).thenReturn(savedTower)
 
         /** when */
-        val result = accessor.saveTower(tower, conditions, channels)
+        val result = accessor.saveTower(tower, conditions)
 
         /** then */
         assertSame(savedTower, result)
-        inOrder(towerRepository, towerNotificationChannelRepository, detectionConditionRepository) {
-            verify(towerRepository).save(tower)
-            verify(towerNotificationChannelRepository).saveAll(channels)
-            verify(detectionConditionRepository).saveAll(conditions)
-        }
-    }
-
-    @Test
-    fun `알림 채널을 선택하지 않은 타워는 채널 연결을 저장하지 않음`() {
-        /** given */
-        val tower = mock<Tower>()
-        val conditions = listOf(mock<DetectionCondition>())
-        whenever(towerRepository.save(tower)).thenReturn(tower)
-
-        /** when */
-        accessor.saveTower(tower, conditions, emptyList())
-
-        /** then */
-        verifyNoInteractions(towerNotificationChannelRepository)
         inOrder(towerRepository, detectionConditionRepository) {
             verify(towerRepository).save(tower)
             verify(detectionConditionRepository).saveAll(conditions)
@@ -110,12 +85,10 @@ class TowerAccessorTest {
         inOrder(
             towerSnapshotQuerydslRepository,
             detectionConditionQuerydslRepository,
-            towerNotificationChannelQuerydslRepository,
             towerQuerydslRepository
         ) {
             verify(towerSnapshotQuerydslRepository).deleteByMemberId(21L, deletedAt)
             verify(detectionConditionQuerydslRepository).deleteByMemberId(21L, deletedAt)
-            verify(towerNotificationChannelQuerydslRepository).deleteByMemberId(21L, deletedAt)
             verify(towerQuerydslRepository).deleteByMemberId(21L, deletedAt)
         }
     }
@@ -135,7 +108,6 @@ class TowerAccessorTest {
         /** then */
         verifyNoInteractions(
             detectionConditionQuerydslRepository,
-            towerNotificationChannelQuerydslRepository,
             towerQuerydslRepository
         )
     }

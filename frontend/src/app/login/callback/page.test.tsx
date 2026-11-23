@@ -7,7 +7,7 @@ import OAuthCallbackPage from "./page";
 
 const mocks = vi.hoisted(() => ({
   acceptSession: vi.fn(),
-  exchange: vi.fn(),
+  getSession: vi.fn(),
   replace: vi.fn(),
 }));
 
@@ -16,7 +16,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/lib/api", () => ({
-  authApi: { loginWithNaverCallback: mocks.exchange },
+  authApi: { getSession: mocks.getSession },
 }));
 
 vi.mock("@/lib/AuthContext", () => ({
@@ -27,16 +27,17 @@ function visit(query: string): void {
   history.replaceState(null, "", `/login/callback${query}`);
 }
 
-function prepareTransaction(returnPath = "/watches"): string {
-  vi.spyOn(crypto, "randomUUID").mockReturnValue("fixture-state");
-  return createOAuthTransaction(returnPath);
-}
+const validSession = {
+  isSuccess: true,
+  data: { memberId: 7, role: "NORMAL" },
+  timestamp: "2026-07-29T10:00:00",
+};
 
 describe("OAuthCallbackPage", () => {
   beforeEach(() => {
     sessionStorage.clear();
     mocks.acceptSession.mockReset();
-    mocks.exchange.mockReset();
+    mocks.getSession.mockReset();
     mocks.replace.mockReset();
     visit("");
   });
@@ -46,18 +47,10 @@ describe("OAuthCallbackPage", () => {
     vi.restoreAllMocks();
   });
 
-  it("Given a matching transaction and a valid session, when mounted in StrictMode, then cleans the query, exchanges once, accepts, and returns", async () => {
+  it("Given a stored return target and a valid session, when mounted in StrictMode, then loads the session once, accepts it, and returns", async () => {
     // Given
-    prepareTransaction("/watches?tab=mine");
-    visit("?code=fixture-code&state=fixture-state");
-    mocks.exchange.mockResolvedValue({
-      isSuccess: true,
-      data: {
-        memberId: 7,
-        role: "NORMAL",
-      },
-      timestamp: "2026-07-29T10:00:00",
-    });
+    createOAuthTransaction("/watches?tab=mine");
+    mocks.getSession.mockResolvedValue(validSession);
     mocks.acceptSession.mockReturnValue(true);
 
     // When
@@ -68,93 +61,91 @@ describe("OAuthCallbackPage", () => {
     );
 
     // Then
-    expect(location.pathname).toBe("/login/callback");
-    expect(location.search).toBe("");
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/watches?tab=mine"));
-    expect(mocks.exchange).toHaveBeenCalledOnce();
-    expect(mocks.exchange).toHaveBeenCalledWith("fixture-code", "fixture-state");
-    expect(mocks.acceptSession).toHaveBeenCalledOnce();
-    expect(consumeOAuthTransaction("fixture-state")).toBeNull();
+    expect(mocks.getSession).toHaveBeenCalledOnce();
+    expect(mocks.acceptSession).toHaveBeenCalledWith(validSession.data);
+    expect(consumeOAuthTransaction()).toBeNull();
   });
 
-  it("Given a provider rejection with untrusted details, when mounted, then renders an inert failure without exchange", async () => {
+  it("Given no stored return target, when the session is valid, then returns to the root page", async () => {
     // Given
-    prepareTransaction();
-    visit("?error=access_denied&error_description=%3Cscript%3Eprovider-secret%3C%2Fscript%3E");
+    mocks.getSession.mockResolvedValue(validSession);
+    mocks.acceptSession.mockReturnValue(true);
 
     // When
     render(<OAuthCallbackPage />);
 
     // Then
-    expect(await screen.findByRole("alert")).toBeVisible();
-    expect(screen.getByText("네이버 로그인이 취소되었거나 거부되었습니다.")).toBeVisible();
-    expect(screen.queryByText(/provider-secret/u)).not.toBeInTheDocument();
-    expect(location.search).toBe("");
-    expect(mocks.exchange).not.toHaveBeenCalled();
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/"));
+  });
+
+  it("Given a tampered unsafe return target, when the session is valid, then returns to the safe fallback page", async () => {
+    // Given
+    sessionStorage.setItem(
+      "watchtower_oauth_transaction",
+      JSON.stringify({ returnPath: "https://attacker.example", createdAt: Date.now() }),
+    );
+    mocks.getSession.mockResolvedValue(validSession);
+    mocks.acceptSession.mockReturnValue(true);
+
+    // When
+    render(<OAuthCallbackPage />);
+
+    // Then
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/watches"));
   });
 
   it.each([
-    ["missing code", "?state=fixture-state"],
-    ["missing state", "?code=fixture-code"],
-    ["mismatched state", "?code=fixture-code&state=wrong-state"],
-    ["replayed state", "?code=fixture-code&state=fixture-state"],
+    ["access_denied", "Discord 로그인을 취소했거나 거부했어요."],
+    ["authorization_request_not_found", "로그인 요청이 유효하지 않거나 만료됐어요."],
+    ["AUT_006", "탈퇴한 계정이에요."],
+    ["AUT_007", "이용이 정지된 계정이에요."],
+    ["IDP_002", "다른 회원에 연결된 Discord 계정이에요."],
+    ["IDP_003", "이미 Discord 계정이 연결되어 있어요."],
+    ["server_error", "로그인을 완료할 수 없어요. 다시 시도해 주세요."],
   ])(
-    "Given %s, when mounted, then rejects before exchange",
-    async (scenario, query) => {
+    "Given login error %s, when mounted, then shows its message without loading the session",
+    async (errorCode, message) => {
       // Given
-      if (scenario !== "replayed state") prepareTransaction();
-      if (scenario === "replayed state") {
-        prepareTransaction();
-        consumeOAuthTransaction("fixture-state");
-      }
-      visit(query);
+      createOAuthTransaction("/watches");
+      visit(`?error=${errorCode}&error_description=%3Cscript%3Eprovider-secret%3C%2Fscript%3E`);
 
       // When
       render(<OAuthCallbackPage />);
 
       // Then
       expect(await screen.findByRole("alert")).toBeVisible();
-      expect(screen.getByText("로그인 요청이 유효하지 않거나 만료되었습니다.")).toBeVisible();
-      expect(mocks.exchange).not.toHaveBeenCalled();
+      expect(screen.getByText(message)).toBeVisible();
+      expect(screen.queryByText(/provider-secret/u)).not.toBeInTheDocument();
       expect(location.search).toBe("");
+      expect(mocks.getSession).not.toHaveBeenCalled();
+      expect(sessionStorage).toHaveLength(0);
     },
   );
 
   it.each([
-    ["2xx backend error", new ApiError("provider-secret", 200, "OAUTH_FAILED")],
+    ["unauthenticated session", new ApiError("session-secret", 401, "AUT_001")],
     ["network failure", new ApiError("network-secret", 0, "NETWORK_ERROR")],
   ])(
-    "Given a %s, when exchanged, then shows a fixed retry state without navigating",
+    "Given a %s, when the session is loaded, then shows a fixed retry state without navigating",
     async (_scenario, failure) => {
       // Given
-      prepareTransaction();
-      visit("?code=fixture-code&state=fixture-state");
-      mocks.exchange.mockRejectedValue(failure);
+      mocks.getSession.mockRejectedValue(failure);
 
       // When
       render(<OAuthCallbackPage />);
 
       // Then
       expect(await screen.findByRole("alert")).toBeVisible();
-      expect(screen.getByText("로그인을 완료할 수 없습니다. 다시 시도해주세요.")).toBeVisible();
+      expect(screen.getByText("로그인을 완료할 수 없어요. 다시 시도해 주세요.")).toBeVisible();
       expect(screen.queryByText(/secret/u)).not.toBeInTheDocument();
       expect(mocks.replace).not.toHaveBeenCalled();
-      expect(mocks.exchange).toHaveBeenCalledOnce();
     },
   );
 
   it("Given an invalid session, when session acceptance fails, then leaves the user in a retry state", async () => {
     // Given
-    prepareTransaction();
-    visit("?code=fixture-code&state=fixture-state");
-    mocks.exchange.mockResolvedValue({
-      isSuccess: true,
-      data: {
-        memberId: 7,
-        role: "NORMAL",
-      },
-      timestamp: "2026-07-29T10:00:00",
-    });
+    mocks.getSession.mockResolvedValue(validSession);
     mocks.acceptSession.mockReturnValue(false);
 
     // When
@@ -164,60 +155,5 @@ describe("OAuthCallbackPage", () => {
     expect(await screen.findByRole("alert")).toBeVisible();
     expect(mocks.acceptSession).toHaveBeenCalledOnce();
     expect(mocks.replace).not.toHaveBeenCalled();
-    expect(mocks.exchange).toHaveBeenCalledOnce();
-  });
-
-  it("Given a tampered unsafe return target, when mounted, then deletes the transaction and rejects before exchange", async () => {
-    // Given
-    sessionStorage.setItem(
-      "watchtower_oauth_transaction",
-      JSON.stringify({
-        nonce: "fixture-state",
-        returnPath: "https://attacker.example",
-        createdAt: Date.now(),
-      }),
-    );
-    visit("?code=fixture-code&state=fixture-state");
-
-    // When
-    render(<OAuthCallbackPage />);
-
-    // Then
-    expect(await screen.findByRole("alert")).toBeVisible();
-    expect(mocks.exchange).not.toHaveBeenCalled();
-    expect(sessionStorage).toHaveLength(0);
-  });
-
-  it("Given an exchange interrupted by a real unmount, when the clean callback remounts, then no duplicate exchange occurs", async () => {
-    // Given
-    prepareTransaction();
-    visit("?code=fixture-code&state=fixture-state");
-    let resolveExchange = (): void => undefined;
-    mocks.exchange.mockReturnValue(
-      new Promise((resolve) => {
-        resolveExchange = () =>
-          resolve({
-            isSuccess: true,
-            data: {
-              memberId: 7,
-        role: "NORMAL",
-            },
-            timestamp: "2026-07-29T10:00:00",
-          });
-      }),
-    );
-    mocks.acceptSession.mockReturnValue(true);
-    const first = render(<OAuthCallbackPage />);
-    await waitFor(() => expect(mocks.exchange).toHaveBeenCalledOnce());
-
-    // When
-    first.unmount();
-    render(<OAuthCallbackPage />);
-    resolveExchange();
-
-    // Then
-    expect(await screen.findByRole("alert")).toBeVisible();
-    expect(mocks.exchange).toHaveBeenCalledOnce();
-    expect(mocks.acceptSession).not.toHaveBeenCalled();
   });
 });

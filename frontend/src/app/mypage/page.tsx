@@ -1,11 +1,10 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
-import { CheckCircle2, CircleAlert, UserRound } from "lucide-react";
+import { BellRing, CheckCircle2, CircleAlert, UserRound } from "lucide-react";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertDialogAction, AlertDialogCancel, AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -31,6 +30,14 @@ export default function MyPage() {
       await memberApi.updateMember(member.id, { nickname, profileImageUrl: member.profileImageUrl });
       await refreshMember(); setEditing(false); setMessage({ severity: "success", text: "프로필을 저장했어요." });
     } catch (reason) { if (!(reason instanceof Error)) throw reason; setMessage({ severity: "error", text: reason.message }); }
+    finally { setBusy(false); }
+  }
+
+  async function sendTestNotification() {
+    if (member === null || busy) return;
+    setBusy(true); setMessage(null);
+    try { await memberApi.sendTestNotification(member.id); setMessage({ severity: "success", text: "Discord DM으로 테스트 알림을 보냈어요." }); }
+    catch (reason) { if (!(reason instanceof Error)) throw reason; setMessage({ severity: "error", text: reason.message }); }
     finally { setBusy(false); }
   }
 
@@ -70,7 +77,6 @@ export default function MyPage() {
           </Avatar>
           <div className="flex min-w-0 flex-col gap-1">
             <p className="break-all text-lg font-semibold">{member.nickname}</p>
-            <p className="break-all text-sm text-muted-foreground">{member.email}</p>
             <p className="text-xs text-muted-foreground">최근 로그인: {formatDateTime(member.lastSignInAt)}</p>
           </div>
         </CardContent>
@@ -89,22 +95,22 @@ export default function MyPage() {
             </FieldGroup>
           </CardContent>
           <CardFooter className="justify-end gap-2">
-            {editing ? <><Button variant="outline" disabled={busy} onClick={() => setEditing(false)}>취소</Button>
-              <Button type="submit" disabled={busy}>{busy ? "저장 중" : "저장"}</Button></>
-              : <Button onClick={() => { setNickname(member.nickname); setEditing(true); }}>프로필 수정</Button>}
+            {editing ? <><Button key="cancel" variant="outline" disabled={busy} onClick={() => setEditing(false)}>취소</Button>
+              <Button key="save" type="submit" disabled={busy}>{busy ? "저장 중" : "저장"}</Button></>
+              : <><Button key="test-notification" variant="outline" disabled={busy} onClick={() => void sendTestNotification()}><BellRing data-icon="inline-start" />테스트 알림</Button>
+                <Button key="edit" disabled={busy} onClick={() => { setNickname(member.nickname); setEditing(true); }}>프로필 수정</Button></>}
           </CardFooter>
         </Card>
       </form>
 
-      <div className="flex items-center justify-between gap-3">
-        <Link href="/watches" className={buttonVariants({ variant: "ghost" })}>내 타워</Link>
+      <div className="flex justify-end">
         <Button variant="destructive" onClick={() => setDeleteOpen(true)}>회원 탈퇴</Button>
       </div>
     </>}
     <AlertDialog open={deleteOpen} onOpenChange={open => { if (!busy) setDeleteOpen(open); }}>
       <AlertDialogContent>
         <AlertDialogHeader><AlertDialogTitle>회원 탈퇴</AlertDialogTitle>
-          <AlertDialogDescription>탈퇴하면 계정과 등록한 타워, 감지 조건, 알림 채널이 삭제돼요. 계속하시겠어요?</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogDescription>탈퇴하면 계정과 등록한 타워, 감지 조건이 삭제돼요. 계속하시겠어요?</AlertDialogDescription></AlertDialogHeader>
         {message?.severity === "error" && <Alert variant="destructive"><CircleAlert /><AlertDescription>{message.text}</AlertDescription></Alert>}
         <AlertDialogFooter><AlertDialogCancel disabled={busy}>취소</AlertDialogCancel>
           <AlertDialogAction variant="destructive" disabled={busy} onClick={() => void withdraw()}>{busy ? "탈퇴 중" : "탈퇴"}</AlertDialogAction></AlertDialogFooter>

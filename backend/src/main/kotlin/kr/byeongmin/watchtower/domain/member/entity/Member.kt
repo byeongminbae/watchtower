@@ -1,6 +1,7 @@
 package kr.byeongmin.watchtower.domain.member.entity
 
 import jakarta.persistence.*
+import kr.byeongmin.watchtower.domain.auth.entity.SocialAccount
 import kr.byeongmin.watchtower.domain.member.enums.MemberRole
 import kr.byeongmin.watchtower.domain.subscription.entity.Plan
 import kr.byeongmin.watchtower.global.entity.Base
@@ -14,7 +15,6 @@ import java.time.LocalDateTime
  */
 @Entity
 class Member private constructor(
-    val email: String,
     var nickname: String,
     var profileImageUrl: String,
     @Enumerated(EnumType.STRING)
@@ -44,6 +44,22 @@ class Member private constructor(
     var plan: Plan = plan
         protected set
 
+    @OneToMany(mappedBy = "member", fetch = FetchType.LAZY)
+    val socialAccounts: MutableSet<SocialAccount> = mutableSetOf()
+
+    override fun delete() {
+        super.delete()
+        socialAccounts.forEach {
+            if (!it.isDeleted()) {
+                it.delete()
+            }
+        }
+    }
+
+    internal fun addSocialAccount(socialAccount: SocialAccount) {
+        socialAccounts.add(socialAccount)
+    }
+
     fun ensureSignInAllowed() {
         if (isDeleted()) {
             throw BusinessException(AuthError.ALREADY_DELETED_ACCOUNT)
@@ -69,14 +85,12 @@ class Member private constructor(
 
     companion object {
         fun of(
-            email: String,
             nickname: String,
             profileImageUrl: String,
             lastSignInAt: LocalDateTime,
             plan: Plan
         ): Member {
             return Member(
-                email = email,
                 nickname = nickname,
                 profileImageUrl = profileImageUrl,
                 role = MemberRole.NORMAL,

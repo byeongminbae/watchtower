@@ -35,7 +35,6 @@ class AdminControllerTest {
     private val mockMvc = MockMvcBuilders.standaloneSetup(AdminController(adminService)).build()
     private val memberResponseDto = MemberResponseDto(
         id = 21L,
-        email = "member@example.com",
         nickname = "회원",
         profileImageUrl = "https://example.com/profile",
         role = MemberRole.NORMAL,

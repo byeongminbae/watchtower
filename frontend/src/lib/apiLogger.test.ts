@@ -75,7 +75,7 @@ describe("apiLogger", () => {
 
     logResponse({
       method: "POST",
-      url: "/api/v1/auth/naver/callback?code=fixture-code-secret&state=fixture-state-secret",
+      url: "/api/v1/auth/discord/callback?code=fixture-code-secret&state=fixture-state-secret",
       status: 200,
       statusText: "OK",
       durationMs: 12,
@@ -103,11 +103,11 @@ describe("apiLogger", () => {
 
     logResponse({
       method: "GET",
-      url: "/api/v1/auth/naver/url?state=outer-state-secret",
+      url: "/api/v1/auth/discord/url?state=outer-state-secret",
       status: 200,
       statusText: "OK",
       durationMs: 12,
-      body: `https://nid.naver.com/oauth2.0/authorize?client_id=watchtower-client&state=${nonce}&code=${code}&access_token=${accessToken}&refreshToken=${refreshToken}`,
+      body: `https://discord.com/oauth2/authorize?client_id=watchtower-client&state=${nonce}&code=${code}&access_token=${accessToken}&refreshToken=${refreshToken}`,
     });
 
     const rendered = JSON.stringify([group.mock.calls, log.mock.calls]);
@@ -131,7 +131,7 @@ describe("apiLogger", () => {
 
     logResponse({
       method: "GET",
-      url: "/api/v1/auth/naver/url",
+      url: "/api/v1/auth/discord/url",
       status: 200,
       statusText: "OK",
       durationMs: 12,
@@ -157,7 +157,7 @@ describe("apiLogger", () => {
 
     logError({
       method: "POST",
-      url: "/api/v1/auth/naver/callback",
+      url: "/api/v1/auth/discord/callback",
       durationMs: 12,
       error: new Error(
         `https://idp.example/callback?code=${code}&state=${state}#access_token=${accessToken}&refresh_token=${refreshToken}`,

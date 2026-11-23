@@ -18,7 +18,7 @@ for (const role of ["NORMAL", "ADMIN"] as const) {
   test(`${role} 화면은 모바일과 데스크톱에서 가로 넘침 없이 표시될 것이다`, async ({ page, login }, info) => {
     // given
     await login(role);
-    const routes = role === "NORMAL" ? ["/", "/watches", "/watches/9", "/mypage", "/mypage/notifications"] : ["/admin", "/admin/members", "/admin/watches"];
+    const routes = role === "NORMAL" ? ["/", "/watches", "/watches/9", "/mypage"] : ["/admin", "/admin/members", "/admin/watches"];
     // when
     for (const width of [375, 768, 1440]) {
       await page.setViewportSize({ width, height: 900 });
@@ -61,7 +61,7 @@ test("비로그인 홈과 로그인 화면은 모바일과 태블릿과 데스�
       await page.goto(route);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       if (route === "/") await expect(page.getByRole("link", { name: "지금 감시 시작하기" })).toHaveAttribute("href", "/login");
-      else await expect(page.getByRole("button", { name: "네이버로 시작하기" })).toBeVisible();
+      else await expect(page.getByRole("button", { name: "Discord로 시작하기" })).toBeVisible();
       // then
       await expect(page.getByRole("status")).toHaveCount(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), `${route} at ${width}`).toBe(false);

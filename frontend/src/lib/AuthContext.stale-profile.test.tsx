@@ -17,7 +17,7 @@ it("로그아웃 후 이전 프로필 요청이 완료돼도 프로필을 복원
   // when
   await act(async () => {
     clearSession();
-    resolve({ data: { id: 7, nickname: "이전 회원", email: "old@example.com", profileImageUrl: "", lastSignInAt: "2026-10-26T10:00:00" } });
+    resolve({ data: { id: 7, nickname: "이전 회원", profileImageUrl: "", lastSignInAt: "2026-10-26T10:00:00" } });
   });
   // then
   expect(screen.getByLabelText("프로필")).toHaveTextContent("없음");
@@ -26,13 +26,13 @@ it("다른 회원으로 전환하면 이전 회원의 지연된 응답을 표시
   // given
   let resolve: (value: object) => void = () => undefined;
   mocks.profile.mockImplementation((id: number) => id === 7 ? new Promise<object>(done => { resolve = done; }) :
-    Promise.resolve({ data: { id: 8, nickname: "현재 회원", email: "new@example.com", profileImageUrl: "", lastSignInAt: "2026-10-26T10:00:00" } }));
+    Promise.resolve({ data: { id: 8, nickname: "현재 회원", profileImageUrl: "", lastSignInAt: "2026-10-26T10:00:00" } }));
   render(<AuthProvider><Probe /></AuthProvider>);
   await waitFor(() => expect(mocks.profile).toHaveBeenCalledWith(7));
   // when
   await act(async () => commitSession({ memberId: 8, role: "NORMAL" }));
   await screen.findByText("현재 회원");
-  await act(async () => resolve({ data: { id: 7, nickname: "이전 회원", email: "old@example.com", profileImageUrl: "", lastSignInAt: "2026-10-26T10:00:00" } }));
+  await act(async () => resolve({ data: { id: 7, nickname: "이전 회원", profileImageUrl: "", lastSignInAt: "2026-10-26T10:00:00" } }));
   // then
   expect(screen.getByLabelText("프로필")).toHaveTextContent("현재 회원");
 });

@@ -1,8 +1,7 @@
 import { expect, test } from "../fixtures";
 
 for (const { route, endpoint, label, query } of [
-  { route: "/watches", endpoint: "/bff/member/7/towers", label: "타워 이름 접두사 검색", query: "채용" },
-  { route: "/mypage/notifications", endpoint: "/bff/notification/channels", label: "채널 이름 접두사 검색", query: "개발" }
+  { route: "/watches", endpoint: "/bff/member/7/towers", label: "타워 이름 접두사 검색", query: "채용" }
 ]) {
   test(`${route} 목록은 아이콘 메뉴로 정렬하고 검색해도 페이지 크기를 고정할 것이다`, async ({ page, login }, info) => {
     // given

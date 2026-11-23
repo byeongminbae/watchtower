@@ -67,7 +67,7 @@ describe("백엔드 응답 계약 검사", () => {
   });
   it("관리자 회원 응답은 탈퇴일과 정지 사유를 포함해 검사할 것이다", () => {
     // given
-    const member = { id: 7, nickname: "회원", email: "member@example.com", profileImageUrl: "", lastSignInAt: "2026-10-26T12:00:00",
+    const member = { id: 7, nickname: "회원", profileImageUrl: "", lastSignInAt: "2026-10-26T12:00:00",
       role: "NORMAL", bannedAt: null, banReason: null, deletedAt: "2026-10-26T12:00:00" };
     // when
     const valid = offsetOf(isAdminMember)({ data: [member], page: 0, size: 20, totalElements: 1, totalPages: 1 });

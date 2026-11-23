@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import WatchesPage from "./page";
 import { ApiError } from "@/lib/api/errors";
@@ -33,4 +33,34 @@ it("목록 조회가 실패하면 서버 오류와 재시도를 표시할 것이
   // then
   expect(await screen.findByRole("alert")).toHaveTextContent("조회 실패");
   expect(screen.getByRole("button", { name: "재시도" })).toBeVisible();
+});
+it("첫 페이지에서는 이전 페이지 버튼을 표시하지 않을 것이다", async () => {
+  // given
+  list.mockResolvedValue({ data: { data: [], hasNext: true, nextCursorId: 31, nextCursorValue: null, size: 20 } });
+  // when
+  render(<WatchesPage />);
+  // then
+  expect(await screen.findByText("1 페이지")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "이전" })).not.toBeInTheDocument();
+});
+it("다음 페이지로 이동하면 이전 페이지 버튼을 표시할 것이다", async () => {
+  // given
+  list.mockResolvedValue({ data: { data: [], hasNext: true, nextCursorId: 31, nextCursorValue: null, size: 20 } });
+  render(<WatchesPage />);
+  const nextButton = await screen.findByRole("button", { name: "다음" });
+  await waitFor(() => expect(nextButton).toBeEnabled());
+  // when
+  fireEvent.click(nextButton);
+  // then
+  expect(await screen.findByText("2 페이지")).toBeVisible();
+  expect(screen.getByRole("button", { name: "이전" })).toBeVisible();
+});
+it("마지막 페이지에서는 다음 페이지 버튼을 표시하지 않을 것이다", async () => {
+  // given
+  list.mockResolvedValue({ data: { data: [], hasNext: false, nextCursorId: null, nextCursorValue: null, size: 20 } });
+  // when
+  render(<WatchesPage />);
+  // then
+  expect(await screen.findByText("1 페이지")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "다음" })).not.toBeInTheDocument();
 });

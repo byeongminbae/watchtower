@@ -50,7 +50,6 @@ class AdminServiceTest {
     private val now = LocalDateTime.of(2026, 10, 2, 12, 0)
 
     private val member = spy(Member.of(
-        email = "member@example.com",
         nickname = "회원",
         profileImageUrl = "https://example.com/profile.png",
         lastSignInAt = now,

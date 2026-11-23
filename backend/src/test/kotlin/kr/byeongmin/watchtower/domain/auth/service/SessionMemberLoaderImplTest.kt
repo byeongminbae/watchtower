@@ -17,7 +17,6 @@ class SessionMemberLoaderImplTest {
     private val sessionMemberLoader = SessionMemberLoaderImpl(memberAccessor)
     private val now = LocalDateTime.of(2026, 10, 26, 12, 0)
     private val member = Member.of(
-        email = "member@example.com",
         nickname = "회원",
         profileImageUrl = "https://example.com/profile.png",
         lastSignInAt = now,

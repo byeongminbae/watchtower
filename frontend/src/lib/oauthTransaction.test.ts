@@ -16,54 +16,31 @@ describe("OAuth transaction", () => {
     vi.useRealTimers();
   });
 
-  it("Given two login attempts, when transactions are created, then uses a fresh cryptographic nonce each time", () => {
-    vi.spyOn(crypto, "randomUUID")
-      .mockReturnValueOnce("11111111-1111-4111-8111-111111111111")
-      .mockReturnValueOnce("22222222-2222-4222-8222-222222222222");
+  it("Given a stored transaction, when consumed, then returns its safe path once", () => {
+    createOAuthTransaction("/watches?tab=mine");
 
-    const first = createOAuthTransaction("/watches");
-    const second = createOAuthTransaction("/watches");
-
-    expect(first).toBe("11111111-1111-4111-8111-111111111111");
-    expect(second).toBe("22222222-2222-4222-8222-222222222222");
-  });
-
-  it("Given a stored transaction, when its exact state is consumed, then returns its safe path once", () => {
-    vi.spyOn(crypto, "randomUUID").mockReturnValue(
-      "11111111-1111-4111-8111-111111111111",
-    );
-    const state = createOAuthTransaction("/watches?tab=mine");
-
-    const first = consumeOAuthTransaction(state);
-    const replay = consumeOAuthTransaction(state);
+    const first = consumeOAuthTransaction();
+    const replay = consumeOAuthTransaction();
 
     expect(first).toBe("/watches?tab=mine");
     expect(replay).toBeNull();
   });
 
-  it("Given a stored transaction, when a different state is consumed, then deletes the transaction", () => {
-    vi.spyOn(crypto, "randomUUID").mockReturnValue(
-      "11111111-1111-4111-8111-111111111111",
-    );
-    const state = createOAuthTransaction("/mypage");
+  it("Given an unsafe return path, when the transaction is created, then stores the safe fallback", () => {
+    createOAuthTransaction("https://attacker.example");
 
-    const mismatch = consumeOAuthTransaction("different-state");
-    const retry = consumeOAuthTransaction(state);
+    const result = consumeOAuthTransaction();
 
-    expect(mismatch).toBeNull();
-    expect(retry).toBeNull();
+    expect(result).toBe("/watches");
   });
 
-  it("Given an expired transaction, when its state is consumed, then rejects it", () => {
+  it("Given an expired transaction, when consumed, then rejects it", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-29T00:00:00Z"));
-    vi.spyOn(crypto, "randomUUID").mockReturnValue(
-      "11111111-1111-4111-8111-111111111111",
-    );
-    const state = createOAuthTransaction("/mypage");
+    createOAuthTransaction("/mypage");
     vi.setSystemTime(new Date("2026-07-29T00:11:00Z"));
 
-    const result = consumeOAuthTransaction(state);
+    const result = consumeOAuthTransaction();
 
     expect(result).toBeNull();
   });

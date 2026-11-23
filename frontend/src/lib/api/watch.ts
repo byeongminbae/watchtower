@@ -8,7 +8,6 @@ export interface CreateWatchRequest extends WatchDetection {
   readonly url: string;
   readonly fetchInterval: string;
   readonly includeInStat: boolean;
-  readonly notificationChannelIds: readonly number[];
   readonly conditions: readonly WatchConditionInput[];
 }
 export interface UpdateWatchRequest extends WatchDetection {

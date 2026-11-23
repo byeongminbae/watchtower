@@ -4,7 +4,6 @@ const FALLBACK_RETURN_PATH = "/watches";
 const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/u;
 
 type StoredOAuthTransaction = {
-  readonly nonce: string;
   readonly returnPath: string;
   readonly createdAt: number;
 };
@@ -37,17 +36,15 @@ export function sanitizeReturnPath(path: string): string {
   }
 }
 
-export function createOAuthTransaction(returnPath: string): string {
+export function createOAuthTransaction(returnPath: string): void {
   const transaction: StoredOAuthTransaction = {
-    nonce: crypto.randomUUID(),
     returnPath: sanitizeReturnPath(returnPath),
     createdAt: Date.now(),
   };
   sessionStorage.setItem(STORAGE_KEY, JSON.stringify(transaction));
-  return transaction.nonce;
 }
 
-export function consumeOAuthTransaction(state: string): string | null {
+export function consumeOAuthTransaction(): string | null {
   const raw = sessionStorage.getItem(STORAGE_KEY);
   sessionStorage.removeItem(STORAGE_KEY);
   if (raw === null) return null;
@@ -63,8 +60,6 @@ export function consumeOAuthTransaction(state: string): string | null {
   if (
     typeof parsed !== "object" ||
     parsed === null ||
-    !("nonce" in parsed) ||
-    typeof parsed.nonce !== "string" ||
     !("returnPath" in parsed) ||
     typeof parsed.returnPath !== "string" ||
     !("createdAt" in parsed) ||
@@ -75,7 +70,6 @@ export function consumeOAuthTransaction(state: string): string | null {
 
   const ageMs = Date.now() - parsed.createdAt;
   if (
-    parsed.nonce !== state ||
     !Number.isFinite(ageMs) ||
     ageMs < 0 ||
     ageMs > TRANSACTION_TTL_MS

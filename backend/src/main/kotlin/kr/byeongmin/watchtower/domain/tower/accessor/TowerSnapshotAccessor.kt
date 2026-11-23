@@ -18,6 +18,10 @@ class TowerSnapshotAccessor(
         return towerSnapshotRepository.save(towerSnapshot)
     }
 
+    fun findTowerSnapshotOfNotification(notificationId: Long): TowerSnapshot? {
+        return towerSnapshotQuerydslRepository.findByNotificationId(notificationId)
+    }
+
     fun findChangedSnapshots(tower: Tower): List<TowerSnapshot> {
         return towerSnapshotQuerydslRepository.findChangedSnapshotsByTower(tower)
     }

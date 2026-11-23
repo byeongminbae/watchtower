@@ -10,7 +10,7 @@ test("서버에서 세션이 만료되면 새로고침할 때 로그인 화면�
   await page.reload();
   // then
   await expect(page).toHaveURL(/\/login\?next=%2Fwatches$/);
-  await expect(page.getByRole("button", { name: "네이버로 시작하기" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Discord로 시작하기" })).toBeVisible();
 });
 test("로그아웃하면 서버 세션 쿠키를 제거하고 홈으로 이동할 것이다", async ({ page, login, context }) => {
   // given

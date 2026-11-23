@@ -28,7 +28,7 @@ async function rawFetch<T>(path: string, options: RequestOptions, decode: Respon
   const expireSession = () => { if (readSessionSnapshot() === sessionAtStart) clearSession(); };
   const { method = "GET", body } = options;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (method !== "GET" || path.startsWith("/bff/auth/naver/url")) {
+  if (method !== "GET") {
     const csrf = await rawFetch("/bff/auth/csrf", { method: "GET" },
       (value, status) => decodeGuardedData(value, status, isCsrfToken));
     headers[csrf.data.headerName] = csrf.data.token;

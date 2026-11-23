@@ -1,6 +1,6 @@
 import { expect, test } from "../fixtures";
 
-test("채널과 소멸 조건으로 타워를 등록하고 수정과 삭제를 완료할 것이다", async ({ page, login, request }) => {
+test("소멸 조건으로 타워를 등록하고 수정과 삭제를 완료할 것이다", async ({ page, login, request }) => {
   // given
   const session = await login();
   await page.goto("/watches");
@@ -14,7 +14,6 @@ test("채널과 소멸 조건으로 타워를 등록하고 수정과 삭제를 �
   await dialog.getByRole("textbox", { name: /키워드/ }).fill("모집 마감");
   await dialog.getByRole("switch", { name: "등장할 때 알림" }).click();
   await dialog.getByLabel("확인 주기 (분)").fill("10");
-  await dialog.getByRole("checkbox", { name: "개발 알림 (DISCORD)" }).check();
   // when
   await dialog.getByRole("button", { name: "등록", exact: true }).click();
   // then
@@ -27,7 +26,7 @@ test("채널과 소멸 조건으로 타워를 등록하고 수정과 삭제를 �
   expect(records.data).toContainEqual(expect.objectContaining({
     method: "POST", path: "/api/v1/towers", csrf: "csrf-fixture", body: {
       name: "새 타워", url: "https://example.com/new", fetchInterval: "PT10M", includeInStat: true,
-      detectTextChange: true, detectImageChange: true, ignoreDateTime: false, detectionAreaSelector: ".job-list", notificationChannelIds: [3],
+      detectTextChange: true, detectImageChange: true, ignoreDateTime: false, detectionAreaSelector: ".job-list",
       conditions: [{ type: "KEYWORD", keyword: "모집 마감", satisfiedWhen: "DISAPPEAR" }]
     }
   }));

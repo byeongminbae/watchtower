@@ -3,11 +3,11 @@ package kr.byeongmin.watchtower.domain.tower.dto
 import com.fasterxml.jackson.annotation.JsonFormat
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
-import java.time.Duration
 import kr.byeongmin.watchtower.domain.tower.policy.TowerPolicy
 import kr.byeongmin.watchtower.global.validation.DurationMultipleOf
 import org.hibernate.validator.constraints.time.DurationMax
 import org.hibernate.validator.constraints.time.DurationMin
+import java.time.Duration
 
 data class TowerUpdateRequestDto(
     @field:NotBlank

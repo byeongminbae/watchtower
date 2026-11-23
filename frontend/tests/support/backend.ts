@@ -1,32 +1,31 @@
 import { createServer } from "node:http";
 import type { Member } from "../../src/types/domain";
 import type { Watch, WatchCondition } from "../../src/types/tower";
-import type { NotificationChannel } from "../../src/types/notification";
 import type { AdminMember } from "../../src/types/admin";
 
 type State = {
   member: Member;
   towers: Watch[];
-  channels: NotificationChannel[];
   conditions: Map<number, WatchCondition[]>;
   members: AdminMember[];
   records: { method: string; path: string; body: unknown; csrf: string | undefined }[];
 };
 const timestamp = "2026-10-26T12:00:00";
+const frontendUrl = "http://127.0.0.1:3000";
 const states = new Map<string, State>();
 const oauthStates = new Map<string, string>();
 const invalidSessions = new Set<string>();
 let sequence = 100;
 function makeState(): State {
-  const member = { id: 7, nickname: "테스트 회원", email: "member@example.com", profileImageUrl: "/watchtower-icon.svg", lastSignInAt: timestamp };
+  const member = { id: 7, nickname: "테스트 회원", profileImageUrl: "/watchtower-icon.png", lastSignInAt: timestamp };
   const tower: Watch = { id: 9, name: "채용 공고", url: "https://example.com/jobs", fetchInterval: "PT5M", includeInStat: true,
-    detectTextChange: true, detectImageChange: false, ignoreDateTime: false, detectionAreaSelector: null, status: "READY", faviconUrl: "/watchtower-icon.svg", lastFetchedAt: timestamp, lastCrawlerResultCode: "FETCHED", lastNotifiedAt: timestamp, latestAiSummary: "새 공고가 등록되었어요." };
-  return { member, towers: [tower], channels: [{ id: 3, name: "개발 알림", type: "DISCORD", webhookUrl: "https://example.com/hooks/test" }],
+    detectTextChange: true, detectImageChange: false, ignoreDateTime: false, detectionAreaSelector: null, status: "READY", faviconUrl: "/watchtower-icon.png", lastFetchedAt: timestamp, lastCrawlerResultCode: "FETCHED", lastNotifiedAt: timestamp, latestAiSummary: "새 공고가 등록되었어요." };
+  return { member, towers: [tower],
     conditions: new Map([[9, [{ id: 1, type: "KEYWORD", keyword: "채용", satisfiedWhen: "APPEAR" }]]]), records: [],
     members: [
       { ...member, role: "NORMAL", bannedAt: null, banReason: null, deletedAt: null },
-      { ...member, id: 8, nickname: "정지 회원", email: "banned@example.com", role: "NORMAL", bannedAt: timestamp, banReason: "정책 위반", deletedAt: null },
-      { ...member, id: 10, nickname: "탈퇴 회원", email: "deleted@example.com", role: "NORMAL", bannedAt: null, banReason: null, deletedAt: timestamp }
+      { ...member, id: 8, nickname: "정지 회원", role: "NORMAL", bannedAt: timestamp, banReason: "정책 위반", deletedAt: null },
+      { ...member, id: 10, nickname: "탈퇴 회원", role: "NORMAL", bannedAt: null, banReason: null, deletedAt: timestamp }
     ] };
 }
 function success(data?: unknown) { return data === undefined ? { isSuccess: true, timestamp } : { isSuccess: true, timestamp, data }; }
@@ -72,6 +71,7 @@ const server = createServer(async (request, response) => {
   const csrf = typeof csrfHeader === "string" ? csrfHeader : undefined;
   response.setHeader("content-type", "application/json");
   const send = (data: unknown) => { response.end(JSON.stringify(data)); };
+  const redirect = (location: string) => { response.statusCode = 302; response.setHeader("location", location); response.end(); };
   if (path === "/health") { send(success()); return; }
   if (path === "/__test/invalidate") { invalidSessions.add(url.searchParams.get("session") ?? ""); send(success()); return; }
   if (path === "/__test/fail-crawl") {
@@ -88,24 +88,26 @@ const server = createServer(async (request, response) => {
     if (!session) response.setHeader("set-cookie", `JSESSIONID=fixture-guest-${++sequence}; Path=/; HttpOnly; SameSite=Lax`);
     send(success({ token: "csrf-fixture", headerName: "X-CSRF-TOKEN" })); return;
   }
-  if ((method !== "GET" || path === "/auth/naver/url") && csrf !== "csrf-fixture") {
-    send(failure("AUT_002", "CSRF 검증 실패")); return;
+  if (path === "/oauth2/authorization/discord") {
+    const loginSession = session || `fixture-guest-${++sequence}`;
+    const oauthState = `fixture-state-${++sequence}`;
+    oauthStates.set(loginSession, oauthState);
+    if (!session) response.setHeader("set-cookie", `JSESSIONID=${loginSession}; Path=/; HttpOnly; SameSite=Lax`);
+    redirect(`https://discord.com/oauth2/authorize?state=${oauthState}`); return;
   }
-  if (path === "/auth/naver/url") {
-    oauthStates.set(session, url.searchParams.get("state") ?? "");
-    send(success(`https://nid.naver.com/oauth2.0/authorize?state=${url.searchParams.get("state") ?? ""}`)); return;
-  }
-  if (path === "/auth/naver/callback") {
-    const code = url.searchParams.get("code");
+  if (path === "/oauth2/callback/discord") {
     const expected = oauthStates.get(session);
-    if (code !== "fixture-code" || !expected || url.searchParams.get("state") !== expected) {
-      send(failure("AUT_005", "잘못된 OAuth 요청")); return;
-    }
     oauthStates.delete(session);
+    if (url.searchParams.get("code") !== "fixture-code" || !expected || url.searchParams.get("state") !== expected) {
+      redirect(`${frontendUrl}/login/callback?error=authorization_request_not_found`); return;
+    }
     const next = `fixture-normal-oauth-${++sequence}`;
     states.set(next, state);
     response.setHeader("set-cookie", `JSESSIONID=${next}; Path=/; HttpOnly; SameSite=Lax`);
-    send(success({ memberId: 7, role: "NORMAL" })); return;
+    redirect(`${frontendUrl}/login/callback`); return;
+  }
+  if (method !== "GET" && csrf !== "csrf-fixture") {
+    send(failure("AUT_002", "CSRF 검증 실패")); return;
   }
   if (path === "/towers/trending") { send(success([{ domain: "example.com", url: "https://example.com/jobs", detectionCount: 12 }])); return; }
   if (!authenticated) { send(failure("AUT_001", "인증이 필요해요.")); return; }
@@ -116,6 +118,7 @@ const server = createServer(async (request, response) => {
     response.setHeader("set-cookie", "JSESSIONID=; Max-Age=0; Path=/; HttpOnly");
     send(success()); return;
   }
+  if (path === "/member/7/test-notification" && method === "POST") { send(success()); return; }
   if (path === "/member/7") {
     if (method === "PUT" && typeof body.nickname === "string" && typeof body.profileImageUrl === "string") state.member = { ...state.member, nickname: body.nickname, profileImageUrl: body.profileImageUrl };
     if (method === "DELETE") { states.delete(session); response.setHeader("set-cookie", "JSESSIONID=; Max-Age=0; Path=/; HttpOnly"); send(success()); return; }
@@ -173,19 +176,7 @@ const server = createServer(async (request, response) => {
     }
     send(success(tower)); return;
   }
-  const channelMatch = /^\/notification\/channels(?:\/(\d+))?$/.exec(path);
-  if (channelMatch) {
-    const id = Number(channelMatch[1]);
-    if (method === "GET") { send(success(id ? state.channels.find(item => item.id === id) : page(state.channels.filter(item => item.name.startsWith(query)), url, false))); return; }
-    if (method === "DELETE") { state.channels = state.channels.filter(item => item.id !== id); send(success()); return; }
-    const existing = state.channels.find(item => item.id === id);
-    if (typeof body.name !== "string" || typeof body.webhookUrl !== "string" || (!existing && body.type !== "DISCORD" && body.type !== "TELEGRAM")) { send(failure("COM_001", "채널 요청 오류")); return; }
-    const type = existing?.type ?? (body.type === "TELEGRAM" ? "TELEGRAM" : "DISCORD");
-    const channel = { id: existing?.id ?? ++sequence, name: body.name, webhookUrl: body.webhookUrl, type };
-    state.channels = existing ? state.channels.map(item => item.id === id ? channel : item) : [...state.channels, channel];
-    send(success(channel)); return;
-  }
-  if (path === "/admin/members") { send(success(page(state.members.filter(item => item.nickname.startsWith(query) || item.email.startsWith(query)), url, true))); return; }
+  if (path === "/admin/members") { send(success(page(state.members.filter(item => item.nickname.startsWith(query)), url, true))); return; }
   const memberMatch = /^\/admin\/members\/(\d+)\/(roles|status)$/.exec(path);
   if (memberMatch) {
     const id = Number(memberMatch[1]);

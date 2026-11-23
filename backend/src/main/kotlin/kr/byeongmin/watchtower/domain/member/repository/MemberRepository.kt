@@ -14,11 +14,7 @@ interface MemberRepository : BaseRepository<Member, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     fun findMemberForUpdateByIdAndDeletedAtIsNull(memberId: Long): Member?
 
-    fun findAllByEmailStartingWithOrNicknameStartingWith(
-        email: String,
-        nickname: String,
-        pageable: Pageable
-    ): Page<Member>
+    fun findAllByNicknameStartingWith(nickname: String, pageable: Pageable): Page<Member>
 
 
     fun countByDeletedAtIsNull(): Long

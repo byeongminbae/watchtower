@@ -2,7 +2,6 @@ package kr.byeongmin.watchtower.domain.tower.accessor
 
 import kr.byeongmin.watchtower.domain.tower.entity.DetectionCondition
 import kr.byeongmin.watchtower.domain.tower.entity.Tower
-import kr.byeongmin.watchtower.domain.tower.entity.TowerNotificationChannel
 import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
 import kr.byeongmin.watchtower.domain.tower.repository.*
 import kr.byeongmin.watchtower.global.error.CommonError
@@ -19,10 +18,8 @@ class TowerAccessor(
     private val towerRepository: TowerRepository,
     private val towerQuerydslRepository: TowerQuerydslRepository,
     private val detectionConditionRepository: DetectionConditionRepository,
-    private val towerNotificationChannelRepository: TowerNotificationChannelRepository,
     private val towerSnapshotQuerydslRepository: TowerSnapshotQuerydslRepository,
-    private val detectionConditionQuerydslRepository: DetectionConditionQuerydslRepository,
-    private val towerNotificationChannelQuerydslRepository: TowerNotificationChannelQuerydslRepository
+    private val detectionConditionQuerydslRepository: DetectionConditionQuerydslRepository
 ) {
     fun getTower(towerId: Long): Tower {
         return towerRepository.get(towerId)
@@ -65,15 +62,8 @@ class TowerAccessor(
         return towerRepository.countByStatusAndDeletedAtIsNull(status)
     }
 
-    fun saveTower(
-        tower: Tower,
-        conditions: List<DetectionCondition>,
-        notificationChannels: List<TowerNotificationChannel>
-    ): Tower {
+    fun saveTower(tower: Tower, conditions: List<DetectionCondition>): Tower {
         val savedTower = towerRepository.save(tower)
-        if (notificationChannels.isNotEmpty()) {
-            towerNotificationChannelRepository.saveAll(notificationChannels)
-        }
         detectionConditionRepository.saveAll(conditions)
         return savedTower
     }
@@ -81,7 +71,6 @@ class TowerAccessor(
     fun deleteAllOwnedTowers(memberId: Long, deletedAt: LocalDateTime) {
         towerSnapshotQuerydslRepository.deleteByMemberId(memberId, deletedAt)
         detectionConditionQuerydslRepository.deleteByMemberId(memberId, deletedAt)
-        towerNotificationChannelQuerydslRepository.deleteByMemberId(memberId, deletedAt)
         towerQuerydslRepository.deleteByMemberId(memberId, deletedAt)
     }
 

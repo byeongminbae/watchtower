@@ -1,5 +1,6 @@
 package kr.byeongmin.watchtower.domain.member.entity
 
+import kr.byeongmin.watchtower.domain.auth.entity.DiscordAccount
 import kr.byeongmin.watchtower.domain.member.enums.MemberRole
 import kr.byeongmin.watchtower.domain.subscription.entity.Plan
 import kr.byeongmin.watchtower.global.error.AuthError
@@ -12,6 +13,7 @@ import org.mockito.kotlin.whenever
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
 
 class MemberTest {
     private val plan = mock<Plan>()
@@ -24,7 +26,6 @@ class MemberTest {
 
         /** when */
         val member = Member.of(
-            email = "member@example.com",
             nickname = "회원",
             profileImageUrl = "https://example.com/profile.png",
             lastSignInAt = signUpAt,
@@ -32,7 +33,6 @@ class MemberTest {
         )
 
         /** then */
-        assertEquals("member@example.com", member.email)
         assertEquals("회원", member.nickname)
         assertEquals("https://example.com/profile.png", member.profileImageUrl)
         assertEquals(MemberRole.NORMAL, member.role)
@@ -43,7 +43,6 @@ class MemberTest {
     fun `정지된 회원은 로그인할 수 없음`() {
         /** given */
         val member = Member.of(
-            email = "member@example.com",
             nickname = "회원",
             profileImageUrl = "https://example.com/profile.png",
             lastSignInAt = now,
@@ -64,7 +63,6 @@ class MemberTest {
     fun `탈퇴한 회원은 로그인할 수 없음`() {
         /** given */
         val member = Member.of(
-            email = "member@example.com",
             nickname = "회원",
             profileImageUrl = "https://example.com/profile.png",
             lastSignInAt = now,
@@ -87,7 +85,6 @@ class MemberTest {
         /** given */
         whenever(plan.maxTowerQuantity).thenReturn(5)
         val member = Member.of(
-            email = "member@example.com",
             nickname = "회원",
             profileImageUrl = "https://example.com/profile.png",
             lastSignInAt = now,
@@ -99,5 +96,28 @@ class MemberTest {
 
         /** then */
         assertEquals(expected, result)
+    }
+
+    @Test
+    fun `회원을 삭제하면 연결된 계정도 함께 삭제됨`() {
+        /** given */
+        val member = Member.of(
+            nickname = "회원",
+            profileImageUrl = "https://example.com/profile.png",
+            lastSignInAt = now,
+            plan = plan
+        )
+        val discordAccount = DiscordAccount.of(
+            member = member,
+            providerId = "80351110224678912",
+            directMessageChannelId = "1573265772178968700"
+        )
+
+        /** when */
+        member.delete()
+
+        /** then */
+        assertNotNull(member.deletedAt)
+        assertNotNull(discordAccount.deletedAt)
     }
 }

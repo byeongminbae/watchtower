@@ -3,7 +3,6 @@ import { apiClient } from "./client";
 import { memberApi } from "./member";
 import { watchApi } from "./watch";
 import { adminApi } from "./admin";
-import { notificationApi } from "./notification";
 import { defaultSearch } from "@/types/pagination";
 
 vi.mock("./client", () => ({ apiClient: { get: vi.fn(), post: vi.fn(), put: vi.fn(), postEmpty: vi.fn(), deleteEmpty: vi.fn() } }));
@@ -20,7 +19,7 @@ it("회원 수정과 탈퇴는 실제 회원 경로와 HTTP 방식으로 연결�
 it("타워 생성과 수정은 Duration과 모든 필수 필드를 전송할 것이다", () => {
   // given
   const create = { name: "관찰", url: "https://example.com", fetchInterval: "PT5M", includeInStat: true,
-    detectTextChange: false, detectImageChange: true, ignoreDateTime: true, detectionAreaSelector: ".price", notificationChannelIds: [3],
+    detectTextChange: false, detectImageChange: true, ignoreDateTime: true, detectionAreaSelector: ".price",
     conditions: [{ type: "KEYWORD", keyword: "마감", satisfiedWhen: "DISAPPEAR" }] } as const;
   const update = { name: "관찰", fetchInterval: "PT10M", includeInStat: false, detectTextChange: true, detectImageChange: false, ignoreDateTime: false, detectionAreaSelector: null } as const;
   // when
@@ -50,7 +49,7 @@ it("목록의 커서 값과 검색 및 정렬은 서버에 전달될 것이다",
   // given
   const criteria = { ...defaultSearch, query: "공고 &", sortField: "CREATED_AT", cursorId: 5, cursorValue: "2026-10-25T10:00:00" } as const;
   // when
-  watchApi.listMemberWatches(7, criteria); notificationApi.listChannels(criteria);
+  watchApi.listMemberWatches(7, criteria);
   // then
   const calls = vi.mocked(apiClient.get).mock.calls.map(call => new URL(call[0], "https://front.example"));
   for (const url of calls) {
@@ -78,12 +77,4 @@ it("관리자 목록은 오프셋 페이지와 서버 검색을 요청할 것이
   expect(url.pathname).toBe("/bff/admin/members");
   expect(url.searchParams.get("page")).toBe("2");
   expect(url.searchParams.get("query")).toBe("회원");
-});
-it("알림 채널 수정에서는 생성할 때 정한 유형을 보내지 않을 것이다", () => {
-  // given
-  const update = { name: "알림", webhookUrl: "https://example.com/hook" };
-  // when
-  notificationApi.updateChannel(3, update);
-  // then
-  expect(apiClient.put).toHaveBeenCalledWith("/bff/notification/channels/3", update, expect.any(Function));
 });

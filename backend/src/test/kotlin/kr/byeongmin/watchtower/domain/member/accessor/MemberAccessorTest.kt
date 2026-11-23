@@ -45,7 +45,7 @@ class MemberAccessorTest {
     }
 
     @Test
-    fun `검색어를 이메일과 닉네임 검색에 동일하게 전달함`() {
+    fun `검색어를 닉네임 검색에 전달함`() {
         /** given */
         val member = mock<Member>()
         val request = OffsetPaginationRequestDto(
@@ -57,9 +57,7 @@ class MemberAccessorTest {
         val pageable = PageRequest.of(1, 10, Sort.by(Sort.Direction.ASC, "createdAt"))
         val page = PageImpl(listOf(member), pageable, 11L)
         whenever(
-            memberRepository.findAllByEmailStartingWithOrNicknameStartingWith(
-                "회원", "회원", pageable
-            )
+            memberRepository.findAllByNicknameStartingWith("회원", pageable)
         )
             .thenReturn(page)
 

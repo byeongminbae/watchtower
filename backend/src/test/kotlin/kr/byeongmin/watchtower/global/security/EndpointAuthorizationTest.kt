@@ -5,13 +5,8 @@ import kr.byeongmin.watchtower.domain.admin.controller.StatsController
 import kr.byeongmin.watchtower.domain.admin.service.AdminService
 import kr.byeongmin.watchtower.domain.admin.service.StatsService
 import kr.byeongmin.watchtower.domain.auth.controller.AuthController
-import kr.byeongmin.watchtower.domain.auth.dto.MemberSessionResponseDto
-import kr.byeongmin.watchtower.global.dto.SuccessDataResponse
-import kr.byeongmin.watchtower.domain.auth.service.AuthService
 import kr.byeongmin.watchtower.domain.member.controller.MemberController
 import kr.byeongmin.watchtower.domain.member.service.MemberService
-import kr.byeongmin.watchtower.domain.notification.controller.NotificationChannelController
-import kr.byeongmin.watchtower.domain.notification.service.NotificationChannelService
 import kr.byeongmin.watchtower.domain.tower.controller.TowerController
 import kr.byeongmin.watchtower.domain.tower.service.HotTowerService
 import kr.byeongmin.watchtower.domain.tower.service.TowerService
@@ -24,10 +19,7 @@ import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoInteractions
-import org.mockito.kotlin.whenever
 import org.springframework.aop.framework.ProxyFactory
-import org.springframework.mock.web.MockHttpServletRequest
-import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
@@ -40,18 +32,13 @@ class EndpointAuthorizationTest {
     private val adminService = mock<AdminService>()
     private val statsService = mock<StatsService>()
     private val memberService = mock<MemberService>()
-    private val channelService = mock<NotificationChannelService>()
     private val towerService = mock<TowerService>()
     private val hotTowerService = mock<HotTowerService>()
-    private val authService = mock<AuthService>()
-    private val request = MockHttpServletRequest()
-    private val response = MockHttpServletResponse()
     private val adminController = secure(AdminController(adminService))
     private val statsController = secure(StatsController(statsService))
     private val memberController = secure(MemberController(memberService))
-    private val notificationChannelController = secure(NotificationChannelController(channelService))
     private val towerController = secure(TowerController(towerService, hotTowerService))
-    private val authController = secure(AuthController(authService))
+    private val authController = secure(AuthController())
 
     @AfterEach
     fun clearAuthentication() {
@@ -144,17 +131,15 @@ class EndpointAuthorizationTest {
     }
 
     @Test
-    fun `로그인한 회원은 알림 채널과 타워 및 세션을 조회할 수 있음`() {
+    fun `로그인한 회원은 타워와 세션을 조회할 수 있음`() {
         /** given */
         authenticate("NORMAL")
 
         /** when */
-        notificationChannelController.getChannel(21L, 1L)
         towerController.getTower(21L, 7L)
         authController.getSession(MemberPrinciple(21L, "NORMAL"))
 
         /** then */
-        verify(channelService).getChannel(21L, 1L)
         verify(towerService).getTower(21L, 7L)
     }
 
@@ -165,33 +150,24 @@ class EndpointAuthorizationTest {
 
         /** when */
         assertFailsWith<AuthenticationCredentialsNotFoundException> { memberController.getMember(21L) }
-        assertFailsWith<AuthenticationCredentialsNotFoundException> { notificationChannelController.getChannel(21L, 1L) }
         assertFailsWith<AuthenticationCredentialsNotFoundException> { towerController.getTower(21L, 7L) }
         assertFailsWith<AuthenticationCredentialsNotFoundException> {
             authController.getSession(MemberPrinciple(21L, "NORMAL"))
         }
 
         /** then */
-        verifyNoInteractions(memberService, channelService, towerService, authService)
+        verifyNoInteractions(memberService, towerService)
     }
 
     @Test
-    fun `인기 타워 조회와 네이버 로그인은 로그인하지 않아도 사용할 수 있음`() {
+    fun `인기 타워 조회는 로그인하지 않아도 사용할 수 있음`() {
         /** given */
         SecurityContextHolder.clearContext()
-        whenever(authService.getNaverSignInUrl("state", request, response))
-            .thenReturn(SuccessDataResponse("https://nid.naver.com/oauth2.0/authorize"))
-        whenever(authService.signInWithNaverCallback("code", "state", request, response))
-            .thenReturn(SuccessDataResponse(MemberSessionResponseDto(21L, "NORMAL")))
 
         /** when */
         towerController.getTrendingTowers()
-        authController.getNaverSignInUrl("state", request, response)
-        authController.signInWithNaverCallback("code", "state", request, response)
 
         /** then */
         verify(hotTowerService).getTrendingTowers()
-        verify(authService).getNaverSignInUrl("state", request, response)
-        verify(authService).signInWithNaverCallback("code", "state", request, response)
     }
 }

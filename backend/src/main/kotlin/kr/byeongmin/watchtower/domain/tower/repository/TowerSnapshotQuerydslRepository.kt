@@ -17,6 +17,16 @@ import java.time.LocalDateTime
 class TowerSnapshotQuerydslRepository(
     private val queryFactory: JPAQueryFactory
 ) {
+    fun findByNotificationId(notificationId: Long): TowerSnapshot? {
+        return queryFactory
+            .selectFrom(towerSnapshot)
+            .where(
+                towerSnapshot.notification.id.eq(notificationId),
+                towerSnapshot.deletedAt.isNull
+            )
+            .fetchOne()
+    }
+
     fun findChangedSnapshotsByTower(tower: Tower): List<TowerSnapshot> {
         return queryFactory
             .selectFrom(towerSnapshot)

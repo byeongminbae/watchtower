@@ -84,7 +84,6 @@ class TowerControllerTest {
                             url = TowerUrl.from("https://example.com"),
                             fetchInterval = Duration.ofMinutes(10),
                             includeInStat = true,
-                            notificationChannelIds = setOf(31L),
                             conditions = listOf(KeywordConditionCreateRequestDto("재입고", PresenceChange.APPEAR))
                         )
                     )
@@ -103,7 +102,6 @@ class TowerControllerTest {
                 url = TowerUrl.from("https://example.com"),
                 fetchInterval = Duration.ofMinutes(10),
                 includeInStat = true,
-                notificationChannelIds = setOf(31L),
                 conditions = listOf(KeywordConditionCreateRequestDto("재입고", PresenceChange.APPEAR))
             )
         )
@@ -200,23 +198,6 @@ class TowerControllerTest {
             .andExpect(jsonPath("$.isSuccess").value(true))
 
         verify(towerService).deleteTower(memberId = 21L, towerId = 7L)
-    }
-
-    @Test
-    fun `선택한 타워에 테스트 알림을 요청할 수 있음`() {
-        /** given */
-        whenever(towerService.sendTestNotification(21L, 7L))
-            .thenReturn(SuccessResponse())
-
-        /** when */
-        val result = mvc.perform(post("/api/v1/towers/7/notify"))
-
-        /** then */
-        result
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.isSuccess").value(true))
-
-        verify(towerService).sendTestNotification(memberId = 21L, towerId = 7L)
     }
 
     @Test

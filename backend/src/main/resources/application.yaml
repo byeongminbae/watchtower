@@ -25,6 +25,10 @@ spring:
         static: ocid1.tenancy.oc1..aaaaaaaajrqij5qzv6e6fnfaq2pk2pjexmmgkbgabdwkyglw2kz2a3egbkna
       vault:
         compartment: ocid1.tenancy.oc1..aaaaaaaajrqij5qzv6e6fnfaq2pk2pjexmmgkbgabdwkyglw2kz2a3egbkna
+        property-sources:
+          # watchtower-common-vault
+          - vault-id: ocid1.vault.oc1.ap-osaka-1.fzvqakbgaafqe.abvwsljrroq6wci3nv5uz6a2y4hii4kzzmxtgr26mi5mjygc5zm2isq4budq
+          - vault-id: ${watchtower.environment-vault-id}
   lifecycle:
     timeout-per-shutdown-phase: 60s
   task:
@@ -39,9 +43,29 @@ spring:
     hibernate:
       ddl-auto: validate
   datasource:
-    platform: postgres
     driverClassName: org.postgresql.Driver
+  sql:
+    init:
+      platform: postgres
+
+  security:
+    oauth2:
+      client:
+        registration:
+          discord:
+            client-id: "1573054853113184437"
+            client-secret: ${discord-application-client-secret}
+            client-authentication-method: client_secret_basic
+            authorization-grant-type: authorization_code
+            redirect-uri: "${watchtower.frontend-url}/bff/oauth2/callback/{registrationId}"
+            scope: identify, guilds.join
+        provider:
+          discord:
+            authorization-uri: https://discord.com/oauth2/authorize
+            token-uri: https://discord.com/api/v10/oauth2/token
 
 watchtower:
   snapshot-storage:
     namespace: ax7wkezrucld
+  discord:
+    guild-id: "1573265772178968628"
