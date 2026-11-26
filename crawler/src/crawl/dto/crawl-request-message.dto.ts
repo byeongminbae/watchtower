@@ -64,6 +64,14 @@ export class CrawlRequestMessage implements Readonly<CrawlRequest> {
   }
 
   toTextObjectName(crawlingStartedAt: Date): string {
-    return `towers/${this.towerId}/${crawlingStartedAt.toISOString()}.txt`;
+    return `${this.toObjectNamePrefix(crawlingStartedAt)}.txt`;
+  }
+
+  toScreenshotObjectName(crawlingStartedAt: Date): string {
+    return `${this.toObjectNamePrefix(crawlingStartedAt)}.png`;
+  }
+
+  private toObjectNamePrefix(crawlingStartedAt: Date): string {
+    return `towers/${this.towerId}/${crawlingStartedAt.toISOString()}`;
   }
 }

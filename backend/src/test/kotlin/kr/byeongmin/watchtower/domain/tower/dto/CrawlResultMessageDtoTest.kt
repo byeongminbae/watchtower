@@ -23,7 +23,7 @@ class CrawlResultMessageDtoTest {
             "crawlingStartedAt":"2026-11-03T01:00:01.000Z","crawlingEndedAt":"2026-11-03T01:00:05.123Z",
             "triggeredByMemberId":21,"crawlerResultCode":"FETCHED","finalUrl":"https://example.com/moved","pageHttpStatusCode":200,"addedLater":"value",
             "pageContent":{"textHash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","dateTimeIgnoredTextHash":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","detectionAreaSelector":".stock","textObjectName":"towers/7/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.txt",
-            "imageHash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}}
+            "screenshotObjectName":"towers/7/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png","imageHash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}}
         """.trimIndent()
 
         /** when */
@@ -42,6 +42,7 @@ class CrawlResultMessageDtoTest {
                 dateTimeIgnoredTextHash = "d".repeat(64),
                 detectionAreaSelector = ".stock",
                 textObjectName = "towers/7/${"a".repeat(64)}.txt",
+                screenshotObjectName = "towers/7/${"a".repeat(64)}.png",
                 imageHash = "b".repeat(64)
             ),
             crawlResultMessageDto.pageContent

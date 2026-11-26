@@ -42,7 +42,7 @@ export class PlaywrightPageFetcher implements PageFetcher, OnModuleInit {
     }
 
     await using browser = await PlaywrightPageFetcher.launchBrowser();
-    const requestFilter = new RequestFilter(hostValidator, extraction.collectImageHashes);
+    const requestFilter = new RequestFilter(hostValidator);
     const browserTab = await BrowserTab.open(browser, requestFilter, extraction);
     return await browserTab.fetch(url);
   }

@@ -6,7 +6,7 @@ import {Separator} from "@/components/ui/separator";
 const FEATURES = [
     {icon: MousePointerClick, title: "반복하던 새로고침은 그만", description: "지원사업, 학사 공지, 공연 예매까지. 같은 페이지를 다시 여는 시간을 줄여보세요."},
     {icon: ScanLine, title: "필요한 변화만 골라서", description: "글자와 이미지의 변화부터 키워드의 등장과 사라짐까지. 원하는 영역만 골라서 지켜볼 수도 있어요."},
-    {icon: Sparkles, title: "달라진 내용은 AI 요약으로", description: "무엇이 바뀌었는지 일일이 비교하지 마세요. 중요한 변화를 짧은 요약으로 확인해요."}
+    {icon: Sparkles, title: "달라진 내용은 AI 요약으로", description: "무엇이 바뀌었는지 일일이 비교하지 마세요. 중요한 변화를 짧은 요약과 바뀐 곳을 표시한 스크린샷으로 확인해요."}
 ] as const;
 
 const STEPS = [

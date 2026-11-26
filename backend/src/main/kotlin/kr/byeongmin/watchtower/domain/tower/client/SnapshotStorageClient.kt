@@ -1,9 +1,14 @@
 package kr.byeongmin.watchtower.domain.tower.client
 
+import kr.byeongmin.watchtower.domain.tower.vo.Screenshot
 import java.time.LocalDateTime
 
 interface SnapshotStorageClient {
     fun getText(objectName: String): String
+
+    fun getScreenshot(objectName: String): Screenshot
+
+    fun saveScreenshot(objectName: String, screenshot: Screenshot)
 
     fun deleteObject(objectName: String)
 

@@ -52,6 +52,8 @@ dependencies {
     implementation("com.oracle.cloud.spring:spring-cloud-oci-starter-queue:2.0.4")
     implementation("com.oracle.cloud.spring:spring-cloud-oci-starter-storage:2.0.4")
     implementation("com.slack.api:slack-api-client:1.45.3")
+    implementation("org.eclipse.jgit:org.eclipse.jgit:7.8.1.202611041320-r")
+    implementation("com.twelvemonkeys.common:common-image:3.15.3")
 
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3")
 

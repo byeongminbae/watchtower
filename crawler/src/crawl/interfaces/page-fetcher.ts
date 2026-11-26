@@ -12,7 +12,8 @@ export class FetchedPage {
     readonly finalUrl: string,
     readonly httpStatusCode: number,
     readonly text: string,
-    readonly imageHashes: readonly string[] | null
+    readonly imageHashes: readonly string[] | null,
+    readonly screenshot: Buffer | null
   ) {}
 }
 

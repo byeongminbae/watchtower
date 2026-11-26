@@ -77,3 +77,26 @@ test("변화 기록 탭을 열면 감지된 변경의 감지 시각과 요약과
   await expect(page.locator("time[datetime='2026-11-03T20:55:38Z']")).toHaveAttribute("title", /2026/);
   await expect(page.getByRole("img", { name: "변경 부분을 표시한 스크린샷" })).toHaveAttribute("src", "https://objectstorage.ap-osaka-1.oraclecloud.com/p/token/o/1.png");
 });
+
+test("변경 부분 스크린샷은 작게 보여주고 누르면 다른 화면으로 이동하지 않고 창에서 크게 보여줄 것이다", async ({ page, login }) => {
+  // given
+  await login();
+  await page.route("https://objectstorage.ap-osaka-1.oraclecloud.com/**", route => route.fulfill({
+    contentType: "image/svg+xml",
+    body: "<svg xmlns='http://www.w3.org/2000/svg' width='1280' height='10000'><rect width='1280' height='10000' fill='white'/></svg>"
+  }));
+  await page.goto("/watches/9");
+  await page.getByRole("tab", { name: /변화 기록/ }).click();
+  const preview = page.getByRole("button", { name: "변경 부분 스크린샷 크게 보기" });
+  await expect(preview.getByRole("img")).toHaveJSProperty("complete", true);
+  expect((await preview.boundingBox())?.height).toBeLessThanOrEqual(160);
+  // when
+  await preview.click();
+  // then
+  const dialog = page.getByRole("dialog", { name: "변경 부분 스크린샷" });
+  await expect(dialog.getByRole("img", { name: "변경 부분을 표시한 스크린샷 원본" })).toHaveJSProperty("complete", true);
+  await expect(page).toHaveURL(/\/watches\/9$/);
+  expect(page.context().pages()).toHaveLength(1);
+  const { clientHeight, scrollHeight } = await dialog.evaluate(content => ({ clientHeight: content.clientHeight, scrollHeight: content.scrollHeight }));
+  expect(scrollHeight).toBeGreaterThan(clientHeight);
+});

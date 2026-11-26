@@ -6,7 +6,7 @@ import { CrawlEnvironment, CrawlEnvironments } from '../src/crawl/crawl-environm
 import { CrawlModule } from '../src/crawl/crawl.module.js';
 import { FetchedPage, PageFetcher } from '../src/crawl/interfaces/page-fetcher.js';
 import type { ReceivedMessage, RequestQueue, ResultQueue } from '../src/crawl/interfaces/queue.js';
-import type { SnapshotStorage } from '../src/crawl/interfaces/snapshot-storage.js';
+import type { PageContentStorage } from '../src/crawl/interfaces/page-content-storage.js';
 import { InternalNetworkIsolationCheck } from '../src/network/internal-network-isolation-check.js';
 
 class InMemoryRequestQueue implements RequestQueue {
@@ -71,14 +71,15 @@ describe('크롤러 (e2e)', () => {
 
     const pageFetcher: PageFetcher = {
       fetchPage: async () => {
-        return new FetchedPage('https://example.com', 200, '재입고 알림', null);
+        return new FetchedPage('https://example.com', 200, '재입고 알림', null, null);
       }
     };
-    const snapshotStorageOf = (bucketName: string): SnapshotStorage => {
+    const pageContentStorageOf = (bucketName: string): PageContentStorage => {
       return {
         saveText: async () => {
           savedBuckets.push(bucketName);
-        }
+        },
+        saveScreenshot: async () => {}
       };
     };
 
@@ -94,12 +95,12 @@ describe('크롤러 (e2e)', () => {
         .overrideProvider(CrawlEnvironments)
         .useValue(
           new CrawlEnvironments([
-            new CrawlEnvironment('dev', devRequestQueue, devResultQueue, snapshotStorageOf('watchtower-snapshot-dev')),
+            new CrawlEnvironment('dev', devRequestQueue, devResultQueue, pageContentStorageOf('watchtower-snapshot-dev')),
             new CrawlEnvironment(
               'prod',
               prodRequestQueue,
               prodResultQueue,
-              snapshotStorageOf('watchtower-snapshot-prod')
+              pageContentStorageOf('watchtower-snapshot-prod')
             )
           ])
         )

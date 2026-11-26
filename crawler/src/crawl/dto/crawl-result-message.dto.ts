@@ -8,7 +8,13 @@ type PageContent = {
   readonly dateTimeIgnoredTextHash: string;
   readonly detectionAreaSelector: string | null;
   readonly textObjectName: string | null;
+  readonly screenshotObjectName: string | null;
   readonly imageHash: string | null;
+};
+
+export type PageContentObjectNames = {
+  readonly textObjectName: string;
+  readonly screenshotObjectName: string | null;
 };
 
 /**
@@ -43,7 +49,7 @@ export class CrawlResultMessage {
     crawlingEndedAt: Date,
     page: FetchedPage,
     contentHashes: ContentHashes,
-    textObjectName: string | null
+    pageContentObjectNames: PageContentObjectNames | null
   ): CrawlResultMessage {
     return new CrawlResultMessage(
       request,
@@ -56,7 +62,8 @@ export class CrawlResultMessage {
         textHash: contentHashes.textHash,
         dateTimeIgnoredTextHash: contentHashes.dateTimeIgnoredTextHash,
         detectionAreaSelector: request.extraction.detectionAreaSelector,
-        textObjectName,
+        textObjectName: pageContentObjectNames?.textObjectName ?? null,
+        screenshotObjectName: pageContentObjectNames?.screenshotObjectName ?? null,
         imageHash: contentHashes.imageHash
       }
     );

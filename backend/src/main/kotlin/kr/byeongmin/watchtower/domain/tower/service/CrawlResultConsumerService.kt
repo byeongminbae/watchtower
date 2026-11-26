@@ -107,7 +107,13 @@ class CrawlResultConsumerService(
         val tower = requestHistory.tower
         val latestSnapshot = towerSnapshotAccessor.findLatestSnapshot(tower.id.ifNullThrow())
         if (latestSnapshot.isNull()) {
-            saveSnapshotAndNotify(requestHistory, pageContent, textObjectName, isChangeDetected = false)
+            saveSnapshotAndNotify(
+                requestHistory = requestHistory,
+                pageContent = pageContent,
+                textObjectName = textObjectName,
+                isChangeDetected = false,
+                highlightedScreenshotObjectName = null
+            )
             return
         }
 
@@ -119,23 +125,60 @@ class CrawlResultConsumerService(
         }
         if (previous.hasSameContent(current)) {
             // 크롤링 도중 날짜무시를 켜면 여기에 걸릴 수 있음
-            snapshotStorageClient.deleteObject(textObjectName)
+            pageContent.getAllObjectNames().forEach { snapshotStorageClient.deleteObject(it) }
             return
         }
 
+        val isChangeDetected = tower.detectsChange(previous = previous, current = current)
+        val highlightedScreenshotObjectName = if (isChangeDetected) {
+            saveHighlightedScreenshotIfComparable(
+                latestSnapshot.screenshotObjectName,
+                pageContent.screenshotObjectName
+            )
+        } else {
+            null
+        }
         saveSnapshotAndNotify(
             requestHistory = requestHistory,
             pageContent = pageContent,
             textObjectName = textObjectName,
-            isChangeDetected = tower.detectsChange(previous = previous, current = current)
+            isChangeDetected = isChangeDetected,
+            highlightedScreenshotObjectName = highlightedScreenshotObjectName
         )
+    }
+
+    private fun saveHighlightedScreenshotIfComparable(
+        previousScreenshotObjectName: String?,
+        screenshotObjectName: String?
+    ): String? {
+        if (previousScreenshotObjectName.isNull() || screenshotObjectName.isNull()) {
+            return null
+        }
+        try {
+            val previousScreenshot = snapshotStorageClient.getScreenshot(previousScreenshotObjectName)
+            val screenshot = snapshotStorageClient.getScreenshot(screenshotObjectName)
+            screenshot.highlightChangesFrom(previousScreenshot)
+            val highlightedScreenshotObjectName = toHighlightedScreenshotObjectName(screenshotObjectName)
+            snapshotStorageClient.saveScreenshot(highlightedScreenshotObjectName, screenshot)
+            return highlightedScreenshotObjectName
+        } catch (exception: Exception) {
+            val message = "변경 영역 스크린샷 저장 실패 screenshotObjectName=$screenshotObjectName"
+            logger.error(exception) { message }
+            adminNotifier.sendErrorAlert(message, exception)
+            return null
+        }
+    }
+
+    private fun toHighlightedScreenshotObjectName(screenshotObjectName: String): String {
+        return screenshotObjectName.removeSuffix(".png") + "-highlighted.png"
     }
 
     private fun saveSnapshotAndNotify(
         requestHistory: TowerRequestHistory,
         pageContent: PageContent,
         textObjectName: String,
-        isChangeDetected: Boolean
+        isChangeDetected: Boolean,
+        highlightedScreenshotObjectName: String?
     ) {
         val notification = if (isChangeDetected) {
             towerNotificationSender.sendChangeDetected(requestHistory.tower)
@@ -150,6 +193,8 @@ class CrawlResultConsumerService(
             detectionAreaSelector = pageContent.detectionAreaSelector,
             imageHash = pageContent.imageHash,
             isChangeDetected = isChangeDetected,
+            screenshotObjectName = pageContent.screenshotObjectName,
+            highlightedScreenshotObjectName = highlightedScreenshotObjectName,
             notification = notification
         )
         towerSnapshotAccessor.save(towerSnapshot)

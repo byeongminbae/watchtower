@@ -6,12 +6,15 @@ import com.oracle.bmc.objectstorage.model.CreatePreauthenticatedRequestDetails
 import com.oracle.bmc.objectstorage.requests.CreatePreauthenticatedRequestRequest
 import com.oracle.bmc.objectstorage.requests.DeleteObjectRequest
 import com.oracle.bmc.objectstorage.requests.GetObjectRequest
+import com.oracle.bmc.objectstorage.requests.PutObjectRequest
 import kr.byeongmin.watchtower.domain.tower.client.SnapshotStorageClient
+import kr.byeongmin.watchtower.domain.tower.vo.Screenshot
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -30,15 +33,26 @@ class OciSnapshotStorageClient(
     @Value("\${watchtower.snapshot-storage.bucket-name}") private val bucketName: String
 ) : SnapshotStorageClient {
     override fun getText(objectName: String): String {
-        val getObjectRequest = GetObjectRequest.builder()
+        return getObjectBytes(objectName).toString(Charsets.UTF_8)
+    }
+
+    override fun getScreenshot(objectName: String): Screenshot {
+        return Screenshot.from(getObjectBytes(objectName))
+    }
+
+    override fun saveScreenshot(objectName: String, screenshot: Screenshot) {
+        val png = screenshot.toPng()
+        val putObjectRequest = PutObjectRequest.builder()
             .namespaceName(namespaceName)
             .bucketName(bucketName)
             .objectName(objectName)
+            .contentType(MediaType.IMAGE_PNG_VALUE)
+            .contentLength(png.size.toLong())
+            .putObjectBody(png.inputStream())
             .build()
 
         try {
-            val objectBytes = objectStorageClient.getObject(getObjectRequest).inputStream.use { it.readAllBytes() }
-            return objectBytes.toString(Charsets.UTF_8)
+            objectStorageClient.putObject(putObjectRequest)
         } catch (exception: BmcException) {
             throw BusinessException(error = CommonError.EXTERNAL_API_ERROR, cause = exception)
         }
@@ -82,10 +96,24 @@ class OciSnapshotStorageClient(
             .build()
 
         try {
-            val preauthenticatedRequest = objectStorageClient
+            return objectStorageClient
                 .createPreauthenticatedRequest(createPreauthenticatedRequestRequest)
                 .preauthenticatedRequest
-            return objectStorageClient.endpoint + preauthenticatedRequest.accessUri
+                .fullPath
+        } catch (exception: BmcException) {
+            throw BusinessException(error = CommonError.EXTERNAL_API_ERROR, cause = exception)
+        }
+    }
+
+    private fun getObjectBytes(objectName: String): ByteArray {
+        val getObjectRequest = GetObjectRequest.builder()
+            .namespaceName(namespaceName)
+            .bucketName(bucketName)
+            .objectName(objectName)
+            .build()
+
+        try {
+            return objectStorageClient.getObject(getObjectRequest).inputStream.use { it.readAllBytes() }
         } catch (exception: BmcException) {
             throw BusinessException(error = CommonError.EXTERNAL_API_ERROR, cause = exception)
         }

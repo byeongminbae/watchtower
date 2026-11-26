@@ -2,7 +2,7 @@ import { FetchedPage } from '../../../src/crawl/interfaces/page-fetcher.js';
 import { ContentHashes } from '../../../src/crawl/vo/content-hashes.js';
 
 function pageWithImageHashes(imageHashes: string[] | null): FetchedPage {
-  return new FetchedPage('https://example.com', 200, '재입고 알림', imageHashes);
+  return new FetchedPage('https://example.com', 200, '재입고 알림', imageHashes, null);
 }
 
 describe('ContentHashes', () => {

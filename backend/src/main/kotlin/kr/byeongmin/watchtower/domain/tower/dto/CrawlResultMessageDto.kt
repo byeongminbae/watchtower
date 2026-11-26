@@ -50,6 +50,7 @@ data class CrawlResultMessageDto(
         val dateTimeIgnoredTextHash: String,
         val detectionAreaSelector: String?,
         val textObjectName: String?,
+        val screenshotObjectName: String?,
         val imageHash: String?
     ) {
         /** @param [textLoader] 텍스트가 필요한 조건이 읽을 때만 이번 버전의 텍스트 객체를 읽는 함수 */
@@ -60,6 +61,10 @@ data class CrawlResultMessageDto(
                 imageHash = imageHash,
                 textLoader = textLoader
             )
+        }
+
+        fun getAllObjectNames(): List<String> {
+            return listOfNotNull(textObjectName, screenshotObjectName)
         }
 
         private fun selectTextHash(ignoreDateTime: Boolean): String {
