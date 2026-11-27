@@ -1,25 +1,21 @@
 "use client";
 
 import React from "react";
-import { CalendarOff, ChartNoAxesCombined, CircleAlert, Edit3, ExternalLink, Globe, History, Image as ImageIcon, Pause, Play, Plus, RotateCw, ScanLine, ShieldBan, Sparkles, SquareDashedMousePointer, TextSearch, Trash2, Type, X } from "lucide-react";
+import { CalendarOff, ChartNoAxesCombined, CircleAlert, Edit3, ExternalLink, Globe, Image as ImageIcon, Pause, Play, RotateCw, ShieldBan, Sparkles, SquareDashedMousePointer, Trash2, Type, X } from "lucide-react";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertDialogAction, AlertDialogCancel, AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from "@/components/ui/empty";
-import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Spinner } from "@/components/ui/spinner";
-import type { Watch, WatchCondition, WatchConditionInput } from "@/types/tower";
+import type { Watch } from "@/types/tower";
 import { watchApi } from "@/lib/api";
 import { describeCrawlFailure } from "@/lib/tower";
 import { useApiData } from "@/lib/useApiData";
-import WatchActivity from "./WatchActivity";
-import SnapshotTimeline from "./SnapshotTimeline";
-import AddConditionDialog from "./AddConditionDialog";
+import SnapshotHeatmap from "./SnapshotHeatmap";
+import DetectionConditionsDialog from "./DetectionConditionsDialog";
+import WatchStats from "./WatchStats";
 import EditWatchDialog from "./EditWatchDialog";
 import WatchStatusDot from "./WatchStatusDot";
 
@@ -36,7 +32,7 @@ export default function WatchDetailPanel({ watch, onChanged, onDeleted, headingL
 }) {
   const conditions = useApiData(() => watchApi.getWatchConditions(watch.id).then(r => r.data), [watch.id]);
   const snapshots = useApiData(() => watchApi.listWatchSnapshots(watch.id).then(r => r.data), [watch.id, watch.lastFetchedAt]);
-  const [conditionDialog, setConditionDialog] = React.useState<{ readonly initial?: WatchCondition } | null>(null);
+  const [conditionsOpen, setConditionsOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -78,18 +74,6 @@ export default function WatchDetailPanel({ watch, onChanged, onDeleted, headingL
     catch (reason) { if (!(reason instanceof Error)) throw reason; setError(reason.message); }
     finally { setBusy(false); }
   }
-  async function saveCondition(condition: WatchConditionInput) {
-    const initial = conditionDialog?.initial;
-    if (initial === undefined) await watchApi.createWatchCondition(watch.id, condition);
-    else await watchApi.updateWatchCondition(watch.id, initial.id, condition);
-    conditions.refetch(); onChanged?.();
-  }
-  async function removeCondition(id: number) {
-    setBusy(true); setError(null);
-    try { await watchApi.deleteWatchCondition(watch.id, id); conditions.refetch(); onChanged?.(); }
-    catch (reason) { if (!(reason instanceof Error)) throw reason; setError(reason.message); }
-    finally { setBusy(false); }
-  }
   async function deleteWatch() {
     setBusy(true); setError(null);
     try { await watchApi.deleteWatch(watch.id); setDeleteOpen(false); onDeleted?.(); }
@@ -125,6 +109,9 @@ export default function WatchDetailPanel({ watch, onChanged, onDeleted, headingL
           <Button variant="ghost" size="icon-sm" aria-label="타워 삭제" disabled={busy} onClick={() => setDeleteOpen(true)} className="text-destructive hover:text-destructive"><Trash2 /></Button>
         </div>
       </CardHeader>
+      <CardFooter className="@container">
+        <WatchStats watch={watch} conditionCount={conditions.data?.length ?? null} onOpenConditions={() => setConditionsOpen(true)} />
+      </CardFooter>
     </Card>
 
     {error && !deleteOpen && <Alert variant="destructive"><CircleAlert /><AlertDescription>{error}</AlertDescription><AlertAction><Button variant="ghost" size="icon-sm" aria-label="오류 닫기" onClick={() => setError(null)}><X /></Button></AlertAction></Alert>}
@@ -139,53 +126,16 @@ export default function WatchDetailPanel({ watch, onChanged, onDeleted, headingL
         <a href={watch.url} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "outline", size: "sm" })}><ExternalLink data-icon="inline-start" />사이트 열기</a>
       </div></Alert>}
 
-    <WatchActivity watch={watch} />
+    <SnapshotHeatmap watchId={watch.id} snapshots={snapshots.data} error={snapshots.error} onRetry={snapshots.refetch} />
 
     {watch.latestAiSummary && <Card size="sm" className="bg-primary/[0.03]">
       <CardHeader>
-        <CardDescription className="flex items-center gap-1.5"><Sparkles aria-hidden="true" className="size-3.5" />최근 변화 요약</CardDescription>
+        <CardDescription className="flex items-center gap-1.5"><Sparkles aria-hidden="true" className="size-3.5" />최근 AI 요약</CardDescription>
         <CardTitle className="text-base leading-relaxed font-normal">{watch.latestAiSummary}</CardTitle>
       </CardHeader>
     </Card>}
 
-    <Tabs defaultValue="conditions" className="gap-4">
-      <TabsList>
-        <TabsTrigger value="conditions"><ScanLine data-icon="inline-start" />감지 조건{conditions.data && <Badge variant="secondary">{conditions.data.length}</Badge>}</TabsTrigger>
-        <TabsTrigger value="snapshots"><History data-icon="inline-start" />변화 기록{snapshots.data && <Badge variant="secondary">{snapshots.data.length}</Badge>}</TabsTrigger>
-      </TabsList>
-      <TabsContent value="conditions">
-        <Card>
-          <CardHeader>
-            <CardTitle>감지 조건</CardTitle>
-            <CardDescription>타워의 감지 방식과 함께, 이 조건에 맞는 변화가 생겨도 알림을 보내요.</CardDescription>
-            <CardAction><Button size="sm" disabled={busy} onClick={() => setConditionDialog({})}><Plus data-icon="inline-start" />조건 추가</Button></CardAction>
-          </CardHeader>
-          <CardContent className="flex min-w-0 flex-col gap-2">
-            {conditions.loading && conditions.data === null && <div role="status" className="flex flex-col gap-2"><p className="sr-only">조건 불러오는 중</p><Skeleton className="h-14 w-full" /></div>}
-            {conditions.error && <Alert variant="destructive"><AlertDescription>{conditions.error}<Button variant="outline" size="sm" onClick={conditions.refetch}>재시도</Button></AlertDescription></Alert>}
-            {!conditions.error && conditions.data?.length === 0 && <Empty className="border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><ScanLine /></EmptyMedia><EmptyDescription>등록된 조건이 없어요. 특정 키워드가 나타나거나 사라질 때 알림을 받으려면 조건을 추가해 주세요.</EmptyDescription></EmptyHeader></Empty>}
-            {!conditions.error && conditions.data?.map(condition => <Item key={condition.id} variant="outline">
-              <ItemMedia variant="icon"><TextSearch /></ItemMedia>
-              <ItemContent className="min-w-0">
-                <ItemTitle className="wrap-anywhere">{`키워드: ${condition.keyword}`}</ItemTitle>
-                <ItemDescription>{condition.satisfiedWhen === "APPEAR" ? "등장할 때 알림" : "사라질 때 알림"}</ItemDescription>
-              </ItemContent>
-              <ItemActions>
-                <Button variant="ghost" size="sm" disabled={busy} onClick={() => setConditionDialog({ initial: condition })}>조건 수정</Button>
-                <Button variant="ghost" size="sm" disabled={busy} className="text-destructive hover:text-destructive" onClick={() => void removeCondition(condition.id)}>조건 삭제</Button>
-              </ItemActions>
-            </Item>)}
-          </CardContent>
-        </Card>
-      </TabsContent>
-      <TabsContent value="snapshots">
-        {snapshots.loading && snapshots.data === null && <div role="status"><p className="sr-only">스냅샷 불러오는 중</p><Skeleton className="h-40 w-full" /></div>}
-        {snapshots.error && <Alert variant="destructive"><AlertDescription>{snapshots.error}<Button variant="outline" size="sm" onClick={snapshots.refetch}>재시도</Button></AlertDescription></Alert>}
-        {!snapshots.error && snapshots.data && <SnapshotTimeline watchId={watch.id} snapshots={snapshots.data} />}
-      </TabsContent>
-    </Tabs>
-
-    {conditionDialog !== null && <AddConditionDialog open onClose={() => setConditionDialog(null)} onAdd={saveCondition} initial={conditionDialog.initial} />}
+    {conditionsOpen && <DetectionConditionsDialog watchId={watch.id} conditions={conditions} onClose={() => setConditionsOpen(false)} onConditionsChanged={() => { conditions.refetch(); onChanged?.(); }} />}
     {editOpen && <EditWatchDialog watch={watch} conditionCount={conditions.data?.length ?? null} onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); onChanged?.(); }} />}
     <AlertDialog open={deleteOpen} onOpenChange={open => { if (!busy) setDeleteOpen(open); }}><AlertDialogContent>
       <AlertDialogHeader><AlertDialogTitle>타워를 삭제할까요?</AlertDialogTitle><AlertDialogDescription>이 타워의 감시를 종료하고 목록에서 삭제해요. 삭제한 타워는 되돌릴 수 없어요.</AlertDialogDescription></AlertDialogHeader>

@@ -52,7 +52,7 @@ test("제목 옆 아이콘으로 감시를 멈추고 다시 시작하면 일시�
   await page.getByRole("button", { name: "감시 일시정지", exact: true }).click();
   // then
   await expect(page.getByRole("button", { name: "감시 시작", exact: true })).toBeVisible();
-  await expect(page.getByText("감시가 멈춰 있어요")).toBeVisible();
+  await expect(page.getByText("일시정지", { exact: true })).toHaveCount(2);
   // when
   await page.getByRole("button", { name: "감시 시작", exact: true }).click();
   // then

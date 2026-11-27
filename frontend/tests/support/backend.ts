@@ -169,7 +169,11 @@ const server = createServer(async (request, response) => {
       state.towers = state.towers.map(item => item.id === id ? resumed : item); send(success(resumed)); return;
     }
     if (towerMatch[2] === "snapshots") {
-      send(success([{ id: 1, detectedAt: "2026-11-03T20:55:38Z", hasHighlightedScreenshot: true, aiDiffSummary: "신규 채용 공고", notifiedAt: timestamp }])); return;
+      const hoursAgo = (hours: number) => new Date(Date.now() - (hours * 3_600_000)).toISOString();
+      send(success([
+        { id: 1, detectedAt: hoursAgo(1), hasHighlightedScreenshot: true, aiDiffSummary: "신규 채용 공고", notifiedAt: timestamp },
+        { id: 2, detectedAt: hoursAgo(26), hasHighlightedScreenshot: false, aiDiffSummary: "마감된 공고 정리", notifiedAt: null }
+      ])); return;
     }
     if (method === "DELETE") { state.towers = state.towers.filter(item => item.id !== id); send(success()); return; }
     const updatedDetection = detection(body);
