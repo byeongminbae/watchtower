@@ -46,7 +46,7 @@ export default function AdminMembersPage() {
     finally { setBusy(false); }
   }
 
-  return <main className="flex w-full flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+  return <main className="flex flex-col gap-6 py-6">
     <div className="flex flex-col gap-1"><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">회원 관리</h1>
       <p className="text-sm text-muted-foreground">회원 정보와 이용 상태를 확인하고 권한을 관리해요.</p></div>
     <Card className="gap-0 py-0">

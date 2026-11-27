@@ -35,13 +35,13 @@ export default function WatchesPage() {
   }
 
   const initialLoading = loading && data === null;
-  return <main className="flex w-full flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+  return <main className="flex flex-col gap-6 py-6">
     <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
       <div className="flex flex-col gap-1"><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">내 타워</h1><p className="text-sm text-muted-foreground">기다리는 페이지의 변화를 한곳에서 확인해요.</p></div>
       <Button onClick={() => setDialogOpen(true)}><Plus data-icon="inline-start" />타워 등록</Button>
     </div>
-    <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-      <Card className="xl:sticky xl:top-[calc(var(--header-height)+4rem)]">
+    <div className="grid min-w-0 items-start gap-6 @7xl/main:grid-cols-[360px_minmax(0,1fr)]">
+      <Card className="@7xl/main:sticky @7xl/main:top-[calc(var(--header-height)+4rem)]">
         <CardHeader className="gap-4">
           <div className="flex items-center justify-between gap-2"><CardTitle>타워 목록</CardTitle>{data && <Badge variant="secondary">{data.data.length}개</Badge>}</div>
           <ListControls value={criteria} label="타워 이름 접두사 검색" onChange={next => { setCriteria(next); setCursor(undefined); setHistory([]); setSelectedId(null); }} />

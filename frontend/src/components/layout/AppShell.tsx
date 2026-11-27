@@ -21,6 +21,10 @@ const adminNavigation: readonly NavigationItem[] = [
 ];
 const headerHeight = { "--header-height": "4rem" } as CSSProperties;
 
+function SteppedWidthContent({ children }: { readonly children: ReactNode }) {
+  return <div className="mx-auto w-full px-4 @3xl/main:w-3xl @5xl/main:w-5xl @5xl/main:px-6 @7xl/main:w-7xl">{children}</div>;
+}
+
 /** 경로마다 상단 바에 보여줄 위치. 마지막 항목이 현재 화면 */
 function breadcrumbsOf(pathname: string): readonly { readonly label: string; readonly href?: string }[] {
   if (/^\/watches\/[^/]+$/.test(pathname)) return [{ label: "내 타워", href: "/watches" }, { label: "타워 상세" }];
@@ -72,9 +76,9 @@ export default function AppShell({ children }: { readonly children: ReactNode })
   if (!isLoggedIn || !isWorkspace) return <div id="main-content" tabIndex={-1}>{children}</div>;
 
   if (!isRouteOf(pathname, "/admin")) {
-    return <div style={headerHeight} className="flex min-h-[calc(100svh-var(--header-height))] min-w-0 flex-col bg-muted/40" id="main-content" tabIndex={-1}>
+    return <div style={headerHeight} className="@container/main flex min-h-[calc(100svh-var(--header-height))] min-w-0 flex-col bg-muted/40" id="main-content" tabIndex={-1}>
       <PageLocationBar pathname={pathname} />
-      {children}
+      <SteppedWidthContent>{children}</SteppedWidthContent>
     </div>;
   }
 
@@ -85,12 +89,12 @@ export default function AppShell({ children }: { readonly children: ReactNode })
       </SidebarContent>
       <SidebarRail />
     </Sidebar>
-    <div className="flex min-w-0 flex-1 flex-col bg-muted/40" id="main-content" tabIndex={-1}>
+    <div className="@container/main flex min-w-0 flex-1 flex-col bg-muted/40" id="main-content" tabIndex={-1}>
       <PageLocationBar pathname={pathname}>
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />
       </PageLocationBar>
-      {children}
+      <SteppedWidthContent>{children}</SteppedWidthContent>
     </div>
   </SidebarProvider>;
 }
