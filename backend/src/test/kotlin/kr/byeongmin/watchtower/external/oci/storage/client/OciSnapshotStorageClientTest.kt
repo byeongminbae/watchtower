@@ -2,9 +2,7 @@ package kr.byeongmin.watchtower.external.oci.storage.client
 
 import com.oracle.bmc.model.BmcException
 import com.oracle.bmc.objectstorage.ObjectStorageClient
-import com.oracle.bmc.objectstorage.model.PreauthenticatedRequest
 import com.oracle.bmc.objectstorage.requests.PutObjectRequest
-import com.oracle.bmc.objectstorage.responses.CreatePreauthenticatedRequestResponse
 import com.oracle.bmc.objectstorage.responses.GetObjectResponse
 import kr.byeongmin.watchtower.domain.tower.vo.Screenshot
 import kr.byeongmin.watchtower.global.error.CommonError
@@ -18,7 +16,6 @@ import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import java.time.LocalDateTime
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 
@@ -65,25 +62,18 @@ class OciSnapshotStorageClientTest {
     }
 
     @Test
-    fun `읽기 URL 은 OCI 가 발급한 PAR 의 전체 경로를 그대로 돌려줌`() {
+    fun `스크린샷은 저장된 바이트를 그대로 돌려줌`() {
         /** given */
-        val fullPath = "https://namespace.objectstorage.ap-osaka-1.oci.customer-oci.com/p/token/n/namespace/b/bucket/o/towers/7/1.png"
-        whenever(objectStorageClient.createPreauthenticatedRequest(any())).thenReturn(
-            CreatePreauthenticatedRequestResponse.builder()
-                .preauthenticatedRequest(
-                    PreauthenticatedRequest.builder()
-                        .accessUri("/p/token/n/namespace/b/bucket/o/towers/7/1.png")
-                        .fullPath(fullPath)
-                        .build()
-                )
-                .build()
+        val png = byteArrayOf(1, 2, 3)
+        whenever(objectStorageClient.getObject(any())).thenReturn(
+            GetObjectResponse.builder().inputStream(png.inputStream()).build()
         )
 
         /** when */
-        val readUrl = ociSnapshotStorageClient.createReadUrl("towers/7/1.png", LocalDateTime.of(2026, 11, 4, 1, 10))
+        val result = ociSnapshotStorageClient.getScreenshotBytes("towers/7/2026-11-04T01:00:00.000Z-highlighted.png")
 
         /** then */
-        assertEquals(fullPath, readUrl)
+        assertContentEquals(png, result)
     }
 
     @Test

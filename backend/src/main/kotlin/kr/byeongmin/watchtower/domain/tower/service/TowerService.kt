@@ -10,13 +10,11 @@ import kr.byeongmin.watchtower.domain.tower.client.SnapshotStorageClient
 import kr.byeongmin.watchtower.domain.tower.dto.*
 import kr.byeongmin.watchtower.domain.tower.entity.KeywordCondition
 import kr.byeongmin.watchtower.domain.tower.entity.Tower
-import kr.byeongmin.watchtower.domain.tower.policy.TowerPolicy
 import kr.byeongmin.watchtower.domain.tower.vo.CssSelector
 import kr.byeongmin.watchtower.domain.tower.vo.Keyword
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
 import kr.byeongmin.watchtower.external.dns.DnsResolver
 import kr.byeongmin.watchtower.external.google.GoogleFaviconClient
-import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.dto.SuccessDataResponse
 import kr.byeongmin.watchtower.global.dto.SuccessResponse
 import kr.byeongmin.watchtower.global.error.CommonError
@@ -24,7 +22,6 @@ import kr.byeongmin.watchtower.global.exception.BusinessException
 import kr.byeongmin.watchtower.global.utils.ifNullThrow
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.LocalDateTime
 
 /**
  * 특정 사이트 공격이 될수도 있으니 요청은 스케줄러에게 맡기고 유저는 스케줄러에 만족하도록 상태만 바꿔주도록 설계해야함
@@ -39,9 +36,8 @@ class TowerService(
     private val dnsResolver: DnsResolver,
     /** 큐 기능을 끈 환경([CrawlQueueClient.ENABLED_PROPERTY])에서는 null 이고, 크롤링을 요청하는 기능은 거부함 */
     private val crawlRequestProducerService: CrawlRequestProducerService?,
-    /** 스토리지 기능을 끈 환경([SnapshotStorageClient.ENABLED_PROPERTY])에서는 null 이고, 스냅샷 파일 URL 발급을 거부함 */
-    private val snapshotStorageClient: SnapshotStorageClient?,
-    private val timeProvider: TimeProvider
+    /** 스토리지 기능을 끈 환경([SnapshotStorageClient.ENABLED_PROPERTY])에서는 null 이고, 스크린샷 조회를 거부함 */
+    private val snapshotStorageClient: SnapshotStorageClient?
 ) {
     /**
      * TODO: 등록하자마자 크롤링 요청을 보내서 등록하고 삭제하고 반복하면 임의 사이트 공격이 가능함
@@ -236,21 +232,17 @@ class TowerService(
         val tower = towerAccessor.getOwnedTower(towerId, memberId)
         val snapshots = towerSnapshotAccessor.findChangedSnapshots(tower)
 
-        val readUrlExpiresAt = timeProvider.now().plus(TowerPolicy.SNAPSHOT_READ_URL_VALIDITY)
-        return SuccessDataResponse(
-            snapshots.map {
-                TowerSnapshotResponseDto.from(
-                    towerSnapshot = it,
-                    highlightedScreenshotUrl = it.highlightedScreenshotObjectName?.let { objectName ->
-                        createSnapshotReadUrl(objectName, readUrlExpiresAt)
-                    }
-                )
-            }
-        )
+        return SuccessDataResponse(snapshots.map { TowerSnapshotResponseDto.from(it) })
     }
 
-    private fun createSnapshotReadUrl(objectName: String, expiresAt: LocalDateTime): String {
+    @Transactional(readOnly = true)
+    fun getHighlightedScreenshotBytes(memberId: Long, towerId: Long, snapshotId: Long): ByteArray {
+        val tower = towerAccessor.getOwnedTower(towerId, memberId)
+        val snapshot = towerSnapshotAccessor.getSnapshot(tower, snapshotId)
+        val objectName = snapshot.highlightedScreenshotObjectName
+            ?: throw BusinessException(CommonError.RESOURCE_NOT_FOUND)
+
         val storageClient = snapshotStorageClient ?: throw BusinessException(CommonError.EXTERNAL_API_ERROR)
-        return storageClient.createReadUrl(objectName, expiresAt)
+        return storageClient.getScreenshotBytes(objectName)
     }
 }

@@ -181,7 +181,7 @@ export default function WatchDetailPanel({ watch, onChanged, onDeleted, headingL
       <TabsContent value="snapshots">
         {snapshots.loading && snapshots.data === null && <div role="status"><p className="sr-only">스냅샷 불러오는 중</p><Skeleton className="h-40 w-full" /></div>}
         {snapshots.error && <Alert variant="destructive"><AlertDescription>{snapshots.error}<Button variant="outline" size="sm" onClick={snapshots.refetch}>재시도</Button></AlertDescription></Alert>}
-        {!snapshots.error && snapshots.data && <SnapshotTimeline snapshots={snapshots.data} />}
+        {!snapshots.error && snapshots.data && <SnapshotTimeline watchId={watch.id} snapshots={snapshots.data} />}
       </TabsContent>
     </Tabs>
 

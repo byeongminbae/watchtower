@@ -44,7 +44,8 @@ it.each([
   ["auth/session", "auth/session"],
   ["admin/members?page=1&size=10&query=prefix", "admin/members?page=1&size=10&query=prefix"],
   ["towers/7/conditions", "towers/7/conditions"],
-  ["towers/7/snapshots", "towers/7/snapshots"]
+  ["towers/7/snapshots", "towers/7/snapshots"],
+  ["towers/7/snapshots/41/screenshot", "towers/7/snapshots/41/screenshot"]
 ])("BFF 경로 %s는 허용한 백엔드 경로로 전달할 것이다", async (path, expected) => {
   // given
   const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(response());
@@ -53,6 +54,18 @@ it.each([
   // then
   const sent = fetch.mock.calls[0]?.[0];
   expect(sent instanceof Request ? sent.url : sent).toBe(`http://backend:8080/api/v1/${expected}`);
+});
+it("백엔드가 캐시 기간을 정한 스크린샷은 그 캐시 설정을 브라우저에 그대로 전달할 것이다", async () => {
+  // given
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(new Uint8Array([1, 2, 3]),
+    { headers: { "content-type": "image/png", "cache-control": "max-age=604800, private" } }));
+  const path = "towers/7/snapshots/41/screenshot";
+  // when
+  const result = await GET(new NextRequest(`http://front/bff/${path}`), { params: Promise.resolve({ path: path.split("/") }) });
+  // then
+  expect(result.headers.get("cache-control")).toBe("max-age=604800, private");
+  expect(result.headers.get("content-type")).toBe("image/png");
+  expect(new Uint8Array(await result.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
 });
 it("크롤링 재시도는 POST 로만 백엔드에 전달할 것이다", async () => {
   // given

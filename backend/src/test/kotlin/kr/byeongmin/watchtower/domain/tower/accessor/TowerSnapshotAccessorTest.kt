@@ -4,12 +4,15 @@ import kr.byeongmin.watchtower.domain.tower.entity.Tower
 import kr.byeongmin.watchtower.domain.tower.entity.TowerSnapshot
 import kr.byeongmin.watchtower.domain.tower.repository.TowerSnapshotQuerydslRepository
 import kr.byeongmin.watchtower.domain.tower.repository.TowerSnapshotRepository
+import kr.byeongmin.watchtower.global.error.CommonError
+import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -64,6 +67,21 @@ class TowerSnapshotAccessorTest {
         /** then */
         assertTrue(latestSnapshots.isEmpty())
         verifyNoInteractions(towerSnapshotQuerydslRepository)
+    }
+
+    @Test
+    fun `다른 타워의 스냅샷이거나 삭제된 스냅샷은 찾을 수 없음`() {
+        /** given */
+        val tower = mock<Tower>()
+        whenever(towerSnapshotRepository.findByIdAndTowerAndDeletedAtIsNull(11L, tower)).thenReturn(null)
+
+        /** when */
+        val exception = assertFailsWith<BusinessException> {
+            towerSnapshotAccessor.getSnapshot(tower, 11L)
+        }
+
+        /** then */
+        assertEquals(CommonError.RESOURCE_NOT_FOUND, exception.error)
     }
 
     private fun snapshotOf(towerId: Long): TowerSnapshot {

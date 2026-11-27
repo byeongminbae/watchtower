@@ -29,7 +29,7 @@ class TowerSnapshot private constructor(
     val dateTimeIgnoredTextHash: String,
     val detectionAreaSelector: String?,
     val imageHash: String?,
-    // TODO: 크롤러가 스크린샷을 저장하게 되면 NOT NULL 로 변경
+    // 스크린샷 캡쳐에 실패했어도 다른 감지는 수행될 수 있어야 하므로 널로 남겨둠
     val screenshotObjectName: String?,
     val highlightedScreenshotObjectName: String?,
     val isChangeDetected: Boolean,

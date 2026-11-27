@@ -51,7 +51,7 @@ export async function forwardBackendRequest(request: NextRequest, pathname: stri
     const responseHeaders = new Headers(upstream.headers);
     const cookies = upstream.headers.getSetCookie();
     for (const name of ["content-encoding", "content-length", "transfer-encoding", "set-cookie"]) responseHeaders.delete(name);
-    responseHeaders.set("cache-control", "no-store");
+    if (!upstream.headers.has("cache-control")) responseHeaders.set("cache-control", "no-store");
     for (const cookie of cookies) responseHeaders.append("set-cookie", cookie);
     return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
   } catch (error) {

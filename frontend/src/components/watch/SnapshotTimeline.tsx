@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { watchApi } from "@/lib/api";
 import { formatDateTime, formatElapsedTime } from "@/lib/dateTime";
 import { useNow } from "@/lib/useNow";
 import type { WatchSnapshot } from "@/types/tower";
@@ -30,7 +31,7 @@ function HighlightedScreenshot({ url, detectedAt }: { readonly url: string; read
   </Dialog>;
 }
 
-export default function SnapshotTimeline({ snapshots }: { readonly snapshots: readonly WatchSnapshot[] }) {
+export default function SnapshotTimeline({ watchId, snapshots }: { readonly watchId: number; readonly snapshots: readonly WatchSnapshot[] }) {
   const now = useNow();
   return <section aria-label="변화 기록" className="flex min-w-0 flex-col gap-4">
     <p className="text-sm text-muted-foreground break-keep">변화가 감지된 순간을 기록해요. 새로 생기거나 바뀐 곳은 스크린샷에 빨갛게 칠해요. 기록은 일주일간 보관돼요.</p>
@@ -40,7 +41,7 @@ export default function SnapshotTimeline({ snapshots }: { readonly snapshots: re
       <CardContent className="flex min-w-0 flex-col gap-4">
         <p className="text-sm leading-relaxed wrap-anywhere">{snapshot.aiDiffSummary || "변경 요약이 없어요."}</p>
         {snapshot.notifiedAt && <p className="text-xs text-muted-foreground"><ElapsedTime value={snapshot.notifiedAt} now={now} /> 알림을 보냈어요</p>}
-        {snapshot.highlightedScreenshotUrl && <HighlightedScreenshot url={snapshot.highlightedScreenshotUrl} detectedAt={snapshot.detectedAt} />}
+        {snapshot.hasHighlightedScreenshot && <HighlightedScreenshot url={watchApi.highlightedScreenshotUrlOf(watchId, snapshot.id)} detectedAt={snapshot.detectedAt} />}
       </CardContent>
     </Card>)}
   </section>;

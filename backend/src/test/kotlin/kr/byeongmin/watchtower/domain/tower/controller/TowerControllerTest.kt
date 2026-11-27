@@ -14,11 +14,14 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.*
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
@@ -317,7 +320,7 @@ class TowerControllerTest {
     }
 
     @Test
-    fun `타워의 변경 기록에서 감지 시각과 하이라이트 스크린샷 URL 과 변경 요약 및 알림 시각을 확인할 수 있음`() {
+    fun `타워의 변경 기록에서 감지 시각과 칠한 스크린샷 여부와 변경 요약 및 알림 시각을 확인할 수 있음`() {
         /** given */
         whenever(towerService.getTowerChangedSnapshots(21L, 7L)).thenReturn(
             SuccessDataResponse(
@@ -325,7 +328,7 @@ class TowerControllerTest {
                     TowerSnapshotResponseDto(
                         id = 41L,
                         detectedAt = LocalDateTime.of(2026, 10, 20, 12, 30, 1),
-                        highlightedScreenshotUrl = "https://objectstorage.ap-osaka-1.oraclecloud.com/p/token/o/41.png",
+                        hasHighlightedScreenshot = true,
                         aiDiffSummary = "상품이 재입고됨",
                         notifiedAt = LocalDateTime.of(2026, 10, 20, 12, 35, 6)
                     )
@@ -341,10 +344,27 @@ class TowerControllerTest {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data[0].id").value(41))
             .andExpect(jsonPath("$.data[0].detectedAt").value("2026-10-20T12:30:01"))
-            .andExpect(jsonPath("$.data[0].highlightedScreenshotUrl").value("https://objectstorage.ap-osaka-1.oraclecloud.com/p/token/o/41.png"))
+            .andExpect(jsonPath("$.data[0].hasHighlightedScreenshot").value(true))
             .andExpect(jsonPath("$.data[0].aiDiffSummary").value("상품이 재입고됨"))
             .andExpect(jsonPath("$.data[0].notifiedAt").value("2026-10-20T12:35:06"))
 
+    }
+
+    @Test
+    fun `칠한 스크린샷은 브라우저가 보관 기간 동안 다시 받지 않도록 PNG 로 내려줌`() {
+        /** given */
+        val png = byteArrayOf(1, 2, 3)
+        whenever(towerService.getHighlightedScreenshotBytes(21L, 7L, 41L)).thenReturn(png)
+
+        /** when */
+        val result = mvc.perform(get("/api/v1/towers/7/snapshots/41/screenshot"))
+
+        /** then */
+        result
+            .andExpect(status().isOk)
+            .andExpect(content().contentType(MediaType.IMAGE_PNG))
+            .andExpect(content().bytes(png))
+            .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "max-age=604800, private"))
     }
 
     @Test
