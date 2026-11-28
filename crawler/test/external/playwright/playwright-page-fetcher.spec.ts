@@ -103,9 +103,9 @@ beforeAll(async () => {
           `<html><head><style>@font-face { font-family: Rendered; src: url(/rendered-font.woff2); } body { font-family: Rendered; }</style></head><body>웹 글꼴<img src="/rendered-image.png"><img loading="lazy" style="display:block; margin-top:5000px" src="/rendered-lazy-image.png"></body></html>`
         );
         return;
-      case '/too-tall':
+      case '/too-large':
         response.end(
-          `<html><body style="margin:0"><div style="height:${Policy.MAX_SCREENSHOT_HEIGHT_PIXELS + 500}px">아주 긴 페이지</div></body></html>`
+          `<html><body style="margin:0"><div style="width:${Policy.MAX_SCREENSHOT_WIDTH_PIXELS + 500}px; height:${Policy.MAX_SCREENSHOT_HEIGHT_PIXELS + 500}px">아주 넓고 긴 페이지</div></body></html>`
         );
         return;
       case '/large':
@@ -356,15 +356,18 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
     expect(outcome).toMatchObject({ screenshot: null });
   });
 
-  it('페이지가 스크린샷 최대 높이보다 길면 최대 높이까지만 찍음', async () => {
+  it('페이지가 스크린샷 최대 크기보다 넓고 길면 최대 가로 폭과 높이까지만 찍음', async () => {
     // given
-    const url = `${allowedOrigin}/too-tall`;
+    const url = `${allowedOrigin}/too-large`;
 
     // when
     const outcome = await pageFetcher.fetchPage(url, wholePage);
 
     // then
-    expect(pngSize((outcome as FetchedPage).screenshot!).height).toBe(Policy.MAX_SCREENSHOT_HEIGHT_PIXELS);
+    expect(pngSize((outcome as FetchedPage).screenshot!)).toEqual({
+      width: Policy.MAX_SCREENSHOT_WIDTH_PIXELS,
+      height: Policy.MAX_SCREENSHOT_HEIGHT_PIXELS
+    });
   });
 
   it('이미지를 수집하지 않아도 스크린샷에 그릴 이미지와 지연 로딩 이미지와 웹 글꼴을 받음', async () => {

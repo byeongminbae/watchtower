@@ -100,8 +100,12 @@ export class BrowserTab {
     if (area === null) {
       return null;
     }
-    const areaWithinMaxHeight = { ...area, height: Math.min(area.height, Policy.MAX_SCREENSHOT_HEIGHT_PIXELS) };
-    return this.page.screenshot({ fullPage: true, clip: areaWithinMaxHeight, animations: 'disabled', caret: 'hide' });
+    const areaWithinMaxSize = {
+      ...area,
+      width: Math.min(area.width, Policy.MAX_SCREENSHOT_WIDTH_PIXELS),
+      height: Math.min(area.height, Policy.MAX_SCREENSHOT_HEIGHT_PIXELS)
+    };
+    return this.page.screenshot({ fullPage: true, clip: areaWithinMaxSize, animations: 'disabled', caret: 'hide' });
   }
 
   /** @return 선택자 문법이 틀렸으면 null */
