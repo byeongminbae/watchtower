@@ -2,7 +2,7 @@ import type { DeploymentEnvironment } from '../config/profile.js';
 import { CrawlResultBatchProducer } from './crawl-result-batch-producer.js';
 import type { CrawlResultMessage } from './dto/crawl-result-message.dto.js';
 import type { RequestQueue, ResultQueue } from './interfaces/queue.js';
-import type { SnapshotStorage } from './interfaces/snapshot-storage.js';
+import type { PageContentStorage } from './interfaces/page-content-storage.js';
 
 /**
  * 크롤러는 dev, prod 요청을 한 프로세스에서 처리하지만 결과가 섞이면 안되기 때문에 환경마다 하나씩 만들어짐
@@ -16,7 +16,7 @@ export class CrawlEnvironment {
     readonly deploymentEnvironment: DeploymentEnvironment,
     readonly requestQueue: RequestQueue,
     resultQueue: ResultQueue,
-    readonly snapshotStorage: SnapshotStorage
+    readonly pageContentStorage: PageContentStorage
   ) {
     this.resultBatchProducer = new CrawlResultBatchProducer(requestQueue, resultQueue);
   }

@@ -3,13 +3,18 @@ package kr.byeongmin.watchtower.domain.tower.controller
 import io.swagger.v3.oas.annotations.Operation
 import jakarta.validation.Valid
 import kr.byeongmin.watchtower.domain.tower.dto.*
+import kr.byeongmin.watchtower.domain.tower.policy.TowerPolicy
 import kr.byeongmin.watchtower.domain.tower.service.HotTowerService
 import kr.byeongmin.watchtower.domain.tower.service.TowerService
 import kr.byeongmin.watchtower.global.dto.SuccessDataResponse
 import kr.byeongmin.watchtower.global.dto.SuccessResponse
 import kr.byeongmin.watchtower.global.security.MemberId
 import kr.byeongmin.watchtower.global.security.MemberOnly
+import org.springframework.http.CacheControl
+import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import java.time.Duration
 
 @RestController
 @RequestMapping("/api/v1/towers")
@@ -163,6 +168,28 @@ class TowerController(
         @PathVariable towerId: Long
     ): SuccessDataResponse<List<TowerSnapshotResponseDto>> {
         return towerService.getTowerChangedSnapshots(memberId = memberId, towerId = towerId)
+    }
+
+    // TODO: 프론트가 반복해서 요청하는게 비효율적인데.. 일단 구현해놓고 나중에 개선하자
+    @Operation(summary = "스냅샷에서 바뀐 영역을 칠한 스크린샷 조회")
+    @GetMapping("/{towerId}/snapshots/{snapshotId}/screenshot")
+    @MemberOnly
+    fun getHighlightedScreenshot(
+        @MemberId memberId: Long,
+        @PathVariable towerId: Long,
+        @PathVariable snapshotId: Long
+    ): ResponseEntity<ByteArray> {
+        val png = towerService.getHighlightedScreenshotBytes(
+            memberId = memberId,
+            towerId = towerId,
+            snapshotId = snapshotId
+        )
+        val cacheDuration = Duration.ofDays(TowerPolicy.SNAPSHOT_RETENTION_PERIOD.days.toLong())
+
+        return ResponseEntity.ok()
+            .contentType(MediaType.IMAGE_PNG)
+            .cacheControl(CacheControl.maxAge(cacheDuration).cachePrivate())
+            .body(png)
     }
 
 }

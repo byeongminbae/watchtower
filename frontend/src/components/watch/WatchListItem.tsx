@@ -22,6 +22,6 @@ export default function WatchListItem({ watch, selected, onClick }: {
       <ItemDescription className="truncate">{watch.url}</ItemDescription>
       {watch.latestAiSummary && <ItemDescription className="line-clamp-2">{watch.latestAiSummary}</ItemDescription>}
     </ItemContent>
-    <ItemActions>{watch.status === "READY" ? <WatchStatusDot status={watch.status} showLabel={false} /> : <WatchStatusDot status={watch.status} />}</ItemActions>
+    <ItemActions><WatchStatusDot status={watch.status} /></ItemActions>
   </Item>;
 }

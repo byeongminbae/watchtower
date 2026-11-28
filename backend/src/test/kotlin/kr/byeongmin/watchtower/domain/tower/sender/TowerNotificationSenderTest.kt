@@ -42,7 +42,7 @@ class TowerNotificationSenderTest {
         whenever(
             notificationService.enqueueNotification(
                 owner,
-                "### 넬리 님! [채용 공고] 에서 방금 전에 변화가 감지됐어요!\n" +
+                "### 넬리 님! [채용 공고] 에서 방금 전 변화가 감지됐어요!\n" +
                         "> \uD83D\uDC40 **대상 페이지** <https://example.com/jobs>\n" +
                         "> \uD83D\uDD59 **감지된 시각** <t:1795316400:f>\n" +
                         "> \u2728\uFE0F **AI 요약** [TODO]\n" +

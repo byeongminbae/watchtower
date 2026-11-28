@@ -104,7 +104,7 @@ export class CrawlRequestConsumer implements OnApplicationBootstrap, BeforeAppli
     }
 
     try {
-      const result = await this.crawlService.crawl(request, environment.snapshotStorage);
+      const result = await this.crawlService.crawl(request, environment.pageContentStorage);
       environment.publishResult(receivedMessage.receipt, result);
     } catch (error) {
       this.logger.error(`[${environment.deploymentEnvironment}] 크롤링 실패. 재전달 후 다시 처리함`, {

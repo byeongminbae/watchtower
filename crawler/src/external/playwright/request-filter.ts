@@ -8,10 +8,7 @@ import type { CrawlHostValidator } from '../../network/crawl-host-validator.js';
  * 요청 자체가 내부망에 도달하는 것은 크롤러 서버의 망 격리로 막아야 함
  */
 export class RequestFilter {
-  constructor(
-    private readonly hostValidator: CrawlHostValidator,
-    private readonly allowsImages: boolean
-  ) {}
+  constructor(private readonly hostValidator: CrawlHostValidator) {}
 
   /**
    * 메인 프레임 이동은 처음 한 번(goto)만 허용하고, 그 뒤 페이지 스크립트가 다른 주소로 이동하려 하면 막음
@@ -70,17 +67,13 @@ export class RequestFilter {
 
   private async allowOrBlockRequest(route: Route): Promise<void> {
     const request = route.request();
-    if (this.isSkippedResource(request.resourceType())) {
+    if (Policy.SKIPPED_RESOURCE_TYPES.has(request.resourceType())) {
       return route.abort('blockedbyclient');
     }
     if (!(await this.hostValidator.isAllowedUrl(request.url()))) {
       return route.abort('blockedbyclient');
     }
     return route.continue();
-  }
-
-  private isSkippedResource(resourceType: string): boolean {
-    return Policy.SKIPPED_RESOURCE_TYPES.has(resourceType) || (resourceType === 'image' && !this.allowsImages);
   }
 
   private async connectOrCloseWebSocket(webSocketRoute: WebSocketRoute): Promise<void> {

@@ -2,15 +2,21 @@ package kr.byeongmin.watchtower.external.oci.storage.client
 
 import com.oracle.bmc.model.BmcException
 import com.oracle.bmc.objectstorage.ObjectStorageClient
+import com.oracle.bmc.objectstorage.requests.PutObjectRequest
 import com.oracle.bmc.objectstorage.responses.GetObjectResponse
+import kr.byeongmin.watchtower.domain.tower.vo.Screenshot
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 
 class OciSnapshotStorageClientTest {
@@ -34,6 +40,40 @@ class OciSnapshotStorageClientTest {
 
         /** then */
         assertEquals(text, result)
+    }
+
+    @Test
+    fun `스크린샷은 PNG 형식으로 저장함`() {
+        /** given */
+        val png = byteArrayOf(1, 2, 3)
+        val screenshot = mock<Screenshot> {
+            on { toPng() } doReturn png
+        }
+
+        /** when */
+        ociSnapshotStorageClient.saveScreenshot("towers/7/2026-11-04T01:00:00.000Z-highlighted.png", screenshot)
+
+        /** then */
+        val putObjectRequest = argumentCaptor<PutObjectRequest>()
+        verify(objectStorageClient).putObject(putObjectRequest.capture())
+        assertEquals("towers/7/2026-11-04T01:00:00.000Z-highlighted.png", putObjectRequest.firstValue.objectName)
+        assertEquals("image/png", putObjectRequest.firstValue.contentType)
+        assertContentEquals(png, putObjectRequest.firstValue.putObjectBody.readAllBytes())
+    }
+
+    @Test
+    fun `스크린샷은 저장된 바이트를 그대로 돌려줌`() {
+        /** given */
+        val png = byteArrayOf(1, 2, 3)
+        whenever(objectStorageClient.getObject(any())).thenReturn(
+            GetObjectResponse.builder().inputStream(png.inputStream()).build()
+        )
+
+        /** when */
+        val result = ociSnapshotStorageClient.getScreenshotBytes("towers/7/2026-11-04T01:00:00.000Z-highlighted.png")
+
+        /** then */
+        assertContentEquals(png, result)
     }
 
     @Test

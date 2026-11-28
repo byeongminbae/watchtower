@@ -30,7 +30,7 @@ export interface Watch extends WatchDetection {
 export interface WatchSnapshot {
   readonly id: number;
   readonly detectedAt: string;
-  readonly highlightedScreenshotUrl: string | null;
+  readonly hasHighlightedScreenshot: boolean;
   readonly aiDiffSummary: string | null;
   readonly notifiedAt: string | null;
 }

@@ -61,7 +61,7 @@ export default function AdminPage() {
   const auth = useApiData(() => adminApi.getAuthStats().then(r => r.data), []);
   const watchingCount = towers.data ? towers.data.readyCount + towers.data.runningCount : undefined;
 
-  return <main className="flex w-full flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+  return <main className="flex flex-col gap-6 py-6">
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div className="flex flex-col gap-1"><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">관리자 대시보드</h1>
         <p className="text-sm text-muted-foreground">타워와 회원 현황을 한눈에 확인해요.</p></div>
@@ -84,7 +84,7 @@ export default function AdminPage() {
           {towers.loading && towers.data === null && <div role="status" aria-label="타워 통계 불러오는 중"><Skeleton className="h-40 w-full" /></div>}
           {towers.error && <Alert variant="destructive"><CircleAlert /><AlertDescription>{towers.error}</AlertDescription></Alert>}
           {!towers.error && towers.data && <div aria-label="타워 통계" className="flex flex-col gap-4">
-            {towerStatusRows(towers.data).map(({ status, count }) => <ShareRow key={status} label={<WatchStatusDot status={status} />} count={count} total={towers.data?.totalCount ?? 0} />)}
+            {towerStatusRows(towers.data).map(({ status, count }) => <ShareRow key={status} label={<WatchStatusDot status={status} showLabel />} count={count} total={towers.data?.totalCount ?? 0} />)}
           </div>}
         </CardContent>
       </Card>

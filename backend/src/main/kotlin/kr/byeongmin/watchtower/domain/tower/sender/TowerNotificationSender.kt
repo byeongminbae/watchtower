@@ -16,9 +16,11 @@ class TowerNotificationSender(
     fun sendChangeDetected(tower: Tower): Notification {
         return notificationService.enqueueNotification(
             recipient = tower.createdBy,
-            content = "### ${tower.createdBy.nickname} 님! [${tower.name}] 에서 방금 전에 변화가 감지됐어요!\n" +
+            content = "### ${tower.createdBy.nickname} 님! [${tower.name}] 에서 방금 전 변화가 감지됐어요!\n" +
                     "> \uD83D\uDC40 **대상 페이지** <${tower.url}>\n" +
-                    "> \uD83D\uDD59 **감지된 시각** <t:${tower.lastFetchedAt.ifNullThrow().toEpochSecond(ZoneOffset.UTC)}:f>\n" +
+                    "> \uD83D\uDD59 **감지된 시각** <t:${
+                        tower.lastFetchedAt.ifNullThrow().toEpochSecond(ZoneOffset.UTC)
+                    }:f>\n" +
                     "> \u2728\uFE0F **AI 요약** [TODO]\n" + // TODO
                     "> \uD83D\uDCF8 **비교 스크린샷** [TODO]\n" + // TODO
                     "$frontendUrl/watches/${tower.id}"

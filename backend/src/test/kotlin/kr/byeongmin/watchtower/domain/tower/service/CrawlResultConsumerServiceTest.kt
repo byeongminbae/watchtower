@@ -20,6 +20,7 @@ import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
 import kr.byeongmin.watchtower.domain.tower.sender.TowerNotificationSender
 import kr.byeongmin.watchtower.domain.tower.vo.DetectionContent
 import kr.byeongmin.watchtower.domain.tower.vo.Keyword
+import kr.byeongmin.watchtower.domain.tower.vo.Screenshot
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
 import kr.byeongmin.watchtower.global.alert.AdminNotifier
 import kr.byeongmin.watchtower.global.config.TimeProvider
@@ -72,6 +73,8 @@ class CrawlResultConsumerServiceTest {
     private val dateTimeIgnoredTextHash = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     private val previousTextHash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     private val previousTextObjectName = "towers/7/2026-11-02T01:00:01.000Z.txt"
+    private val screenshotObjectName = "towers/7/2026-11-03T01:00:01.000Z.png"
+    private val previousScreenshotObjectName = "towers/7/2026-11-02T01:00:01.000Z.png"
     private val imageHash = "c".repeat(64)
     private val jobStartedAt = LocalDateTime.of(2026, 11, 3, 1, 0, 0, 123_456_000)
     private val crawlingStartedAt = LocalDateTime.of(2026, 11, 3, 1, 0, 1)
@@ -94,6 +97,7 @@ class CrawlResultConsumerServiceTest {
         receipt: String,
         httpStatusCode: Int = 200,
         textObjectName: String? = this.textObjectName,
+        screenshotObjectName: String? = this.screenshotObjectName,
         imageHash: String? = null,
         detectionAreaSelector: String? = null,
         triggeredBy: Long? = null
@@ -115,6 +119,7 @@ class CrawlResultConsumerServiceTest {
                         "textHash" to textHash,
                         "dateTimeIgnoredTextHash" to dateTimeIgnoredTextHash,
                         "textObjectName" to textObjectName,
+                        "screenshotObjectName" to screenshotObjectName,
                         "detectionAreaSelector" to detectionAreaSelector,
                         "imageHash" to imageHash
                     )
@@ -143,7 +148,8 @@ class CrawlResultConsumerServiceTest {
         textObjectName: String,
         imageHash: String?,
         dateTimeIgnoredTextHash: String = "e".repeat(64),
-        detectionAreaSelector: String? = null
+        detectionAreaSelector: String? = null,
+        screenshotObjectName: String? = null
     ): TowerSnapshot {
         return TowerSnapshot.of(
             towerRequestHistory = mock<TowerRequestHistory> { on { tower } doReturn tower },
@@ -152,7 +158,8 @@ class CrawlResultConsumerServiceTest {
             dateTimeIgnoredTextHash = dateTimeIgnoredTextHash,
             detectionAreaSelector = detectionAreaSelector,
             imageHash = imageHash,
-            isChangeDetected = false
+            isChangeDetected = false,
+            screenshotObjectName = screenshotObjectName
         )
     }
 
@@ -187,6 +194,7 @@ class CrawlResultConsumerServiceTest {
         assertEquals(textHash, savedSnapshot.firstValue.textHash)
         assertEquals(dateTimeIgnoredTextHash, savedSnapshot.firstValue.dateTimeIgnoredTextHash)
         assertEquals(".stock", savedSnapshot.firstValue.detectionAreaSelector)
+        assertEquals(screenshotObjectName, savedSnapshot.firstValue.screenshotObjectName)
         verify(crawlQueueClient).deleteCrawlResults(listOf("receipt"))
     }
 
@@ -273,6 +281,107 @@ class CrawlResultConsumerServiceTest {
     }
 
     @Test
+    fun `변화를 감지하면 직전 스크린샷과 달라진 영역을 표시한 스크린샷을 저장하고 새 버전에 연결함`() {
+        /** given */
+        val previousSnapshot = previousSnapshot(
+            previousTextHash,
+            previousTextObjectName,
+            imageHash = null,
+            screenshotObjectName = previousScreenshotObjectName
+        )
+        val previousScreenshot = mock<Screenshot>()
+        val screenshot = mock<Screenshot>()
+        whenever(crawlQueueClient.fetchCrawlResults()).thenReturn(listOf(fetchedResultMessage("receipt", 200)))
+        whenever(towerAccessor.findTower(7L)).thenReturn(tower)
+        whenever(towerSnapshotAccessor.findLatestSnapshot(7L)).thenReturn(previousSnapshot)
+        doReturn(true).whenever(tower).detectsChange(any(), any())
+        whenever(snapshotStorageClient.getScreenshot(previousScreenshotObjectName)).thenReturn(previousScreenshot)
+        whenever(snapshotStorageClient.getScreenshot(screenshotObjectName)).thenReturn(screenshot)
+
+        /** when */
+        crawlResultConsumerService.applyCrawlResults()
+
+        /** then */
+        val highlightedScreenshotObjectName = "towers/7/2026-11-03T01:00:01.000Z-highlighted.png"
+        val savedSnapshot = argumentCaptor<TowerSnapshot>()
+        verify(screenshot).highlightChangesFrom(previousScreenshot)
+        verify(snapshotStorageClient).saveScreenshot(highlightedScreenshotObjectName, screenshot)
+        verify(towerSnapshotAccessor).save(savedSnapshot.capture())
+        assertEquals(screenshotObjectName, savedSnapshot.firstValue.screenshotObjectName)
+        assertEquals(highlightedScreenshotObjectName, savedSnapshot.firstValue.highlightedScreenshotObjectName)
+    }
+
+    @Test
+    fun `직전 버전에 스크린샷이 없으면 변화를 감지해도 달라진 영역을 표시하지 않고 새 버전을 저장함`() {
+        /** given */
+        val previousSnapshot = previousSnapshot(previousTextHash, previousTextObjectName, imageHash = null)
+        whenever(crawlQueueClient.fetchCrawlResults()).thenReturn(listOf(fetchedResultMessage("receipt", 200)))
+        whenever(towerAccessor.findTower(7L)).thenReturn(tower)
+        whenever(towerSnapshotAccessor.findLatestSnapshot(7L)).thenReturn(previousSnapshot)
+        doReturn(true).whenever(tower).detectsChange(any(), any())
+
+        /** when */
+        crawlResultConsumerService.applyCrawlResults()
+
+        /** then */
+        val savedSnapshot = argumentCaptor<TowerSnapshot>()
+        verify(towerSnapshotAccessor).save(savedSnapshot.capture())
+        assertNull(savedSnapshot.firstValue.highlightedScreenshotObjectName)
+        verify(snapshotStorageClient, never()).getScreenshot(any())
+    }
+
+    @Test
+    fun `변화를 감지하지 않은 버전은 스크린샷이 있어도 달라진 영역을 표시하지 않음`() {
+        /** given */
+        val previousSnapshot = previousSnapshot(
+            previousTextHash,
+            previousTextObjectName,
+            imageHash = null,
+            screenshotObjectName = previousScreenshotObjectName
+        )
+        whenever(crawlQueueClient.fetchCrawlResults()).thenReturn(listOf(fetchedResultMessage("receipt", 200)))
+        whenever(towerAccessor.findTower(7L)).thenReturn(tower)
+        whenever(towerSnapshotAccessor.findLatestSnapshot(7L)).thenReturn(previousSnapshot)
+        doReturn(false).whenever(tower).detectsChange(any(), any())
+
+        /** when */
+        crawlResultConsumerService.applyCrawlResults()
+
+        /** then */
+        val savedSnapshot = argumentCaptor<TowerSnapshot>()
+        verify(towerSnapshotAccessor).save(savedSnapshot.capture())
+        assertNull(savedSnapshot.firstValue.highlightedScreenshotObjectName)
+        verify(snapshotStorageClient, never()).getScreenshot(any())
+    }
+
+    @Test
+    fun `달라진 영역을 표시한 스크린샷을 저장하지 못해도 표시 없이 새 버전을 저장하고 운영자에게 알림`() {
+        /** given */
+        val previousSnapshot = previousSnapshot(
+            previousTextHash,
+            previousTextObjectName,
+            imageHash = null,
+            screenshotObjectName = previousScreenshotObjectName
+        )
+        whenever(crawlQueueClient.fetchCrawlResults()).thenReturn(listOf(fetchedResultMessage("receipt", 200)))
+        whenever(towerAccessor.findTower(7L)).thenReturn(tower)
+        whenever(towerSnapshotAccessor.findLatestSnapshot(7L)).thenReturn(previousSnapshot)
+        doReturn(true).whenever(tower).detectsChange(any(), any())
+        whenever(snapshotStorageClient.getScreenshot(any())).thenThrow(BusinessException(CommonError.EXTERNAL_API_ERROR))
+
+        /** when */
+        crawlResultConsumerService.applyCrawlResults()
+
+        /** then */
+        val savedSnapshot = argumentCaptor<TowerSnapshot>()
+        verify(towerSnapshotAccessor).save(savedSnapshot.capture())
+        assertTrue(savedSnapshot.firstValue.isChangeDetected)
+        assertNull(savedSnapshot.firstValue.highlightedScreenshotObjectName)
+        verify(adminNotifier).sendErrorAlert(any(), any())
+        verify(crawlQueueClient).deleteCrawlResults(listOf("receipt"))
+    }
+
+    @Test
     fun `2xx 가 아닌 응답으로 받은 페이지는 다음 비교 대상이 되지 않도록 버전으로 저장하지 않음`() {
         /** given */
         whenever(crawlQueueClient.fetchCrawlResults()).thenReturn(listOf(fetchedResultMessage("receipt", 503)))
@@ -313,7 +422,7 @@ class CrawlResultConsumerServiceTest {
     }
 
     @Test
-    fun `날짜와 시간을 무시하는 타워는 원문 해시가 달라도 날짜와 시간을 뺀 해시가 같으면 새 버전 없이 요청 이력만 남기고 크롤러가 올린 텍스트를 지움`() {
+    fun `날짜와 시간을 무시하는 타워는 원문 해시가 달라도 날짜와 시간을 뺀 해시가 같으면 새 버전 없이 요청 이력만 남기고 크롤러가 올린 텍스트와 스크린샷을 지움`() {
         /** given */
         val previousSnapshot = previousSnapshot(
             previousTextHash,
@@ -332,6 +441,7 @@ class CrawlResultConsumerServiceTest {
         /** then */
         verify(towerSnapshotAccessor, never()).save(any())
         verify(snapshotStorageClient).deleteObject(textObjectName)
+        verify(snapshotStorageClient).deleteObject(screenshotObjectName)
         verify(snapshotStorageClient, never()).getText(any())
         verify(crawlQueueClient).deleteCrawlResults(listOf("receipt"))
     }

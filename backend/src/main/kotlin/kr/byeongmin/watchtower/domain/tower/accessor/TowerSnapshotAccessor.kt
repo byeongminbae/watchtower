@@ -5,6 +5,8 @@ import kr.byeongmin.watchtower.domain.tower.entity.TowerSnapshot
 import kr.byeongmin.watchtower.domain.tower.repository.TowerSnapshotQuerydslRepository
 import kr.byeongmin.watchtower.domain.tower.repository.TowerSnapshotRepository
 import kr.byeongmin.watchtower.domain.tower.vo.LatestChangeAiSummary
+import kr.byeongmin.watchtower.global.error.CommonError
+import kr.byeongmin.watchtower.global.exception.BusinessException
 import kr.byeongmin.watchtower.global.utils.ifNullThrow
 import org.springframework.stereotype.Component
 import java.time.LocalDateTime
@@ -20,6 +22,11 @@ class TowerSnapshotAccessor(
 
     fun findTowerSnapshotOfNotification(notificationId: Long): TowerSnapshot? {
         return towerSnapshotQuerydslRepository.findByNotificationId(notificationId)
+    }
+
+    fun getSnapshot(tower: Tower, snapshotId: Long): TowerSnapshot {
+        return towerSnapshotRepository.findByIdAndTowerAndDeletedAtIsNull(snapshotId, tower)
+            ?: throw BusinessException(CommonError.RESOURCE_NOT_FOUND)
     }
 
     fun findChangedSnapshots(tower: Tower): List<TowerSnapshot> {

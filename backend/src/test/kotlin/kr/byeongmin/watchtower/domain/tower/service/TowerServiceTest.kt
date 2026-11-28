@@ -13,12 +13,10 @@ import kr.byeongmin.watchtower.domain.tower.enums.CrawlerResultCode
 import kr.byeongmin.watchtower.domain.tower.enums.PresenceChange
 import kr.byeongmin.watchtower.domain.tower.enums.TowerStatus
 import kr.byeongmin.watchtower.domain.tower.error.TowerError
-import kr.byeongmin.watchtower.domain.tower.policy.TowerPolicy
 import kr.byeongmin.watchtower.domain.tower.vo.Keyword
 import kr.byeongmin.watchtower.domain.tower.vo.TowerUrl
 import kr.byeongmin.watchtower.external.dns.DnsResolver
 import kr.byeongmin.watchtower.external.google.GoogleFaviconClient
-import kr.byeongmin.watchtower.global.config.TimeProvider
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.junit.jupiter.api.BeforeEach
@@ -43,9 +41,6 @@ class TowerServiceTest {
     private val crawlRequestProducerService = mock<CrawlRequestProducerService>()
     private val snapshotStorageClient = mock<SnapshotStorageClient>()
     private val now = LocalDateTime.of(2026, 11, 3, 1, 0)
-    private val timeProvider = mock<TimeProvider> {
-        on { now() } doReturn now
-    }
 
     private val towerService = TowerService(
         towerAccessor = towerAccessor,
@@ -55,8 +50,7 @@ class TowerServiceTest {
         googleFaviconClient = googleFaviconClient,
         dnsResolver = dnsResolver,
         crawlRequestProducerService = crawlRequestProducerService,
-        snapshotStorageClient = snapshotStorageClient,
-        timeProvider = timeProvider
+        snapshotStorageClient = snapshotStorageClient
     )
 
     private val ownerId = 21L
@@ -270,8 +264,7 @@ class TowerServiceTest {
             googleFaviconClient = googleFaviconClient,
             dnsResolver = dnsResolver,
             crawlRequestProducerService = null,
-            snapshotStorageClient = snapshotStorageClient,
-            timeProvider = timeProvider
+            snapshotStorageClient = snapshotStorageClient
         )
 
         /** when */
@@ -762,45 +755,74 @@ class TowerServiceTest {
     }
 
     @Test
-    fun `하이라이트 스크린샷이 있는 스냅샷은 정해진 시간 동안만 읽을 수 있는 URL 을 함께 내려줌`() {
+    fun `스냅샷 목록에는 칠한 스크린샷이 있는지만 담고 스크린샷 저장소는 조회하지 않음`() {
         /** given */
-        val objectName = "towers/7/2026-11-04T01:00:00.000Z.png"
-        val readUrl = "https://objectstorage.ap-osaka-1.oraclecloud.com/p/token/n/ns/b/bucket/o/$objectName"
-        val snapshot = mock<TowerSnapshot> {
+        val highlightedSnapshot = mock<TowerSnapshot> {
             on { id } doReturn 11L
             on { createdAt } doReturn now
-            on { highlightedScreenshotObjectName } doReturn objectName
+            on { highlightedScreenshotObjectName } doReturn "towers/7/2026-11-04T01:00:00.000Z-highlighted.png"
         }
-        whenever(towerSnapshotAccessor.findChangedSnapshots(tower)).thenReturn(listOf(snapshot))
-        whenever(
-            snapshotStorageClient.createReadUrl(
-                objectName,
-                timeProvider.now().plus(TowerPolicy.SNAPSHOT_READ_URL_VALIDITY)
-            )
-        ).thenReturn(readUrl)
-
-        /** when */
-        val response = towerService.getTowerChangedSnapshots(ownerId, towerId)
-
-        /** then */
-        assertEquals(readUrl, response.data.first().highlightedScreenshotUrl)
-    }
-
-    @Test
-    fun `하이라이트 스크린샷이 없는 스냅샷은 URL 을 발급하지 않음`() {
-        /** given */
-        val snapshot = mock<TowerSnapshot> {
-            on { id } doReturn 11L
+        val textOnlyChangedSnapshot = mock<TowerSnapshot> {
+            on { id } doReturn 12L
             on { createdAt } doReturn now
             on { highlightedScreenshotObjectName } doReturn null
         }
-        whenever(towerSnapshotAccessor.findChangedSnapshots(tower)).thenReturn(listOf(snapshot))
+        whenever(towerSnapshotAccessor.findChangedSnapshots(tower))
+            .thenReturn(listOf(highlightedSnapshot, textOnlyChangedSnapshot))
 
         /** when */
         val response = towerService.getTowerChangedSnapshots(ownerId, towerId)
 
         /** then */
-        assertNull(response.data.first().highlightedScreenshotUrl)
+        assertEquals(listOf(true, false), response.data.map { it.hasHighlightedScreenshot })
+        verifyNoInteractions(snapshotStorageClient)
+    }
+
+    @Test
+    fun `회원은 자신의 타워 스냅샷에서 바뀐 영역을 칠한 스크린샷을 받을 수 있음`() {
+        /** given */
+        val objectName = "towers/7/2026-11-04T01:00:00.000Z-highlighted.png"
+        val png = byteArrayOf(1, 2, 3)
+        val snapshot = mock<TowerSnapshot> {
+            on { highlightedScreenshotObjectName } doReturn objectName
+        }
+        whenever(towerSnapshotAccessor.getSnapshot(tower, 11L)).thenReturn(snapshot)
+        whenever(snapshotStorageClient.getScreenshotBytes(objectName)).thenReturn(png)
+
+        /** when */
+        val result = towerService.getHighlightedScreenshotBytes(ownerId, towerId, 11L)
+
+        /** then */
+        assertContentEquals(png, result)
+    }
+
+    @Test
+    fun `소유한 타워를 찾을 수 없으면 칠한 스크린샷을 받을 수 없음`() {
+        /** when */
+        val exception = assertFailsWith<BusinessException> {
+            towerService.getHighlightedScreenshotBytes(strangerId, towerId, 11L)
+        }
+
+        /** then */
+        assertEquals(CommonError.RESOURCE_NOT_FOUND, exception.error)
+        verifyNoInteractions(towerSnapshotAccessor, snapshotStorageClient)
+    }
+
+    @Test
+    fun `화면이 바뀌지 않아 칠한 스크린샷이 없는 스냅샷은 스크린샷을 찾을 수 없음`() {
+        /** given */
+        val snapshot = mock<TowerSnapshot> {
+            on { highlightedScreenshotObjectName } doReturn null
+        }
+        whenever(towerSnapshotAccessor.getSnapshot(tower, 11L)).thenReturn(snapshot)
+
+        /** when */
+        val exception = assertFailsWith<BusinessException> {
+            towerService.getHighlightedScreenshotBytes(ownerId, towerId, 11L)
+        }
+
+        /** then */
+        assertEquals(CommonError.RESOURCE_NOT_FOUND, exception.error)
         verifyNoInteractions(snapshotStorageClient)
     }
 

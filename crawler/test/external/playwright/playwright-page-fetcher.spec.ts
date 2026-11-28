@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { WebSocketServer } from 'ws';
 import { Policy } from '../../../src/config/policy.js';
 import type { Extraction } from '../../../src/crawl/dto/crawl-request-message.dto.js';
-import { PageFetchFailure } from '../../../src/crawl/interfaces/page-fetcher.js';
+import { FetchedPage, PageFetchFailure } from '../../../src/crawl/interfaces/page-fetcher.js';
 import { PlaywrightPageFetcher } from '../../../src/external/playwright/playwright-page-fetcher.js';
 import { DnsResolver } from '../../../src/network/dns-resolver.js';
 
@@ -28,9 +28,11 @@ let allowedOrigin: string;
 let blockedOrigin: string;
 let secretRequestCount = 0;
 let webSocketConnectionCount = 0;
+const requestedPaths = new Set<string>();
 
 beforeAll(async () => {
   server = createServer((request, response) => {
+    requestedPaths.add(request.url ?? '');
     if (request.url === '/secret') {
       secretRequestCount++;
     }
@@ -91,6 +93,21 @@ beforeAll(async () => {
       case '/redirect-to-page':
         response.writeHead(302, { location: '/page' }).end();
         return;
+      case '/screenshot':
+        response.end(
+          `<html><body style="margin:0"><div style="height:2000px">긴 페이지</div><p class="price" style="width:120px; height:30px; margin:0">12,000원</p><p class="sold-out" style="display:none">품절</p></body></html>`
+        );
+        return;
+      case '/rendered-resources':
+        response.end(
+          `<html><head><style>@font-face { font-family: Rendered; src: url(/rendered-font.woff2); } body { font-family: Rendered; }</style></head><body>웹 글꼴<img src="/rendered-image.png"><img loading="lazy" style="display:block; margin-top:5000px" src="/rendered-lazy-image.png"></body></html>`
+        );
+        return;
+      case '/too-large':
+        response.end(
+          `<html><body style="margin:0"><div style="width:${Policy.MAX_SCREENSHOT_WIDTH_PIXELS + 500}px; height:${Policy.MAX_SCREENSHOT_HEIGHT_PIXELS + 500}px">아주 넓고 긴 페이지</div></body></html>`
+        );
+        return;
       case '/large':
         response.end(`<html><body>${'a'.repeat(Policy.MAX_TEXT_BYTES + 1)}</body></html>`);
         return;
@@ -118,6 +135,10 @@ function webSocketPage(origin: string): string {
 afterAll(() => {
   server.close();
 });
+
+function pngSize(png: Buffer): { width: number; height: number } {
+  return { width: png.readUInt32BE(16), height: png.readUInt32BE(20) };
+}
 
 describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
   it('허용된 주소의 페이지를 받아오고 내부 주소를 가리키는 하위 리소스는 막음', async () => {
@@ -299,6 +320,67 @@ describe('PlaywrightPageFetcher', { timeout: 30_000 }, () => {
 
     // then
     expect(outcome).toEqual(new PageFetchFailure('URL_NOT_ALLOWED'));
+  });
+
+  it('감시 영역이 없으면 페이지 전체를 PNG 스크린샷으로 찍음', async () => {
+    // given
+    const url = `${allowedOrigin}/screenshot`;
+
+    // when
+    const outcome = await pageFetcher.fetchPage(url, wholePage);
+
+    // then
+    expect(outcome).toBeInstanceOf(FetchedPage);
+    expect(pngSize((outcome as FetchedPage).screenshot!)).toEqual({ width: 1280, height: 2030 });
+  });
+
+  it('감시 영역을 고르면 그 영역만 스크린샷으로 찍음', async () => {
+    // given
+    const url = `${allowedOrigin}/screenshot`;
+
+    // when
+    const outcome = await pageFetcher.fetchPage(url, { ...wholePage, detectionAreaSelector: '.price' });
+
+    // then
+    expect(pngSize((outcome as FetchedPage).screenshot!)).toEqual({ width: 120, height: 30 });
+  });
+
+  it('감시 영역이 화면에 보이지 않으면 스크린샷을 찍지 않음', async () => {
+    // given
+    const url = `${allowedOrigin}/screenshot`;
+
+    // when
+    const outcome = await pageFetcher.fetchPage(url, { ...wholePage, detectionAreaSelector: '.sold-out' });
+
+    // then
+    expect(outcome).toMatchObject({ screenshot: null });
+  });
+
+  it('페이지가 스크린샷 최대 크기보다 넓고 길면 최대 가로 폭과 높이까지만 찍음', async () => {
+    // given
+    const url = `${allowedOrigin}/too-large`;
+
+    // when
+    const outcome = await pageFetcher.fetchPage(url, wholePage);
+
+    // then
+    expect(pngSize((outcome as FetchedPage).screenshot!)).toEqual({
+      width: Policy.MAX_SCREENSHOT_WIDTH_PIXELS,
+      height: Policy.MAX_SCREENSHOT_HEIGHT_PIXELS
+    });
+  });
+
+  it('이미지를 수집하지 않아도 스크린샷에 그릴 이미지와 지연 로딩 이미지와 웹 글꼴을 받음', async () => {
+    // given
+    const url = `${allowedOrigin}/rendered-resources`;
+
+    // when
+    await pageFetcher.fetchPage(url, wholePage);
+
+    // then
+    expect([...requestedPaths]).toEqual(
+      expect.arrayContaining(['/rendered-image.png', '/rendered-lazy-image.png', '/rendered-font.woff2'])
+    );
   });
 
   it('페이지 텍스트가 수집 한도를 넘으면 크기 초과로 실패함', async () => {

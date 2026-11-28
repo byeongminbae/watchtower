@@ -96,6 +96,18 @@ describe('CrawlRequestMessage.from', () => {
     expect(objectNames).toEqual(['towers/1/2026-10-30T00:00:01.000Z.txt', 'towers/1/2026-10-30T00:10:01.000Z.txt']);
   });
 
+  it('스크린샷은 같은 크롤링의 텍스트와 같은 위치에 PNG 확장자로 저장함', () => {
+    // given
+    const request = CrawlRequestMessage.from(requestContent({}))!;
+    const crawlingStartedAt = new Date('2026-10-30T00:00:01.000Z');
+
+    // when
+    const objectName = request.toScreenshotObjectName(crawlingStartedAt);
+
+    // then
+    expect(objectName).toBe('towers/1/2026-10-30T00:00:01.000Z.png');
+  });
+
   it('날짜와 시간을 무시하면 날짜와 시간을 뺀 해시로 텍스트와 이미지가 모두 같아야 같은 내용으로 판단함', () => {
     // given
     const request = CrawlRequestMessage.from(requestContent({}))!;

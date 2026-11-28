@@ -25,8 +25,10 @@ export class Policy {
   static readonly QUEUE_BATCH_SIZE = 20;
   /** 결과가 QUEUE_BATCH_SIZE 만큼 모이지 않아도 이 시간이 지나면 모인 결과를 발행함. 결과가 적을 때 발행이 늦어지지 않게 하기 위함 */
   static readonly RESULT_FLUSH_DELAY_MILLIS = 1_000;
-  /** 페이지를 열 때 요청하지 않는 리소스 종류. 텍스트와 이미지 수집에 필요 없어서 받지 않고 메모리와 대역폭을 아낌 */
-  static readonly SKIPPED_RESOURCE_TYPES: ReadonlySet<string> = new Set(['media', 'font']);
+  /** 페이지를 열 때 요청하지 않는 리소스 종류. 텍스트 수집과 스크린샷에 필요 없어서 받지 않고 메모리와 대역폭을 아낌 */
+  static readonly SKIPPED_RESOURCE_TYPES: ReadonlySet<string> = new Set(['media']);
+  static readonly MAX_SCREENSHOT_WIDTH_PIXELS = 1_920;
+  static readonly MAX_SCREENSHOT_HEIGHT_PIXELS = 10_000;
   /** 같은 로그를 Slack 으로 다시 보내지 않는 시간. 큐 장애처럼 같은 오류가 몇 초마다 반복될 때 알림이 쏟아지지 않게 하기 위함 */
   static readonly SLACK_DUPLICATE_SUPPRESSION_MILLIS = 10 * 60 * 1_000;
 }

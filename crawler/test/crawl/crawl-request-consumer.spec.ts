@@ -7,7 +7,7 @@ import type { CrawlService } from '../../src/crawl/crawl.service.js';
 import { CrawlRequestMessage } from '../../src/crawl/dto/crawl-request-message.dto.js';
 import { CrawlResultMessage } from '../../src/crawl/dto/crawl-result-message.dto.js';
 import type { ReceivedMessage, RequestQueue, ResultQueue } from '../../src/crawl/interfaces/queue.js';
-import type { SnapshotStorage } from '../../src/crawl/interfaces/snapshot-storage.js';
+import type { PageContentStorage } from '../../src/crawl/interfaces/page-content-storage.js';
 
 const message: ReceivedMessage = {
   content: JSON.stringify({
@@ -50,7 +50,7 @@ type TestEnvironment = {
   environment: CrawlEnvironment;
   requestQueue: RequestQueue;
   resultQueue: ResultQueue;
-  snapshotStorage: SnapshotStorage;
+  pageContentStorage: PageContentStorage;
 };
 
 function createEnvironment(
@@ -59,12 +59,12 @@ function createEnvironment(
 ): TestEnvironment {
   const requestQueue = createRequestQueue(messages);
   const resultQueue: ResultQueue = { publishAll: vi.fn(async () => {}) };
-  const snapshotStorage: SnapshotStorage = { saveText: vi.fn(async () => {}) };
+  const pageContentStorage: PageContentStorage = { saveText: vi.fn(async () => {}), saveScreenshot: vi.fn(async () => {}) };
   return {
-    environment: new CrawlEnvironment(deploymentEnvironment, requestQueue, resultQueue, snapshotStorage),
+    environment: new CrawlEnvironment(deploymentEnvironment, requestQueue, resultQueue, pageContentStorage),
     requestQueue,
     resultQueue,
-    snapshotStorage
+    pageContentStorage
   };
 }
 
@@ -91,7 +91,7 @@ describe('CrawlRequestConsumer', () => {
     await requestConsumer.beforeApplicationShutdown();
 
     // then
-    expect(crawlService.crawl).toHaveBeenCalledWith(expect.objectContaining({ towerId: 1 }), prod.snapshotStorage);
+    expect(crawlService.crawl).toHaveBeenCalledWith(expect.objectContaining({ towerId: 1 }), prod.pageContentStorage);
     expect(prod.resultQueue.publishAll).toHaveBeenCalledWith([JSON.stringify(result)]);
     expect(prod.requestQueue.completeAll).toHaveBeenCalledWith(['receipt-1']);
     expect(dev.resultQueue.publishAll).not.toHaveBeenCalled();

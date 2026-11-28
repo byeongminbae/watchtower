@@ -38,5 +38,6 @@ export const watchApi = {
   createWatchCondition: (watchId: number, body: CreateWatchConditionRequest) => apiClient.postEmpty(`${basePath}/${watchId}/conditions`, body),
   updateWatchCondition: (watchId: number, conditionId: number, body: UpdateWatchConditionRequest) => apiClient.put(`${basePath}/${watchId}/conditions/${conditionId}`, body, isCondition),
   deleteWatchCondition: (watchId: number, conditionId: number) => apiClient.deleteEmpty(`${basePath}/${watchId}/conditions/${conditionId}`),
-  listWatchSnapshots: (watchId: number) => apiClient.get(`${basePath}/${watchId}/snapshots`, arrayOf(isSnapshot))
+  listWatchSnapshots: (watchId: number) => apiClient.get(`${basePath}/${watchId}/snapshots`, arrayOf(isSnapshot)),
+  highlightedScreenshotUrlOf: (watchId: number, snapshotId: number) => `${basePath}/${watchId}/snapshots/${snapshotId}/screenshot`
 };

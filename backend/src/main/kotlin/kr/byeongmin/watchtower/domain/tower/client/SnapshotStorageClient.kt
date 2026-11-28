@@ -1,13 +1,17 @@
 package kr.byeongmin.watchtower.domain.tower.client
 
-import java.time.LocalDateTime
+import kr.byeongmin.watchtower.domain.tower.vo.Screenshot
 
 interface SnapshotStorageClient {
     fun getText(objectName: String): String
 
-    fun deleteObject(objectName: String)
+    fun getScreenshot(objectName: String): Screenshot
 
-    fun createReadUrl(objectName: String, expiresAt: LocalDateTime): String
+    fun getScreenshotBytes(objectName: String): ByteArray
+
+    fun saveScreenshot(objectName: String, screenshot: Screenshot)
+
+    fun deleteObject(objectName: String)
 
     companion object {
         /** Spring Cloud OCI 가 스토리지 자동 설정을 켜고 끄는 설정. 기본값은 true */

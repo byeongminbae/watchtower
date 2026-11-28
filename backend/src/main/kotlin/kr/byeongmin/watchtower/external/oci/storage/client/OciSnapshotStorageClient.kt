@@ -2,20 +2,18 @@ package kr.byeongmin.watchtower.external.oci.storage.client
 
 import com.oracle.bmc.model.BmcException
 import com.oracle.bmc.objectstorage.ObjectStorageClient
-import com.oracle.bmc.objectstorage.model.CreatePreauthenticatedRequestDetails
-import com.oracle.bmc.objectstorage.requests.CreatePreauthenticatedRequestRequest
 import com.oracle.bmc.objectstorage.requests.DeleteObjectRequest
 import com.oracle.bmc.objectstorage.requests.GetObjectRequest
+import com.oracle.bmc.objectstorage.requests.PutObjectRequest
 import kr.byeongmin.watchtower.domain.tower.client.SnapshotStorageClient
+import kr.byeongmin.watchtower.domain.tower.vo.Screenshot
 import kr.byeongmin.watchtower.global.error.CommonError
 import kr.byeongmin.watchtower.global.exception.BusinessException
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
-import java.time.LocalDateTime
-import java.time.ZoneOffset
-import java.util.*
 
 /**
  * 크롤러가 스냅샷을 저장하는 OCI Object Storage 버킷. 버킷은 실행 프로파일(local, dev, prod)마다 다름
@@ -30,15 +28,30 @@ class OciSnapshotStorageClient(
     @Value("\${watchtower.snapshot-storage.bucket-name}") private val bucketName: String
 ) : SnapshotStorageClient {
     override fun getText(objectName: String): String {
-        val getObjectRequest = GetObjectRequest.builder()
+        return getObjectBytes(objectName).toString(Charsets.UTF_8)
+    }
+
+    override fun getScreenshot(objectName: String): Screenshot {
+        return Screenshot.from(getObjectBytes(objectName))
+    }
+
+    override fun getScreenshotBytes(objectName: String): ByteArray {
+        return getObjectBytes(objectName)
+    }
+
+    override fun saveScreenshot(objectName: String, screenshot: Screenshot) {
+        val png = screenshot.toPng()
+        val putObjectRequest = PutObjectRequest.builder()
             .namespaceName(namespaceName)
             .bucketName(bucketName)
             .objectName(objectName)
+            .contentType(MediaType.IMAGE_PNG_VALUE)
+            .contentLength(png.size.toLong())
+            .putObjectBody(png.inputStream())
             .build()
 
         try {
-            val objectBytes = objectStorageClient.getObject(getObjectRequest).inputStream.use { it.readAllBytes() }
-            return objectBytes.toString(Charsets.UTF_8)
+            objectStorageClient.putObject(putObjectRequest)
         } catch (exception: BmcException) {
             throw BusinessException(error = CommonError.EXTERNAL_API_ERROR, cause = exception)
         }
@@ -62,30 +75,15 @@ class OciSnapshotStorageClient(
         }
     }
 
-    /**
-     * [expiresAt](UTC) 까지 객체 하나만 인증 없이 읽을 수 있는 PAR(Pre-Authenticated Request) URL 을 발급함
-     *
-     * URL 을 가진 누구나 만료 전까지 읽을 수 있으므로 소유자를 확인한 뒤에만 발급해야 함
-     */
-    override fun createReadUrl(objectName: String, expiresAt: LocalDateTime): String {
-        val createPreauthenticatedRequestRequest = CreatePreauthenticatedRequestRequest.builder()
+    private fun getObjectBytes(objectName: String): ByteArray {
+        val getObjectRequest = GetObjectRequest.builder()
             .namespaceName(namespaceName)
             .bucketName(bucketName)
-            .createPreauthenticatedRequestDetails(
-                CreatePreauthenticatedRequestDetails.builder()
-                    .name(objectName)
-                    .accessType(CreatePreauthenticatedRequestDetails.AccessType.ObjectRead)
-                    .objectName(objectName)
-                    .timeExpires(Date.from(expiresAt.toInstant(ZoneOffset.UTC)))
-                    .build()
-            )
+            .objectName(objectName)
             .build()
 
         try {
-            val preauthenticatedRequest = objectStorageClient
-                .createPreauthenticatedRequest(createPreauthenticatedRequestRequest)
-                .preauthenticatedRequest
-            return objectStorageClient.endpoint + preauthenticatedRequest.accessUri
+            return objectStorageClient.getObject(getObjectRequest).inputStream.use { it.readAllBytes() }
         } catch (exception: BmcException) {
             throw BusinessException(error = CommonError.EXTERNAL_API_ERROR, cause = exception)
         }

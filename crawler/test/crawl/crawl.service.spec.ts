@@ -2,7 +2,7 @@ import { TimeProvider } from '../../src/common/time-provider.js';
 import { CrawlService } from '../../src/crawl/crawl.service.js';
 import { CrawlRequestMessage } from '../../src/crawl/dto/crawl-request-message.dto.js';
 import { FetchedPage, type PageFetcher, PageFetchFailure } from '../../src/crawl/interfaces/page-fetcher.js';
-import type { SnapshotStorage } from '../../src/crawl/interfaces/snapshot-storage.js';
+import type { PageContentStorage } from '../../src/crawl/interfaces/page-content-storage.js';
 
 const extraction = { detectionAreaSelector: null, collectImageHashes: true, ignoreDateTime: false };
 
@@ -30,6 +30,8 @@ const JOB_STARTED_AT = '2026-10-30T00:00:00.123456Z';
 const crawlingStartedAt = new Date('2026-10-30T00:00:01.000Z');
 const crawlingEndedAt = new Date('2026-10-30T00:00:03.000Z');
 const TEXT_OBJECT_NAME = 'towers/7/2026-10-30T00:00:01.000Z.txt';
+const SCREENSHOT_OBJECT_NAME = 'towers/7/2026-10-30T00:00:01.000Z.png';
+const SCREENSHOT = Buffer.from('PNG 이미지');
 
 function createTimeProvider(): TimeProvider {
   const timeProvider = new TimeProvider();
@@ -37,32 +39,33 @@ function createTimeProvider(): TimeProvider {
   return timeProvider;
 }
 
-function fetcherReturning(text: string): PageFetcher {
+function fetcherReturning(text: string, screenshot: Buffer | null = SCREENSHOT): PageFetcher {
   return {
     fetchPage: vi.fn(async () => {
-      return new FetchedPage('https://example.com/moved', 404, text, ['b'.repeat(64)]);
+      return new FetchedPage('https://example.com/moved', 404, text, ['b'.repeat(64)], screenshot);
     })
   };
 }
 
-function createSnapshotStorage(): SnapshotStorage {
-  return { saveText: vi.fn(async () => {}) };
+function createPageContentStorage(): PageContentStorage {
+  return { saveText: vi.fn(async () => {}), saveScreenshot: vi.fn(async () => {}) };
 }
 
 describe('CrawlService', () => {
-  it('직전 버전이 없는 페이지를 받아오면 크롤링 시작 시각으로 텍스트를 저장하고 받아온 내용을 담은 결과를 돌려줌', async () => {
+  it('직전 버전이 없는 페이지를 받아오면 크롤링 시작 시각으로 텍스트와 스크린샷을 저장하고 받아온 내용을 담은 결과를 돌려줌', async () => {
     // given
     const request = createRequest();
     const pageFetcher = fetcherReturning('재입고 알림');
-    const snapshotStorage = createSnapshotStorage();
+    const pageContentStorage = createPageContentStorage();
     const crawlService = new CrawlService(pageFetcher, createTimeProvider());
 
     // when
-    const result = await crawlService.crawl(request, snapshotStorage);
+    const result = await crawlService.crawl(request, pageContentStorage);
 
     // then
     expect(pageFetcher.fetchPage).toHaveBeenCalledWith('https://example.com', extraction);
-    expect(snapshotStorage.saveText).toHaveBeenCalledWith(TEXT_OBJECT_NAME, '재입고 알림');
+    expect(pageContentStorage.saveText).toHaveBeenCalledWith(TEXT_OBJECT_NAME, '재입고 알림');
+    expect(pageContentStorage.saveScreenshot).toHaveBeenCalledWith(SCREENSHOT_OBJECT_NAME, SCREENSHOT);
     expect(result).toEqual({
       towerId: 7,
       requestedUrl: 'https://example.com',
@@ -78,8 +81,25 @@ describe('CrawlService', () => {
         dateTimeIgnoredTextHash: TEXT_HASH,
         detectionAreaSelector: null,
         textObjectName: TEXT_OBJECT_NAME,
+        screenshotObjectName: SCREENSHOT_OBJECT_NAME,
         imageHash: IMAGE_HASH
       }
+    });
+  });
+
+  it('스크린샷을 찍지 못한 페이지는 텍스트만 저장하고 스크린샷 저장 위치 없이 결과를 돌려줌', async () => {
+    // given
+    const pageContentStorage = createPageContentStorage();
+    const crawlService = new CrawlService(fetcherReturning('재입고 알림', null), createTimeProvider());
+
+    // when
+    const result = await crawlService.crawl(createRequest(), pageContentStorage);
+
+    // then
+    expect(pageContentStorage.saveText).toHaveBeenCalledWith(TEXT_OBJECT_NAME, '재입고 알림');
+    expect(pageContentStorage.saveScreenshot).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      pageContent: { textObjectName: TEXT_OBJECT_NAME, screenshotObjectName: null }
     });
   });
 
@@ -90,7 +110,7 @@ describe('CrawlService', () => {
     const crawlService = new CrawlService(pageFetcher, createTimeProvider());
 
     // when
-    const result = await crawlService.crawl(request, createSnapshotStorage());
+    const result = await crawlService.crawl(request, createPageContentStorage());
 
     // then
     expect(pageFetcher.fetchPage).toHaveBeenCalledWith('https://example.com', {
@@ -100,34 +120,35 @@ describe('CrawlService', () => {
     expect(result.pageContent?.detectionAreaSelector).toBe('.stock');
   });
 
-  it('받아온 텍스트와 이미지가 모두 직전 버전과 같으면 저장하지 않고 저장 위치 없이 해시만 담은 결과를 돌려줌', async () => {
+  it('받아온 텍스트와 이미지가 모두 직전 버전과 같으면 텍스트와 스크린샷을 저장하지 않고 저장 위치 없이 해시만 담은 결과를 돌려줌', async () => {
     // given
     const request = createRequest({ previousTextHash: TEXT_HASH, previousImageHash: IMAGE_HASH });
-    const snapshotStorage = createSnapshotStorage();
+    const pageContentStorage = createPageContentStorage();
     const crawlService = new CrawlService(fetcherReturning('재입고 알림'), createTimeProvider());
 
     // when
-    const result = await crawlService.crawl(request, snapshotStorage);
+    const result = await crawlService.crawl(request, pageContentStorage);
 
     // then
-    expect(snapshotStorage.saveText).not.toHaveBeenCalled();
+    expect(pageContentStorage.saveText).not.toHaveBeenCalled();
+    expect(pageContentStorage.saveScreenshot).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       crawlerResultCode: 'FETCHED',
-      pageContent: { textHash: TEXT_HASH, textObjectName: null, imageHash: IMAGE_HASH }
+      pageContent: { textHash: TEXT_HASH, textObjectName: null, screenshotObjectName: null, imageHash: IMAGE_HASH }
     });
   });
 
   it('텍스트는 직전 버전과 같아도 이미지가 바뀌면 직전 버전의 객체를 쓰지 않도록 텍스트를 새로 저장함', async () => {
     // given
     const request = createRequest({ previousTextHash: TEXT_HASH, previousImageHash: 'd'.repeat(64) });
-    const snapshotStorage = createSnapshotStorage();
+    const pageContentStorage = createPageContentStorage();
     const crawlService = new CrawlService(fetcherReturning('재입고 알림'), createTimeProvider());
 
     // when
-    const result = await crawlService.crawl(request, snapshotStorage);
+    const result = await crawlService.crawl(request, pageContentStorage);
 
     // then
-    expect(snapshotStorage.saveText).toHaveBeenCalledWith(TEXT_OBJECT_NAME, '재입고 알림');
+    expect(pageContentStorage.saveText).toHaveBeenCalledWith(TEXT_OBJECT_NAME, '재입고 알림');
     expect(result).toMatchObject({
       pageContent: { textHash: TEXT_HASH, textObjectName: TEXT_OBJECT_NAME, imageHash: IMAGE_HASH }
     });
@@ -140,14 +161,14 @@ describe('CrawlService', () => {
       previousTextHash: DATE_TIME_IGNORED_TEXT_HASH,
       previousImageHash: IMAGE_HASH
     });
-    const snapshotStorage = createSnapshotStorage();
+    const pageContentStorage = createPageContentStorage();
     const crawlService = new CrawlService(fetcherReturning(TEXT_WITH_DATE_TIME), createTimeProvider());
 
     // when
-    const result = await crawlService.crawl(request, snapshotStorage);
+    const result = await crawlService.crawl(request, pageContentStorage);
 
     // then
-    expect(snapshotStorage.saveText).not.toHaveBeenCalled();
+    expect(pageContentStorage.saveText).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       pageContent: {
         textHash: TEXT_WITH_DATE_TIME_HASH,
@@ -163,14 +184,14 @@ describe('CrawlService', () => {
       previousTextHash: DATE_TIME_IGNORED_TEXT_HASH,
       previousImageHash: IMAGE_HASH
     });
-    const snapshotStorage = createSnapshotStorage();
+    const pageContentStorage = createPageContentStorage();
     const crawlService = new CrawlService(fetcherReturning(TEXT_WITH_DATE_TIME), createTimeProvider());
 
     // when
-    const result = await crawlService.crawl(request, snapshotStorage);
+    const result = await crawlService.crawl(request, pageContentStorage);
 
     // then
-    expect(snapshotStorage.saveText).toHaveBeenCalledWith(TEXT_OBJECT_NAME, TEXT_WITH_DATE_TIME);
+    expect(pageContentStorage.saveText).toHaveBeenCalledWith(TEXT_OBJECT_NAME, TEXT_WITH_DATE_TIME);
     expect(result).toMatchObject({
       pageContent: {
         textHash: TEXT_WITH_DATE_TIME_HASH,
@@ -183,14 +204,14 @@ describe('CrawlService', () => {
   it('날짜와 시간을 무시해도 저장하는 텍스트는 원문 그대로임', async () => {
     // given
     const request = createRequest({ extraction: { ...extraction, ignoreDateTime: true } });
-    const snapshotStorage = createSnapshotStorage();
+    const pageContentStorage = createPageContentStorage();
     const crawlService = new CrawlService(fetcherReturning(TEXT_WITH_DATE_TIME), createTimeProvider());
 
     // when
-    await crawlService.crawl(request, snapshotStorage);
+    await crawlService.crawl(request, pageContentStorage);
 
     // then
-    expect(snapshotStorage.saveText).toHaveBeenCalledWith(TEXT_OBJECT_NAME, TEXT_WITH_DATE_TIME);
+    expect(pageContentStorage.saveText).toHaveBeenCalledWith(TEXT_OBJECT_NAME, TEXT_WITH_DATE_TIME);
   });
 
   it('페이지를 받아오지 못하면 아무것도 저장하지 않고 실패 이유를 결과 코드로 담은 결과를 돌려줌', async () => {
@@ -200,14 +221,14 @@ describe('CrawlService', () => {
         return new PageFetchFailure('URL_NOT_ALLOWED');
       }
     };
-    const snapshotStorage = createSnapshotStorage();
+    const pageContentStorage = createPageContentStorage();
     const crawlService = new CrawlService(pageFetcher, createTimeProvider());
 
     // when
-    const result = await crawlService.crawl(createRequest(), snapshotStorage);
+    const result = await crawlService.crawl(createRequest(), pageContentStorage);
 
     // then
-    expect(snapshotStorage.saveText).not.toHaveBeenCalled();
+    expect(pageContentStorage.saveText).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       crawlerResultCode: 'URL_NOT_ALLOWED',
       triggeredByMemberId: 21,

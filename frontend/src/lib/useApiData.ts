@@ -3,7 +3,7 @@
 import React from "react";
 import { ApiError } from "@/lib/api/errors";
 
-interface UseApiDataResult<T> {
+export interface UseApiDataResult<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
