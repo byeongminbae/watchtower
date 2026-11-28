@@ -113,6 +113,7 @@ function HeatCell({ label, slotStart, snapshotCount, maxSnapshotCount, now, isSe
       onClick={onSelect}
       className={cn(
         "h-8 cursor-pointer rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-6",
+        "animate-in transition-[background-color,box-shadow] duration-500 fade-in",
         heatLevelClassNameOf(snapshotCount, maxSnapshotCount),
         isSelected && "ring-2 ring-foreground ring-offset-1 ring-offset-background"
       )}
@@ -176,7 +177,7 @@ function SnapshotTimelineEntry({ watchId, snapshot, onSelect }: {
   readonly snapshot: WatchSnapshot;
   readonly onSelect: (snapshot: WatchSnapshot) => void;
 }) {
-  return <li className="group flex gap-2">
+  return <li className="group flex animate-in gap-2 duration-500 fade-in motion-safe:slide-in-from-top-1">
     <time dateTime={snapshot.detectedAt} title={formatDateTime(snapshot.detectedAt)} className="w-10 shrink-0 py-1 text-xs leading-6 text-muted-foreground tabular-nums">
       {CLOCK_TIME_FORMAT.format(detectedTimeOf(snapshot))}
     </time>

@@ -84,7 +84,7 @@ export default function AdminPage() {
           {towers.loading && towers.data === null && <div role="status" aria-label="타워 통계 불러오는 중"><Skeleton className="h-40 w-full" /></div>}
           {towers.error && <Alert variant="destructive"><CircleAlert /><AlertDescription>{towers.error}</AlertDescription></Alert>}
           {!towers.error && towers.data && <div aria-label="타워 통계" className="flex flex-col gap-4">
-            {towerStatusRows(towers.data).map(({ status, count }) => <ShareRow key={status} label={<WatchStatusDot status={status} />} count={count} total={towers.data?.totalCount ?? 0} />)}
+            {towerStatusRows(towers.data).map(({ status, count }) => <ShareRow key={status} label={<WatchStatusDot status={status} showLabel />} count={count} total={towers.data?.totalCount ?? 0} />)}
           </div>}
         </CardContent>
       </Card>

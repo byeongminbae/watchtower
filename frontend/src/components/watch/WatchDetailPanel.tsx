@@ -9,10 +9,10 @@ import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/comp
 import { AlertDialogAction, AlertDialogCancel, AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Spinner } from "@/components/ui/spinner";
-import type { Watch } from "@/types/tower";
+import type { Watch, WatchCondition, WatchSnapshot } from "@/types/tower";
 import { watchApi } from "@/lib/api";
 import { describeCrawlFailure } from "@/lib/tower";
-import { useApiData } from "@/lib/useApiData";
+import { useApiData, type UseApiDataResult } from "@/lib/useApiData";
 import SnapshotHeatmap from "./SnapshotHeatmap";
 import DetectionConditionsDialog from "./DetectionConditionsDialog";
 import WatchStats from "./WatchStats";
@@ -24,25 +24,17 @@ const RUNNING_POLL_MILLIS = 5_000;
 /** 크롤링 대기 중인 타워를 서버 스케줄러가 크롤링하기 시작했는지 다시 확인하는 간격 */
 const READY_POLL_MILLIS = 30_000;
 
-export default function WatchDetailPanel({ watch, onChanged, onDeleted, headingLevel = 1 }: {
+type WatchDetailProps = {
   readonly watch: Watch;
   readonly onChanged?: () => void;
   readonly onDeleted?: () => void;
   readonly headingLevel?: 1 | 2;
-}) {
+};
+
+export default function WatchDetailPanel({ watch, onChanged, onDeleted, headingLevel = 1 }: WatchDetailProps) {
   const conditions = useApiData(() => watchApi.getWatchConditions(watch.id).then(r => r.data), [watch.id]);
   const snapshots = useApiData(() => watchApi.listWatchSnapshots(watch.id).then(r => r.data), [watch.id, watch.lastFetchedAt]);
-  const [conditionsOpen, setConditionsOpen] = React.useState(false);
-  const [editOpen, setEditOpen] = React.useState(false);
-  const [deleteOpen, setDeleteOpen] = React.useState(false);
-  const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const suspended = watch.status === "SUSPENDED";
-  const paused = watch.status === "PAUSED";
-  const crawlFailed = watch.status === "ERROR";
-  const crawling = watch.status === "RUNNING";
-
-  const pollMillis = crawling ? RUNNING_POLL_MILLIS : watch.status === "READY" ? READY_POLL_MILLIS : null;
+  const pollMillis = watch.status === "RUNNING" ? RUNNING_POLL_MILLIS : watch.status === "READY" ? READY_POLL_MILLIS : null;
 
   // 서버가 상태나 확인 시각을 바꿨는지 이 타워만 조용히 다시 조회하고, 바뀌었을 때만 화면 전체를 새로 불러옴. 탭이 보이지 않으면 조회하지 않음
   React.useEffect(() => {
@@ -55,6 +47,23 @@ export default function WatchDetailPanel({ watch, onChanged, onDeleted, headingL
     }, pollMillis);
     return () => window.clearInterval(timer);
   }, [pollMillis, watch.id, watch.status, watch.lastFetchedAt, onChanged]);
+
+  return <WatchDetailView watch={watch} conditions={conditions} snapshots={snapshots} onChanged={onChanged} onDeleted={onDeleted} headingLevel={headingLevel} />;
+}
+
+export function WatchDetailView({ watch, conditions, snapshots, onChanged, onDeleted, headingLevel = 1 }: WatchDetailProps & {
+  readonly conditions: UseApiDataResult<WatchCondition[]>;
+  readonly snapshots: UseApiDataResult<WatchSnapshot[]>;
+}) {
+  const [conditionsOpen, setConditionsOpen] = React.useState(false);
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const suspended = watch.status === "SUSPENDED";
+  const paused = watch.status === "PAUSED";
+  const crawlFailed = watch.status === "ERROR";
+  const crawling = watch.status === "RUNNING";
   const Heading = headingLevel === 1 ? "h1" : "h2";
 
   async function toggleStatus() {
@@ -126,14 +135,14 @@ export default function WatchDetailPanel({ watch, onChanged, onDeleted, headingL
         <a href={watch.url} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "outline", size: "sm" })}><ExternalLink data-icon="inline-start" />사이트 열기</a>
       </div></Alert>}
 
-    <SnapshotHeatmap watchId={watch.id} snapshots={snapshots.data} error={snapshots.error} onRetry={snapshots.refetch} />
-
-    {watch.latestAiSummary && <Card size="sm" className="bg-primary/[0.03]">
+    <Card size="sm" className="bg-primary/[0.03]">
       <CardHeader>
         <CardDescription className="flex items-center gap-1.5"><Sparkles aria-hidden="true" className="size-3.5" />최근 AI 요약</CardDescription>
-        <CardTitle className="text-base leading-relaxed font-normal">{watch.latestAiSummary}</CardTitle>
+        <CardTitle className="text-base leading-relaxed font-normal">{watch.latestAiSummary || <span className="text-muted-foreground">아직 AI 요약이 없어요.</span>}</CardTitle>
       </CardHeader>
-    </Card>}
+    </Card>
+
+    <SnapshotHeatmap watchId={watch.id} snapshots={snapshots.data} error={snapshots.error} onRetry={snapshots.refetch} />
 
     {conditionsOpen && <DetectionConditionsDialog watchId={watch.id} conditions={conditions} onClose={() => setConditionsOpen(false)} onConditionsChanged={() => { conditions.refetch(); onChanged?.(); }} />}
     {editOpen && <EditWatchDialog watch={watch} conditionCount={conditions.data?.length ?? null} onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); onChanged?.(); }} />}
